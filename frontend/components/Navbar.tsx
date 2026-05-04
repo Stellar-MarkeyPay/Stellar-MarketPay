@@ -20,6 +20,7 @@ const links = [
   { href: "/jobs",        labelKey: "nav.browseJobs" },
   { href: "/dashboard",   labelKey: "nav.dashboard" },
   { href: "/post-job",    labelKey: "nav.postJob" },
+  { href: "/insights",    labelKey: "nav.insights" },
 ];
 
 const STELLAR_NETWORK = process.env.NEXT_PUBLIC_STELLAR_NETWORK || "testnet";

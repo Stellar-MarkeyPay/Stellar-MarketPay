@@ -606,6 +606,57 @@ async function resolveDispute(jobId) {
   return rowToJob(rows[0]);
 }
 
+async function getCategoryAnalytics() {
+  const { rows } = await pool.query(`
+    SELECT
+      category,
+      COUNT(*)                                                        AS job_count,
+      AVG(budget)                                                     AS avg_budget_xlm,
+      COUNT(*) FILTER (WHERE freelancer_address IS NOT NULL)          AS filled_count,
+      AVG(
+        EXTRACT(EPOCH FROM (updated_at - created_at)) / 86400.0
+      ) FILTER (WHERE freelancer_address IS NOT NULL)                 AS avg_days_to_fill
+    FROM jobs
+    GROUP BY category
+    ORDER BY job_count DESC
+  `);
+
+  return rows.map((r) => ({
+    category:      r.category,
+    jobCount:      parseInt(r.job_count, 10),
+    avgBudgetXLM:  r.avg_budget_xlm ? parseFloat(parseFloat(r.avg_budget_xlm).toFixed(2)) : 0,
+    filledCount:   parseInt(r.filled_count, 10),
+    avgDaysToFill: r.avg_days_to_fill ? parseFloat(parseFloat(r.avg_days_to_fill).toFixed(1)) : null,
+  }));
+}
+
+async function getAnalyticsOverview() {
+  const { rows } = await pool.query(`
+    SELECT
+      COUNT(*)                                                        AS total_jobs,
+      COUNT(*) FILTER (WHERE status = 'open')                        AS open_jobs,
+      COUNT(*) FILTER (WHERE status = 'in_progress')                 AS in_progress_jobs,
+      COUNT(*) FILTER (WHERE status = 'completed')                   AS completed_jobs,
+      AVG(budget)                                                     AS avg_budget_xlm,
+      COUNT(*) FILTER (WHERE freelancer_address IS NOT NULL)          AS total_filled,
+      AVG(
+        EXTRACT(EPOCH FROM (updated_at - created_at)) / 86400.0
+      ) FILTER (WHERE freelancer_address IS NOT NULL)                 AS avg_days_to_fill
+    FROM jobs
+  `);
+
+  const r = rows[0];
+  return {
+    totalJobs:      parseInt(r.total_jobs, 10),
+    openJobs:       parseInt(r.open_jobs, 10),
+    inProgressJobs: parseInt(r.in_progress_jobs, 10),
+    completedJobs:  parseInt(r.completed_jobs, 10),
+    avgBudgetXLM:   r.avg_budget_xlm ? parseFloat(parseFloat(r.avg_budget_xlm).toFixed(2)) : 0,
+    totalFilled:    parseInt(r.total_filled, 10),
+    avgDaysToFill:  r.avg_days_to_fill ? parseFloat(parseFloat(r.avg_days_to_fill).toFixed(1)) : null,
+  };
+}
+
 export default {
   createJob,
   getJob,
@@ -619,4 +670,6 @@ export default {
   incrementShareCount,
   raiseDispute,
   resolveDispute,
+  getCategoryAnalytics,
+  getAnalyticsOverview,
 };
