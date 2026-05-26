@@ -7,22 +7,26 @@ const express = require("express");
 const router = express.Router();
 
 const { createRateLimiter } = require("../middleware/rateLimiter");
+const { verifyJWT } = require("../middleware/auth");
+const jobService = require("../services/jobService");
+const {
+  createJob,
+  getJob,
+  listJobs,
+  listJobsByClient,
+  updateJobEscrowId,
+  deleteJob,
+  boostJob,
+  incrementShareCount,
+  raiseDispute,
+  resolveDispute,
+  getRecommendedJobs,
+} = jobService.default || jobService;
+const { inviteFreelancerToJob } = require("../services/jobInvitationService");
+const { logContractInteraction } = require("../services/contractAuditService");
 
 const jobCreationRateLimiter = createRateLimiter(10, 1); // 10 job creations per minute
-const generalJobRateLimiter = createRateLimiter(30, 1); // 100 requests per minute for listing/getting jobs
-
-
-const jobService = require("../services/jobService");
-const { createJob, getJob, listJobs, listJobsByClient, updateJobEscrowId, deleteJob, boostJob, incrementShareCount, raiseDispute, resolveDispute } = jobService.default || jobService;
-const { verifyJWT } = require("../middleware/auth");
-
-// Rate limiters for different job operations
 const generalJobRateLimiter = createRateLimiter(100, 1); // 100 requests per minute
-const jobCreationRateLimiter = createRateLimiter(10, 1); // 10 job creations per minute
-
-const jobService = require("../services/jobService");
-const { createJob, getJob, listJobs, listJobsByClient, updateJobEscrowId, deleteJob, boostJob, incrementShareCount, getRecommendedJobs } = jobService.default || jobService;
-const { verifyJWT } = require("../middleware/auth");
 
 // Feed Helpers
 
@@ -63,7 +67,7 @@ function isValidReportCategory(category) {
  * /api/jobs:
  *   get:
  *     summary: List jobs
- *     description: Returns a paginated list of jobs with optional filtering
+              - clientAddress
  *     tags: [Jobs]
  *     parameters:
  *       - in: query
@@ -189,9 +193,9 @@ router.get("/:id", generalJobRateLimiter , async (req, res, next) => {
  *               - clientId
  *             properties:
  *               title:
- *                 type: string
- *                 description: Job title
- *               description:
+                clientAddress:
+                  type: string
+                  description: Client's Stellar address
  *                 type: string
  *                 description: Detailed job description
  *               budget:
@@ -240,9 +244,20 @@ router.get("/:id", generalJobRateLimiter , async (req, res, next) => {
  *               $ref: '#/components/schemas/Error'
  */
 // POST /api/jobs — create a new job
-router.post("/", jobCreationRateLimiter , async (req, res, next) => {
+router.post("/", jobCreationRateLimiter, verifyJWT, async (req, res, next) => {
   try {
-    const job = await createJob(req.body);
+    const signedAddress = req.user?.publicKey;
+    const payloadClientAddress = typeof req.body.clientAddress === "string" ? req.body.clientAddress.trim() : "";
+
+    if (!signedAddress || !payloadClientAddress) {
+      return res.status(401).json({ error: "Unauthorized: clientAddress is required and must match the signed wallet address" });
+    }
+
+    if (payloadClientAddress !== signedAddress) {
+      return res.status(401).json({ error: "Unauthorized: clientAddress does not match signed wallet address" });
+    }
+
+    const job = await createJob({ ...req.body, clientAddress: signedAddress });
     res.status(201).json({ success: true, data: job });
   } catch (e) { next(e); }
 });

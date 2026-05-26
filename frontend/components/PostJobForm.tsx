@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { getPublicKey } from "@stellar/freighter-api";
+import { createJob, getJwtToken } from "@/lib/api";
+import { performSEP0010Auth } from "@/lib/wallet";
 import { createEscrowOnChain } from "@/lib/stellar";
 
 // ---------------------------------------------------------------------------
@@ -14,6 +15,13 @@ interface JobFormData {
   budgetXlm: number;
   skills: string;
   deadline: string;
+  category: string;
+}
+
+interface PostJobFormProps {
+  publicKey: string;
+  initialCategory?: string;
+  suggestedFreelancer?: string;
 }
 
 type Step = "idle" | "posting" | "escrow" | "complete" | "error";
@@ -248,13 +256,14 @@ function ProgressBar({ step }: { step: Step }) {
 // Main component
 // ---------------------------------------------------------------------------
 
-export default function PostJobForm() {
+export default function PostJobForm({ publicKey, initialCategory = "" }: PostJobFormProps) {
   const [form, setForm] = useState<JobFormData>({
     title: "",
     description: "",
     budgetXlm: 50,
     skills: "",
     deadline: "",
+    category: initialCategory,
   });
 
   const [stepState, setStepState] = useState<StepState>({ current: "idle" });
@@ -287,38 +296,35 @@ export default function PostJobForm() {
     let jobId: string | undefined;
 
     try {
-      // ── Step 1: POST to backend ──────────────────────────────────────────
-      const createRes = await fetch("/api/jobs", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: form.title,
-          description: form.description,
-          budgetXlm: form.budgetXlm,
-          skills: form.skills
-            .split(",")
-            .map((s) => s.trim())
-            .filter(Boolean),
-          deadline: form.deadline,
-        }),
-      });
-
-      if (!createRes.ok) {
-        const err = await createRes.json().catch(() => ({}));
-        throw new Error(err?.message ?? "Failed to create job");
+      // Ensure the user has a signed JWT (SEP-0010). If not, prompt Freighter to sign now.
+      if (!getJwtToken()) {
+        const { token, error } = await performSEP0010Auth(publicKey);
+        if (error || !token) {
+          throw new Error(error || "Authentication required to post job");
+        }
       }
 
-      const { job } = await createRes.json();
+      // ── Step 1: POST to backend ──────────────────────────────────────────
+      const job = await createJob({
+        title: form.title,
+        description: form.description,
+        budget: String(form.budgetXlm),
+        currency: "XLM",
+        category: form.category,
+        skills: form.skills
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean),
+        deadline: form.deadline,
+        clientAddress: publicKey,
+      });
       jobId = job.id as string;
 
       // ── Step 2: Lock escrow on-chain ─────────────────────────────────────
       setStepState({ current: "escrow", jobId });
 
-      // Resolve the client's Freighter public key
-      const { publicKey: clientPublicKey } = await getPublicKey();
-
       const { txHash } = await createEscrowOnChain({
-        clientPublicKey,
+        clientPublicKey: publicKey,
         jobId,
         budgetXlm: form.budgetXlm,
       });
