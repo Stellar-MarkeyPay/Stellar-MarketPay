@@ -41,10 +41,10 @@ export default function InsightsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-ink-900">
         <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" />
-          <p className="mt-4 text-gray-600">Loading market insights...</p>
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b dark:border-market-500/10-2 border-blue-500" />
+          <p className="mt-4 text-gray-600 dark:text-amber-700">Loading market insights...</p>
         </div>
       </div>
     );
@@ -52,7 +52,7 @@ export default function InsightsPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-ink-900">
         <p className="text-red-500">{error}</p>
       </div>
     );
@@ -67,10 +67,10 @@ export default function InsightsPage() {
         <meta name="description" content="Marketplace analytics: job counts, budgets, and fill times by category" />
       </Head>
 
-      <div className="min-h-screen bg-gray-50 py-12 px-4">
+      <div className="min-h-screen bg-gray-50 dark:bg-ink-900 py-12 px-4">
         <div className="max-w-6xl mx-auto">
-          <h1 className="text-3xl font-bold text-gray-900 mb-1">Market Insights</h1>
-          <p className="text-gray-500 mb-8">Live analytics across all job categories on Stellar MarketPay</p>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-amber-100 mb-1">Market Insights</h1>
+          <p className="text-gray-500 dark:text-amber-700 mb-8">Live analytics across all job categories on Stellar MarketPay</p>
 
           {/* Overview cards */}
           {overview && (
@@ -81,9 +81,9 @@ export default function InsightsPage() {
                 { label: "Avg Budget", value: `${overview.avgBudgetXLM} XLM` },
                 { label: "Avg Days to Fill", value: overview.avgDaysToFill != null ? `${overview.avgDaysToFill}d` : "—" },
               ].map((card) => (
-                <div key={card.label} className="bg-white rounded-lg shadow p-5">
-                  <p className="text-xs text-gray-500 mb-1">{card.label}</p>
-                  <p className="text-2xl font-bold text-gray-900">{card.value}</p>
+                <div key={card.label} className="bg-white dark:bg-ink-800 rounded-lg shadow p-5">
+                  <p className="text-xs text-gray-500 dark:text-amber-700 mb-1">{card.label}</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-amber-100">{card.value}</p>
                 </div>
               ))}
             </div>
@@ -91,43 +91,43 @@ export default function InsightsPage() {
 
           {/* Category table */}
           {categories.length === 0 ? (
-            <div className="bg-white rounded-lg shadow p-8 text-center text-gray-500">
+            <div className="bg-white dark:bg-ink-800 rounded-lg shadow p-8 text-center text-gray-500 dark:text-amber-700">
               No category data available yet.
             </div>
           ) : (
-            <div className="bg-white rounded-lg shadow overflow-hidden mb-10">
-              <div className="px-6 py-4 border-b">
-                <h2 className="text-lg font-semibold text-gray-900">Stats by Category</h2>
+            <div className="bg-white dark:bg-ink-800 rounded-lg shadow overflow-hidden mb-10">
+              <div className="px-6 py-4 border-b dark:border-market-500/10">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-amber-100">Stats by Category</h2>
               </div>
               <div className="overflow-x-auto">
                 <table className="min-w-full text-sm">
-                  <thead className="bg-gray-50">
+                  <thead className="bg-gray-50 dark:bg-ink-700 dark:bg-ink-900">
                     <tr>
-                      <th className="text-left py-3 px-6 text-gray-600 font-medium">Category</th>
-                      <th className="text-right py-3 px-6 text-gray-600 font-medium">Jobs</th>
-                      <th className="text-right py-3 px-6 text-gray-600 font-medium">Avg Budget (XLM)</th>
-                      <th className="text-right py-3 px-6 text-gray-600 font-medium">Filled</th>
-                      <th className="text-right py-3 px-6 text-gray-600 font-medium">Avg Days to Fill</th>
+                      <th className="text-left py-3 px-6 text-gray-600 dark:text-amber-700 font-medium">Category</th>
+                      <th className="text-right py-3 px-6 text-gray-600 dark:text-amber-700 font-medium">Jobs</th>
+                      <th className="text-right py-3 px-6 text-gray-600 dark:text-amber-700 font-medium">Avg Budget (XLM)</th>
+                      <th className="text-right py-3 px-6 text-gray-600 dark:text-amber-700 font-medium">Filled</th>
+                      <th className="text-right py-3 px-6 text-gray-600 dark:text-amber-700 font-medium">Avg Days to Fill</th>
                     </tr>
                   </thead>
                   <tbody>
                     {categories.map((cat) => (
-                      <tr key={cat.category} className="border-t hover:bg-gray-50">
-                        <td className="py-3 px-6 text-gray-900 font-medium">{cat.category}</td>
+                      <tr key={cat.category} className="border-t dark:border-market-500/10 hover:bg-gray-50 dark:hover:bg-ink-700 dark:bg-ink-900">
+                        <td className="py-3 px-6 text-gray-900 dark:text-amber-100 font-medium">{cat.category}</td>
                         <td className="py-3 px-6 text-right">
                           <div className="flex items-center justify-end gap-3">
-                            <div className="w-24 bg-gray-200 rounded-full h-1.5 hidden sm:block">
+                            <div className="w-24 bg-gray-200 dark:bg-ink-700 rounded-full h-1.5 hidden sm:block">
                               <div
                                 className="bg-blue-500 h-1.5 rounded-full"
                                 style={{ width: `${(cat.jobCount / maxJobs) * 100}%` }}
                               />
                             </div>
-                            <span className="text-gray-900">{cat.jobCount}</span>
+                            <span className="text-gray-900 dark:text-amber-100">{cat.jobCount}</span>
                           </div>
                         </td>
-                        <td className="py-3 px-6 text-right text-gray-900">{cat.avgBudgetXLM}</td>
-                        <td className="py-3 px-6 text-right text-gray-900">{cat.filledCount}</td>
-                        <td className="py-3 px-6 text-right text-gray-500">
+                        <td className="py-3 px-6 text-right text-gray-900 dark:text-amber-100">{cat.avgBudgetXLM}</td>
+                        <td className="py-3 px-6 text-right text-gray-900 dark:text-amber-100">{cat.filledCount}</td>
+                        <td className="py-3 px-6 text-right text-gray-500 dark:text-amber-700">
                           {cat.avgDaysToFill != null ? `${cat.avgDaysToFill}d` : "—"}
                         </td>
                       </tr>

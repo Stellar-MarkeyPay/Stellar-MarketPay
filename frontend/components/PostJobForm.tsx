@@ -247,7 +247,7 @@ export default function PostJobForm() {
 
   if (stepState.current === "complete") {
     return (
-      <div className="max-w-lg mx-auto bg-white rounded-2xl shadow-lg p-8 text-center space-y-4">
+      <div className="max-w-lg mx-auto bg-white dark:bg-ink-800 rounded-2xl shadow-lg dark:shadow-none dark:border dark:border-market-500/10 p-8 text-center space-y-4">
         <ProgressBar step="complete" />
 
         <div className="flex flex-col items-center gap-3 pt-2">
@@ -256,8 +256,8 @@ export default function PostJobForm() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
           </div>
-          <h2 className="text-2xl font-bold text-gray-900">Job Posted!</h2>
-          <p className="text-gray-500 text-sm">
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-amber-100">Job Posted!</h2>
+          <p className="text-gray-500 dark:text-amber-700 text-sm">
             Your budget of{" "}
             <span className="font-semibold text-indigo-600">
               {form.budgetXlm} XLM
@@ -267,11 +267,11 @@ export default function PostJobForm() {
         </div>
 
         {stepState.txHash && (
-          <div className="bg-gray-50 rounded-xl p-4 text-left space-y-1">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+          <div className="bg-gray-50 dark:bg-ink-700 rounded-xl p-4 text-left space-y-1">
+            <p className="text-xs font-semibold text-gray-500 dark:text-amber-700 uppercase tracking-wider">
               Contract Transaction Hash
             </p>
-            <p className="text-xs font-mono text-gray-800 break-all">
+            <p className="text-xs font-mono text-gray-800 dark:text-amber-200 break-all">
               {stepState.txHash}
             </p>
             <a
@@ -303,9 +303,9 @@ export default function PostJobForm() {
   // -------------------------------------------------------------------------
 
   return (
-    <div className="max-w-lg mx-auto bg-white rounded-2xl shadow-lg p-8">
-      <h1 className="text-2xl font-bold text-gray-900 mb-1">Post a Job</h1>
-      <p className="text-gray-500 text-sm mb-6">
+    <div className="max-w-lg mx-auto bg-white dark:bg-ink-800 rounded-2xl shadow-lg dark:shadow-none dark:border dark:border-market-500/10 p-8">
+      <h1 className="text-2xl font-bold text-gray-900 dark:text-amber-100 dark:text-amber-100 mb-1">Post a Job</h1>
+      <p className="text-gray-500 dark:text-amber-700 text-sm mb-6">
         Your XLM budget will be locked in a Soroban escrow contract on-chain.
       </p>
 
@@ -337,7 +337,7 @@ export default function PostJobForm() {
       <form onSubmit={handleSubmit} className="space-y-5">
         {/* Title */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-gray-700 dark:text-amber-300 mb-1">
             Job Title
           </label>
           <input
@@ -347,13 +347,13 @@ export default function PostJobForm() {
             required
             disabled={isInProgress}
             placeholder="e.g. Build a Soroban DEX interface"
-            className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent disabled:opacity-60"
+            className="w-full rounded-xl border border-gray-200 dark:border-market-500/20 bg-gray-50 dark:bg-ink-700 px-4 py-2.5 text-sm text-gray-900 dark:text-amber-100 placeholder-gray-400 dark:placeholder-amber-900/50 focus:outline-none focus:ring-2 focus:ring-indigo-400 dark:focus:ring-market-500/40 focus:border-transparent disabled:opacity-60"
           />
         </div>
 
         {/* Description */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-gray-700 dark:text-amber-300 mb-1">
             Description
           </label>
           <textarea
@@ -364,13 +364,13 @@ export default function PostJobForm() {
             rows={4}
             disabled={isInProgress}
             placeholder="Describe the work, deliverables, and any context..."
-            className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent disabled:opacity-60 resize-none"
+            className="w-full rounded-xl border border-gray-200 dark:border-market-500/20 bg-gray-50 dark:bg-ink-700 px-4 py-2.5 text-sm text-gray-900 dark:text-amber-100 placeholder-gray-400 dark:placeholder-amber-900/50 focus:outline-none focus:ring-2 focus:ring-indigo-400 dark:focus:ring-market-500/40 focus:border-transparent disabled:opacity-60 resize-none"
           />
         </div>
 
         {/* Budget */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-gray-700 dark:text-amber-300 mb-1">
             Budget (XLM)
           </label>
           <div className="relative">
@@ -386,17 +386,17 @@ export default function PostJobForm() {
               onChange={handleChange}
               required
               disabled={isInProgress}
-              className="w-full rounded-xl border border-gray-200 bg-gray-50 pl-14 pr-4 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent disabled:opacity-60"
+              className="w-full rounded-xl border border-gray-200 dark:border-market-500/20 bg-gray-50 dark:bg-ink-700 pl-14 pr-4 py-2.5 text-sm text-gray-900 dark:text-amber-100 focus:outline-none focus:ring-2 focus:ring-indigo-400 dark:focus:ring-market-500/40 focus:border-transparent disabled:opacity-60"
             />
           </div>
-          <p className="mt-1 text-xs text-gray-400">
+          <p className="mt-1 text-xs text-gray-400 dark:text-amber-800">
             This exact amount will be deducted from your wallet and held in escrow.
           </p>
         </div>
 
         {/* Skills */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-gray-700 dark:text-amber-300 mb-1">
             Required Skills
           </label>
           <input
@@ -405,13 +405,13 @@ export default function PostJobForm() {
             onChange={handleChange}
             disabled={isInProgress}
             placeholder="Rust, Soroban, TypeScript (comma-separated)"
-            className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent disabled:opacity-60"
+            className="w-full rounded-xl border border-gray-200 dark:border-market-500/20 bg-gray-50 dark:bg-ink-700 px-4 py-2.5 text-sm text-gray-900 dark:text-amber-100 placeholder-gray-400 dark:placeholder-amber-900/50 focus:outline-none focus:ring-2 focus:ring-indigo-400 dark:focus:ring-market-500/40 focus:border-transparent disabled:opacity-60"
           />
         </div>
 
         {/* Deadline */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-gray-700 dark:text-amber-300 mb-1">
             Deadline
           </label>
           <input
@@ -420,7 +420,7 @@ export default function PostJobForm() {
             value={form.deadline}
             onChange={handleChange}
             disabled={isInProgress}
-            className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent disabled:opacity-60"
+            className="w-full rounded-xl border border-gray-200 dark:border-market-500/20 bg-gray-50 dark:bg-ink-700 px-4 py-2.5 text-sm text-gray-900 dark:text-amber-100 focus:outline-none focus:ring-2 focus:ring-indigo-400 dark:focus:ring-market-500/40 focus:border-transparent disabled:opacity-60"
           />
         </div>
 
@@ -443,7 +443,7 @@ export default function PostJobForm() {
         </button>
 
         {isInProgress && (
-          <p className="text-center text-xs text-gray-400">
+          <p className="text-center text-xs text-gray-400 dark:text-amber-800">
             {stepState.current === "escrow"
               ? "Please approve the transaction in your Freighter wallet."
               : "Submitting your job to the platform…"}

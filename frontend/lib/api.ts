@@ -13,10 +13,10 @@ import type {
   PortfolioFile,
   TokenInfo,
   TokenBalance,
+  Message,
   SkillBadge,
   ProfileStats,
   ResponseTime,
-  Message,
   AssessmentQuestion,
 } from "@/utils/types";
 
@@ -36,7 +36,7 @@ export function setJwtToken(token: string | null) {
 export function getJwtToken() {
   return jwtToken;
 }
-
+ 
 api.interceptors.request.use((config: any) => {
   if (jwtToken) {
     config.headers.Authorization = `Bearer ${jwtToken}`;
@@ -82,23 +82,6 @@ export async function fetchJobs(params?: {
     jobs: data.data,
     nextCursor: data.nextCursor ?? null,
   };
-}
-
-export interface JobSuggestion {
-  type: "title" | "skill" | "category";
-  value: string;
-}
-
-export async function fetchJobSuggestions(query: string): Promise<JobSuggestion[]> {
-  try {
-    const { data } = await api.get<{ success: boolean; data: JobSuggestion[] }>(
-      "/api/jobs/suggestions",
-      { params: { q: query } },
-    );
-    return data.data;
-  } catch {
-    return [];
-  }
 }
 
 export async function fetchRelatedJobs(category: string, currentJobId: string) {
@@ -287,53 +270,6 @@ export async function fetchPublicProfile(
   }
 }
 
-export async function fetchProfiles(params?: {
-  role?: string;
-  availability?: string;
-  search?: string;
-  limit?: number;
-}) {
-  const { data } = await api.get<{ success: boolean; data: UserProfile[] }>(
-    "/api/profiles",
-    { params },
-  );
-  return data.data;
-}
-
-export async function fetchSkillEndorsements(publicKey: string): Promise<SkillEndorsement[]> {
-  const { data } = await api.get<{ success: boolean; data: SkillEndorsement[] }>(
-    `/api/profiles/${encodeURIComponent(publicKey)}/endorsements`,
-  );
-  return data.data;
-}
-
-export async function endorseSkill(publicKey: string, skill: string) {
-  await api.post(`/api/profiles/${encodeURIComponent(publicKey)}/endorse`, {
-    skill,
-  });
-}
-
-export async function fetchSkillBadges(publicKey: string): Promise<SkillBadge[]> {
-  const { data } = await api.get<{ success: boolean; data: SkillBadge[] }>(
-    `/api/assessments/results/${encodeURIComponent(publicKey)}`,
-  );
-  return data.data;
-}
-
-export async function fetchProfileStats(publicKey: string): Promise<ProfileStats> {
-  const { data } = await api.get<{ success: boolean; data: ProfileStats }>(
-    `/api/profiles/${encodeURIComponent(publicKey)}/stats`,
-  );
-  return data.data;
-}
-
-export async function fetchResponseTime(publicKey: string): Promise<ResponseTime> {
-  const { data } = await api.get<{ success: boolean; data: ResponseTime }>(
-    `/api/profiles/${encodeURIComponent(publicKey)}/response-time`,
-  );
-  return data.data;
-}
-
 export async function upsertProfile(
   payload: Partial<UserProfile> & { publicKey: string },
 ) {
@@ -509,17 +445,15 @@ export async function raiseDispute(jobId: string, payload: { reason: string; des
  * Resolves a dispute for a job (Admin only).
  *
  * @param jobId Job identifier.
+ * @param note Optional admin note explaining the resolution.
+ * @param releaseTo Optional override for payout direction ("client" | "freelancer").
  * @returns The updated job record.
  */
-export async function resolveDispute(
-  jobId: string,
-  note?: string,
-  releaseTo?: "client" | "freelancer",
-) {
-  const { data } = await api.post<{ success: boolean; data: Job }>(
-    `/api/jobs/${jobId}/resolve`,
-    { ...(note ? { note } : {}), ...(releaseTo ? { releaseTo } : {}) },
-  );
+export async function resolveDispute(jobId: string, note?: string, releaseTo?: string) {
+  const { data } = await api.post<{ success: boolean; data: Job }>(`/api/jobs/${jobId}/resolve`, {
+    ...(note ? { note } : {}),
+    ...(releaseTo ? { releaseTo } : {}),
+  });
   return data.data;
 }
 
@@ -909,49 +843,133 @@ export async function deletePasskeyCredential(id: string) {
   await api.delete(`/api/webauthn/credentials/${id}`);
 }
 
-// ─── Admin ────────────────────────────────────────────────────────────────────
+// ─── Profiles listing ─────────────────────────────────────────────────────────
 
-export async function fetchAdminDisputes(): Promise<any[]> {
+export async function fetchProfiles(params?: {
+  role?: string;
+  availability?: string;
+  search?: string;
+  skill?: string;
+  limit?: number;
+  cursor?: string;
+}): Promise<UserProfile[]> {
+  const { data } = await api.get<{ success: boolean; data: UserProfile[] }>(
+    "/api/profiles",
+    { params },
+  );
+  return data.data;
+}
+
+// ─── Skill endorsements & badges ──────────────────────────────────────────────
+
+export async function fetchSkillEndorsements(publicKey: string): Promise<SkillEndorsement[]> {
+  const { data } = await api.get<{ success: boolean; data: SkillEndorsement[] }>(
+    `/api/profiles/${encodeURIComponent(publicKey)}/endorsements`,
+  );
+  return data.data;
+}
+
+export async function endorseSkill(targetAddress: string, skill: string): Promise<void> {
+  await api.post(`/api/profiles/${encodeURIComponent(targetAddress)}/endorsements`, { skill });
+}
+
+export async function fetchSkillBadges(publicKey: string): Promise<SkillBadge[]> {
+  const { data } = await api.get<{ success: boolean; data: SkillBadge[] }>(
+    `/api/profiles/${encodeURIComponent(publicKey)}/badges`,
+  );
+  return data.data;
+}
+
+export async function fetchProfileStats(publicKey: string): Promise<ProfileStats> {
+  const { data } = await api.get<{ success: boolean; data: ProfileStats }>(
+    `/api/profiles/${encodeURIComponent(publicKey)}/stats`,
+  );
+  return data.data;
+}
+
+export async function fetchResponseTime(publicKey: string): Promise<ResponseTime> {
+  const { data } = await api.get<{ success: boolean; data: ResponseTime }>(
+    `/api/profiles/${encodeURIComponent(publicKey)}/response-time`,
+  );
+  return data.data;
+}
+
+// ─── Job suggestions (autocomplete) ──────────────────────────────────────────
+
+export interface JobSuggestion {
+  value: string;
+  type: "title" | "skill" | "category";
+}
+
+export async function fetchJobSuggestions(query: string): Promise<JobSuggestion[]> {
+  if (!query.trim()) return [];
+  const { data } = await api.get<{ success: boolean; data: JobSuggestion[] }>(
+    "/api/jobs/suggestions",
+    { params: { q: query } },
+  );
+  return data.data;
+}
+
+// ─── Admin functions ──────────────────────────────────────────────────────────
+
+export async function fetchAdminDisputes() {
   const { data } = await api.get<{ success: boolean; data: any[] }>("/api/admin/disputes");
   return data.data;
 }
 
-export async function fetchAdminJobReports(): Promise<any[]> {
+export async function fetchAdminJobReports() {
   const { data } = await api.get<{ success: boolean; data: any[] }>("/api/admin/reports");
   return data.data;
 }
 
-export async function fetchAdminLogs(): Promise<any[]> {
+export async function fetchAdminLogs() {
   const { data } = await api.get<{ success: boolean; data: any[] }>("/api/admin/logs");
   return data.data;
 }
 
-export async function fetchFrozenWallets(): Promise<any[]> {
+export async function fetchFrozenWallets() {
   const { data } = await api.get<{ success: boolean; data: any[] }>("/api/admin/frozen-wallets");
   return data.data;
 }
 
-export async function adminCancelJob(jobId: string, reason: string): Promise<void> {
-  await api.post(`/api/admin/jobs/${jobId}/cancel`, { reason });
+export async function adminCancelJob(jobId: string, reason?: string) {
+  const { data } = await api.post<{ success: boolean; data: Job }>(`/api/admin/jobs/${jobId}/cancel`, {
+    ...(reason ? { reason } : {}),
+  });
+  return data.data;
 }
 
-export async function freezeWallet(address: string, reason: string): Promise<void> {
-  await api.post("/api/admin/wallets/freeze", { address, reason });
+export async function freezeWallet(address: string, reason?: string) {
+  const { data } = await api.post<{ success: boolean; data: any }>("/api/admin/freeze-wallet", {
+    address,
+    ...(reason ? { reason } : {}),
+  });
+  return data.data;
 }
 
-export async function unfreezeWallet(address: string): Promise<void> {
-  await api.post("/api/admin/wallets/unfreeze", { address });
+export async function unfreezeWallet(address: string) {
+  const { data } = await api.post<{ success: boolean; data: any }>("/api/admin/unfreeze-wallet", { address });
+  return data.data;
 }
 
-// ─── Assessments ─────────────────────────────────────────────────────────────
+// ─── Skill assessments ────────────────────────────────────────────────────────
 
 export interface AssessmentData {
+  skill: string;
   label: string;
   questions: AssessmentQuestion[];
   durationSeconds: number;
+  timeLimit: number;
+  passingScore: number;
+  cooldownDays: number;
   canRetake: boolean;
-  retakeAvailableAt?: string;
-  lastAttempt?: { score: number; passed: boolean };
+  retakeAvailableAt?: string | null;
+  lastAttempt?: { passed: boolean; score: number } | null;
+  existingBadge?: {
+    passed: boolean;
+    score: number;
+    taken_at: string;
+  } | null;
 }
 
 export async function fetchAssessment(skill: string): Promise<AssessmentData> {
@@ -964,10 +982,10 @@ export async function fetchAssessment(skill: string): Promise<AssessmentData> {
 export async function submitAssessment(
   skill: string,
   answers: Record<number, number>,
-): Promise<{ score: number; passed: boolean; correct: number; total: number }> {
+): Promise<{ passed: boolean; score: number; correct: number; total: number }> {
   const { data } = await api.post<{
     success: boolean;
-    data: { score: number; passed: boolean; correct: number; total: number };
+    data: { passed: boolean; score: number; correct: number; total: number };
   }>(`/api/assessments/${encodeURIComponent(skill)}/submit`, { answers });
   return data.data;
 }
