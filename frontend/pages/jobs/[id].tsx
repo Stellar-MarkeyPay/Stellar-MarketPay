@@ -200,7 +200,7 @@ export default function JobDetail({ publicKey, onConnect }: JobDetailProps) {
       <div className="max-w-4xl mx-auto px-4 sm:px-6 py-10 animate-fade-in">
         <Link
           href="/jobs"
-          className="inline-flex items-center gap-1.5 text-sm text-amber-800 hover:text-amber-400 transition-colors mb-6"
+          className="inline-flex items-center gap-1.5 text-xs sm:text-sm text-amber-800 hover:text-amber-400 transition-colors mb-6 min-h-[44px]"
         >
           ← Back to Jobs
         </Link>
@@ -228,52 +228,26 @@ export default function JobDetail({ publicKey, onConnect }: JobDetailProps) {
                   {job.title}
                 </h1>
 
-                <div className="mt-4 flex flex-wrap gap-3 text-sm text-amber-700">
-                  <span>Posted {timeAgo(job.createdAt)}</span>
-                  <span>{applications.length} application{applications.length === 1 ? "" : "s"}</span>
-                  {job.deadline && <span>Deadline: {formatDate(job.deadline)}</span>}
+                <div className="mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div className="flex flex-wrap gap-3 text-xs sm:text-sm text-amber-700">
+                    <span>Posted {timeAgo(job.createdAt)}</span>
+                    <span>{applications.length} application{applications.length === 1 ? "" : "s"}</span>
+                    {job.deadline && <span>Deadline: {formatDate(job.deadline)}</span>}
+                  </div>
+
+                  <div className="sm:text-right">
+                    <p className="text-xs text-amber-800 mb-1">Budget</p>
+                    <p className="font-mono font-bold text-xl sm:text-2xl text-market-400">{formatXLM(job.budget)} {job.currency}</p>
+                    <a
+                      href={accountUrl(job.clientAddress)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 mt-2 text-xs sm:text-sm text-amber-700 hover:text-market-400 transition-colors"
+                    >
+                      Client: {shortenAddress(job.clientAddress)} ↗
+                    </a>
+                  </div>
                 </div>
-              </div>
-
-              <div className="sm:text-right">
-                <p className="text-xs text-amber-800 mb-1">Budget</p>
-                <p className="font-mono font-bold text-2xl text-market-400">{printableBudget}</p>
-                <a
-                  href={accountUrl(job.clientAddress)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 mt-3 text-sm text-amber-700 hover:text-market-400 transition-colors"
-                >
-                  Client: {shortenAddress(job.clientAddress)}
-                </a>
-              </div>
-
-              <h1 className="font-display text-2xl sm:text-3xl font-bold text-amber-100 leading-snug">
-                {job.title}
-              </h1>
-            </div>
-
-            <div className="flex-shrink-0 sm:text-right">
-              <p className="text-xs text-amber-800 mb-1">Budget</p>
-              <p className="font-mono font-bold text-2xl text-market-400">
-                {formatXLM(job.budget)} {job.currency}
-              </p>
-
-              {job.deadline && (
-                <p className="text-xs text-amber-700 mt-2">
-                  Deadline: {formatDate(job.deadline)}
-                </p>
-              )}
-
-              <a
-                href={accountUrl(job.clientAddress)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 mt-3 text-sm text-amber-700 hover:text-market-400 transition-colors"
-              >
-                Client: {shortenAddress(job.clientAddress)} ↗
-              </a>
-            </div>
           </div>
 
           <div className="prose prose-sm max-w-none">
@@ -333,35 +307,35 @@ export default function JobDetail({ publicKey, onConnect }: JobDetailProps) {
             <div className="space-y-4">
               {applications.map((application) => (
                 <div key={application.id} className="card">
-                  <div className="flex items-start justify-between gap-4 mb-3">
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4 mb-3">
                     <a
                       href={accountUrl(application.freelancerAddress)}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="address-tag hover:border-market-500/40 transition-colors"
+                      className="address-tag hover:border-market-500/40 transition-colors break-all text-xs"
                     >
                       {shortenAddress(application.freelancerAddress)} ↗
                     </a>
 
-                    <div className="flex items-center gap-3">
-                      <span className="font-mono text-market-400 font-semibold text-sm">
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                      <span className="font-mono text-market-400 font-semibold text-xs sm:text-sm whitespace-nowrap">
                         {formatXLM(application.bidAmount)}
                       </span>
 
-                      <span className={`text-xs px-2.5 py-1 rounded-full border ${badgeClass(application.status)}`}>
+                      <span className={`text-xs px-2.5 py-1 rounded-full border flex-shrink-0 ${badgeClass(application.status)}`}>
                         {application.status}
                       </span>
                     </div>
                   </div>
 
-                  <p className="text-amber-700/80 text-sm leading-relaxed mb-4">
+                  <p className="text-amber-700/80 text-xs sm:text-sm leading-relaxed mb-4 break-words">
                     {application.proposal}
                   </p>
 
                   {application.status === "pending" && job.status === "open" && (
                     <button
                       onClick={() => handleAcceptApplication(application.id)}
-                      className="btn-secondary text-sm py-2 px-4"
+                      className="btn-secondary text-xs sm:text-sm py-2 px-4 min-h-[44px] flex items-center w-full sm:w-auto"
                     >
                       Accept Proposal
                     </button>
@@ -422,7 +396,7 @@ export default function JobDetail({ publicKey, onConnect }: JobDetailProps) {
               <div className="text-center">
                 <button
                   onClick={() => setShowApplyForm(true)}
-                  className="btn-primary text-base px-10 py-3.5"
+                  className="btn-primary text-sm sm:text-base px-6 sm:px-10 py-2.5 sm:py-3.5 w-full sm:w-auto"
                 >
                   Apply for this Job
                 </button>
@@ -437,14 +411,14 @@ export default function JobDetail({ publicKey, onConnect }: JobDetailProps) {
 
         {isClient && job.status === "in_progress" && (
           <div className="card mb-6">
-            <h2 className="font-display text-xl font-bold text-amber-100 mb-3">
+            <h2 className="font-display text-lg sm:text-xl font-bold text-amber-100 mb-3">
               Escrow
             </h2>
 
             <button
               onClick={handleReleaseEscrow}
               disabled={releasingEscrow}
-              className="btn-primary"
+              className="btn-primary w-full sm:w-auto"
             >
               {releasingEscrow ? "Releasing..." : "Release Escrow"}
             </button>
@@ -500,11 +474,11 @@ export default function JobDetail({ publicKey, onConnect }: JobDetailProps) {
 
       {/* Dispute Modal */}
       {showDisputeModal && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-6">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-ink-950/80 backdrop-blur-sm" onClick={() => setShowDisputeModal(false)} />
-          <div className="relative w-full max-w-md bg-ink-900 border border-market-500/20 rounded-2xl p-6 shadow-2xl animate-scale-in">
-            <h3 className="font-display text-xl font-bold text-amber-100 mb-2">Raise a Dispute</h3>
-            <p className="text-sm text-amber-800 mb-6">Flag this job for admin review. This will block escrow release until resolved.</p>
+          <div className="relative w-full max-w-md bg-ink-900 border border-market-500/20 rounded-2xl p-4 sm:p-6 shadow-2xl animate-scale-in max-h-[90vh] overflow-y-auto">
+            <h3 className="font-display text-lg sm:text-xl font-bold text-amber-100 mb-2">Raise a Dispute</h3>
+            <p className="text-xs sm:text-sm text-amber-800 mb-6">Flag this job for admin review. This will block escrow release until resolved.</p>
             
             <div className="space-y-4">
               <div>
@@ -528,29 +502,29 @@ export default function JobDetail({ publicKey, onConnect }: JobDetailProps) {
                   value={disputeDescription}
                   onChange={(e) => setDisputeDescription(e.target.value)}
                   placeholder="Explain the issue in detail..."
-                  rows={4}
+                  rows={3}
                   className="textarea-field"
                 />
               </div>
             </div>
 
-            <div className="flex gap-3 mt-8">
+            <div className="flex flex-col sm:flex-row gap-3 mt-6 sm:mt-8">
               <button 
                 onClick={() => setShowDisputeModal(false)} 
-                className="flex-1 btn-secondary py-2.5"
+                className="btn-secondary text-sm py-2.5"
                 disabled={raisingDispute}
               >
                 Cancel
               </button>
               <button 
                 onClick={handleRaiseDispute} 
-                className="flex-1 btn-primary py-2.5 flex items-center justify-center gap-2"
+                className="btn-primary text-sm py-2.5 flex items-center justify-center gap-2"
                 disabled={raisingDispute || !disputeReason || !disputeDescription}
               >
                 {raisingDispute ? <Spinner /> : "Raise Dispute"}
               </button>
             </div>
-            {actionError && <p className="mt-3 text-red-400 text-sm text-center">{actionError}</p>}
+            {actionError && <p className="mt-3 text-red-400 text-xs sm:text-sm text-center">{actionError}</p>}
           </div>
         </div>
       )}

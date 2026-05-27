@@ -491,12 +491,8 @@ export async function deleteDraft(draftId: string) {
   await api.delete(`/api/jobs/drafts/${draftId}`);
 }
 
-// ─── Job Recommendations (Issue #221) ───────────────────────────────────
-
-export async function fetchRecommendedJobs(limit = 10) {
-  const { data } = await api.get<{ success: boolean; data: Job[] }>("/api/jobs/recommended", { params: { limit } });
-  return data.data;
-}
+// NOTE: Global job recommendations endpoint removed to avoid duplicate export.
+// Use `fetchRecommendedJobs(publicKey)` above which calls the personalized endpoint.
 
 // ─── IPFS File Upload (Issue #202) ──────────────────────────────────────────
 

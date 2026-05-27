@@ -13,12 +13,10 @@ import {
   statusLabel,
   timeAgo,
   formatUSDEquivalent,
-  getMonthlyEstimate,
 } from "@/utils/format";
 import type { Job } from "@/utils/types";
 import { usePriceContext } from "@/contexts/PriceContext";
 import { useBookmarks } from "@/hooks/useBookmarks";
-import { useState, useEffect } from "react";
 
 interface JobCardProps {
   job: Job;
@@ -85,6 +83,7 @@ function CountdownTimer({ deadline }: { deadline: string }) {
 export default function JobCard({ job }: JobCardProps) {
   const { xlmPriceUsd } = usePriceContext();
   const { isSaved, toggleBookmark } = useBookmarks();
+  const saved = isSaved(job.id);
   const usdEquivalent = formatUSDEquivalent(job.budget, xlmPriceUsd);
 
   // ── ISSUE #78: Hover Card State & Logic ──────────────────────────────────────────
@@ -199,7 +198,7 @@ export default function JobCard({ job }: JobCardProps) {
                 e.stopPropagation();
                 toggleBookmark(job.id);
               }}
-              className="p-1.5 rounded-md transition-all flex items-center justify-center hover:bg-amber-500/10 group/bookmark"
+              className="p-2 sm:p-1.5 rounded-md transition-all flex items-center justify-center hover:bg-amber-500/10 group/bookmark min-h-[44px] min-w-[44px]"
               title={saved ? "Remove bookmark" : "Save job"}
               aria-label={saved ? "Remove bookmark" : "Save job"}
             >

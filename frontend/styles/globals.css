@@ -20,7 +20,7 @@
   }
 
   * { box-sizing: border-box; }
-  html { scroll-behavior: smooth; }
+  html { scroll-behavior: smooth; overflow-x: hidden; }
 
   body {
     background-color: var(--bg);
@@ -28,6 +28,7 @@
     font-family: 'DM Sans', sans-serif;
     -webkit-font-smoothing: antialiased;
     min-height: 100vh;
+    overflow-x: hidden;
   }
 
   ::-webkit-scrollbar { width: 5px; }
@@ -45,16 +46,18 @@
   }
 
   .btn-primary {
-    @apply bg-market-500 hover:bg-market-400 text-ink-900 font-semibold px-6 py-3 rounded-xl
+    @apply bg-market-500 hover:bg-market-400 text-ink-900 font-semibold px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl
            transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed
-           focus:outline-none focus:ring-2 focus:ring-market-400 focus:ring-offset-2 focus:ring-offset-ink-900;
+           focus:outline-none focus:ring-2 focus:ring-market-400 focus:ring-offset-2 focus:ring-offset-ink-900
+           min-h-[44px] flex items-center justify-center;
   }
 
   .btn-secondary {
     @apply border border-market-500/30 hover:border-market-500/60 text-market-400
-           font-medium px-6 py-3 rounded-xl transition-all duration-200
+           font-medium px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl transition-all duration-200
            bg-market-500/5 hover:bg-market-500/10
-           focus:outline-none focus:ring-2 focus:ring-market-400 focus:ring-offset-2 focus:ring-offset-ink-900;
+           focus:outline-none focus:ring-2 focus:ring-market-400 focus:ring-offset-2 focus:ring-offset-ink-900
+           min-h-[44px] flex items-center justify-center;
   }
 
   .btn-ghost {
@@ -67,10 +70,10 @@
   }
 
   .input-field {
-    @apply w-full bg-ink-700 border border-[rgba(251,191,36,0.18)] rounded-xl px-4 py-3
+    @apply w-full bg-ink-700 border border-[rgba(251,191,36,0.18)] rounded-xl px-3 sm:px-4 py-2.5 sm:py-3
            text-amber-100 placeholder-amber-900/50
            focus:outline-none focus:border-market-500/50 focus:ring-1 focus:ring-market-500/30
-           transition-all duration-200 font-body text-sm;
+           transition-all duration-200 font-body text-sm min-h-[44px];
   }
 
   .textarea-field {
@@ -127,6 +130,29 @@
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
+  }
+
+  /* Mobile-responsive utilities */
+  .safe-px {
+    @apply px-4 sm:px-6;
+  }
+
+  .safe-py {
+    @apply py-4 sm:py-6;
+  }
+
+  .safe-p {
+    @apply p-4 sm:p-6;
+  }
+
+  /* Prevent text overflow on mobile */
+  .truncate-mobile {
+    @apply truncate sm:break-normal;
+  }
+
+  /* Touch-target size for buttons */
+  .touch-target {
+    @apply min-h-[44px] min-w-[44px] flex items-center justify-center;
   }
 
   .bg-noise {

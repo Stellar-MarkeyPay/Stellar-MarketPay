@@ -322,13 +322,13 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
             "withdrawals",
           ] as Tab[]
         ).map((t) => (
-          <button key={t} onClick={() => setTab(t)} className={clsx("px-6 py-3 text-sm font-medium transition-all border-b-2 -mb-px whitespace-nowrap", tab === t ? "border-market-400 text-market-300" : "border-transparent text-amber-700 hover:text-amber-400")}>
-            {t === "posted" ? `Jobs Posted (${myJobs.length})` :
-             t === "applied" ? `Applications (${myApplications.length})` :
-             t === "analytics" ? "Job Analytics" :
+          <button key={t} onClick={() => setTab(t)} className={clsx("px-3 sm:px-6 py-3 text-xs sm:text-sm font-medium transition-all border-b-2 -mb-px whitespace-nowrap min-h-[44px] flex items-center", tab === t ? "border-market-400 text-market-300" : "border-transparent text-amber-700 hover:text-amber-400")}>
+            {t === "posted" ? `Jobs (${myJobs.length})` :
+             t === "applied" ? `Apps (${myApplications.length})` :
+             t === "analytics" ? "Analytics" :
              t === "spending" ? "Spending" :
-             t === "send" ? "Send Payment" :
-             t === "templates" ? "Proposal Templates" :
+             t === "send" ? "Send" :
+             t === "templates" ? "Templates" :
              t === "price_alerts" ? "Price Alerts" :
              t === "withdrawals" ? `Withdrawals (${withdrawHistory.length})` :
              "Edit Profile"}
