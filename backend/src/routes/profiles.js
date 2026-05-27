@@ -18,11 +18,31 @@ const {
   getSkillEndorsements,
   endorseSkill,
   getClientSpendingAnalytics,
+  listProfiles,
+  getProfileStats,
+  getResponseTime,
+  blockFreelancer,
+  unblockFreelancer,
 } = require("../services/profileService");
 const {
   upsertPriceAlertPreference,
   getPriceAlertPreference,
 } = require("../services/priceAlertService");
+
+router.get("/", generalProfileRateLimiter, async (req, res, next) => {
+  try {
+    const { role, availability, search, limit } = req.query;
+    const profiles = await listProfiles({
+      role: typeof role === "string" && role.trim() ? role : undefined,
+      availability: typeof availability === "string" && availability.trim() ? availability : undefined,
+      search: typeof search === "string" && search.trim() ? search : undefined,
+      limit: typeof limit === "string" ? Number(limit) : undefined,
+    });
+    res.json({ success: true, data: profiles });
+  } catch (e) {
+    next(e);
+  }
+});
 
 router.get("/:publicKey", generalProfileRateLimiter, async (req, res, next) => {
   try { res.json({ success: true, data: await getProfile(req.params.publicKey) }); }
@@ -126,6 +146,29 @@ router.post("/:publicKey/price-alerts", profileUpdateRateLimiter, async (req, re
       email: req.body.email,
     });
     res.json({ success: true, data: pref });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get("/:publicKey/endorsements", generalProfileRateLimiter, async (req, res, next) => {
+  try {
+    const endorsements = await getSkillEndorsements(req.params.publicKey);
+    res.json({ success: true, data: endorsements });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.post("/:publicKey/endorse", profileUpdateRateLimiter, async (req, res, next) => {
+  try {
+    const { skill, endorserAddress } = req.body;
+    await endorseSkill({
+      skill,
+      endorserAddress,
+      recipientAddress: req.params.publicKey,
+    });
+    res.json({ success: true, data: null });
   } catch (e) {
     next(e);
   }

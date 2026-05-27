@@ -12,17 +12,24 @@ import {
   verifyIdentity,
   fetchSkillEndorsements,
   endorseSkill,
+  fetchSkillBadges,
+  fetchProfileStats,
+  fetchResponseTime,
 } from "@/lib/api";
 import {
   availabilityStatusLabel,
   availabilitySummary,
   formatXLM,
   shortenAddress,
+  availabilityBadgeClass,
 } from "@/utils/format";
 import { accountUrl, isValidStellarAddress } from "@/lib/stellar";
 import type {
   AvailabilityStatus,
   PortfolioItem,
+  ProfileStats,
+  ResponseTime,
+  SkillBadge,
   SkillEndorsement,
   UserProfile,
 } from "@/utils/types";
@@ -54,15 +61,6 @@ function getPortfolioTypeLabel(item: PortfolioItem) {
   }
 }
 
-function getAvailabilityBadgeClass(status?: AvailabilityStatus | null) {
-  if (status === "available")
-    return "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
-  if (status === "busy")
-    return "bg-amber-500/10 text-amber-300 border-amber-500/20";
-  if (status === "unavailable")
-    return "bg-red-500/10 text-red-400 border-red-500/20";
-  return "bg-market-500/10 text-market-300 border-market-500/20";
-}
 
 export default function PublicFreelancerProfilePage({
   publicKey,
@@ -77,6 +75,9 @@ export default function PublicFreelancerProfilePage({
   const [verifying, setVerifying] = useState(false);
   const [endorsements, setEndorsements] = useState<SkillEndorsement[]>([]);
   const [endorsingSkill, setEndorsingSkill] = useState<string | null>(null);
+  const [badges, setBadges] = useState<SkillBadge[]>([]);
+  const [stats, setStats] = useState<ProfileStats | null>(null);
+  const [responseTime, setResponseTime] = useState<ResponseTime | null>(null);
 
   const isOwner = publicKey && rawKey === publicKey;
 
@@ -95,21 +96,6 @@ export default function PublicFreelancerProfilePage({
       console.error("Verification error:", error);
     } finally {
       setVerifying(false);
-    }
-  };
-
-  const handleEndorse = async (skill: string) => {
-    if (!publicKey || isOwner) return;
-    setEndorsingSkill(skill);
-    try {
-      await endorseSkill(rawKey, skill);
-      const refreshed = await fetchSkillEndorsements(rawKey);
-      setEndorsements(refreshed);
-    } catch (error: unknown) {
-      console.error("Endorsement error:", error);
-      alert(error instanceof Error ? error.message : "Failed to endorse skill");
-    } finally {
-      setEndorsingSkill(null);
     }
   };
 
@@ -164,12 +150,21 @@ export default function PublicFreelancerProfilePage({
 
     (async () => {
       try {
-        const [profile, endorsementsData] = await Promise.all([
-          fetchPublicProfile(rawKey),
-          fetchSkillEndorsements(rawKey).catch(() => [] as SkillEndorsement[]),
-        ]);
+        const [profile, endorsementsData, profileStats, profileResponseTime, badgeData] =
+          await Promise.all([
+            fetchPublicProfile(rawKey),
+            fetchSkillEndorsements(rawKey).catch(() => [] as SkillEndorsement[]),
+            fetchProfileStats(rawKey).catch(() => null),
+            fetchResponseTime(rawKey).catch(() => null),
+            fetchSkillBadges(rawKey).catch(() => [] as SkillBadge[]),
+          ]);
+
         if (cancelled) return;
         setEndorsements(endorsementsData);
+        setStats(profileStats);
+        setResponseTime(profileResponseTime);
+        setBadges(badgeData.filter((b) => b.passed));
+
         if (profile === null) setState({ status: "not_found" });
         else setState({ status: "ok", profile });
       } catch (error: unknown) {
@@ -179,11 +174,6 @@ export default function PublicFreelancerProfilePage({
         setState({ status: "error", message });
       }
     })();
-
-    // Fetch badges separately (non-blocking)
-    fetchSkillBadges(rawKey)
-      .then((data) => { if (!cancelled) setBadges(data.filter((b) => b.passed)); })
-      .catch(() => {});
 
     return () => {
       cancelled = true;
@@ -344,7 +334,7 @@ export default function PublicFreelancerProfilePage({
               <div className="flex flex-wrap items-center gap-3 mb-2">
                 <h2 className="label !mb-0">Availability</h2>
                 <span
-                  className={`text-xs px-2.5 py-1 rounded-full border ${getAvailabilityBadgeClass(
+                  className={`text-xs px-2.5 py-1 rounded-full border ${availabilityBadgeClass(
                     state.profile.availability?.status,
                   )}`}
                 >

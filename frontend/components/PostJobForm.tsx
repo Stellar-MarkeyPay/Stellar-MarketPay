@@ -46,121 +46,6 @@ function ProgressBar({ step }: { step: Step }) {
   const active = StepIndex(step);
   const isError = step === "error";
 
-  const handleConfirmEscrowFee = async () => {
-    if (!pendingEscrow) return;
-    const { transaction, jobId } = pendingEscrow;
-    setPendingEscrow(null);
-
-    try {
-      const { signedXDR, error: signError } = await signTransactionWithWallet(transaction.toXDR());
-      if (signError || !signedXDR) {
-        await deleteJob(jobId).catch(() => {});
-        throw new Error(signError || "Freighter signing was cancelled");
-      }
-
-      const txHash = await submitSorobanTransaction(signedXDR).catch(async (e) => {
-        await deleteJob(jobId).catch(() => {});
-        throw e;
-      });
-
-      // Log the actual fee charged for the AC.
-      fetchActualFee(txHash).then((actual) => {
-        if (actual) {
-          // eslint-disable-next-line no-console
-          console.info(`[escrow] create_escrow ${jobId} actual fee ${actual.feeChargedXlm} XLM`);
-        }
-      }).catch(() => {});
-
-      await updateJobEscrowId(jobId, txHash);
-
-      setStep("done");
-      toast.success("Job posted and budget locked in escrow.");
-      router.push(`/jobs/${jobId}`);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Unknown error";
-      setError(msg);
-      setStep("error");
-      toast.error(`Failed: ${msg}`);
-      setLoading(false);
-    }
-  };
-
-  const handleCancelEscrowFee = async () => {
-    if (!pendingEscrow) return;
-    const { jobId } = pendingEscrow;
-    setPendingEscrow(null);
-    await deleteJob(jobId).catch(() => {});
-    setStep("idle");
-    setLoading(false);
-    setError("Cancelled before signing — the orphaned job was removed.");
-  };
-
-  const handleLoadTemplate = (name: string) => {
-    const template = templates.find((t) => t.name === name);
-    if (template) {
-      setForm((f) => ({
-        ...f,
-        title: template.title,
-        description: template.description,
-        budget: template.budget,
-        category: template.category,
-        deadline: template.deadline,
-      }));
-      setSkills(template.skills);
-      setSelectedTemplateName(name);
-    }
-  };
-
-  const handleSaveTemplate = () => {
-    if (!templateNameInput.trim()) {
-      setTemplateError("Template name is required");
-      return;
-    }
-    const existing = templates.find((t) => t.name === templateNameInput);
-    if (existing) {
-      setPendingOverwriteTemplate(existing);
-      return;
-    }
-    const newTemplate: JobTemplate = {
-      name: templateNameInput, title: form.title, description: form.description,
-      budget: form.budget, category: form.category, skills, deadline: form.deadline,
-    };
-    const updated = [...templates, newTemplate];
-    setTemplates(updated);
-    localStorage.setItem(JOB_TEMPLATES_STORAGE_KEY, JSON.stringify(updated));
-    setTemplateNameInput("");
-    setTemplateError(null);
-    toast.success(`Template "${templateNameInput}" saved`);
-  };
-
-  const handleConfirmOverwrite = () => {
-    const updated = templates.map((t) =>
-      t.name === templateNameInput
-        ? { ...t, title: form.title, description: form.description, budget: form.budget, category: form.category, skills, deadline: form.deadline }
-        : t
-    );
-    setTemplates(updated);
-    localStorage.setItem(JOB_TEMPLATES_STORAGE_KEY, JSON.stringify(updated));
-    setTemplateNameInput("");
-    setPendingOverwriteTemplate(null);
-    toast.success("Template updated");
-  };
-
-  const handleCancelOverwrite = () => setPendingOverwriteTemplate(null);
-
-  const handleDeleteTemplate = () => setShowDeleteConfirmation(true);
-
-  const handleConfirmDelete = () => {
-    const updated = templates.filter((t) => t.name !== selectedTemplateName);
-    setTemplates(updated);
-    localStorage.setItem(JOB_TEMPLATES_STORAGE_KEY, JSON.stringify(updated));
-    setSelectedTemplateName("");
-    setShowDeleteConfirmation(false);
-    toast.success("Template deleted");
-  };
-
-  const handleCancelDelete = () => setShowDeleteConfirmation(false);
-
   return (
     <div className="w-full my-6">
       <div className="flex items-center justify-between relative">
@@ -230,16 +115,6 @@ function ProgressBar({ step }: { step: Step }) {
           );
         })}
       </div>
-
-      {pendingEscrow && (
-        <FeeEstimationModal
-          transaction={pendingEscrow.transaction}
-          functionName="create_escrow"
-          payerPublicKey={publicKey}
-          onConfirm={handleConfirmEscrowFee}
-          onCancel={handleCancelEscrowFee}
-        />
-      )}
     </div>
   );
 }
@@ -315,7 +190,7 @@ export default function PostJobForm() {
       setStepState({ current: "escrow", jobId });
 
       // Resolve the client's Freighter public key
-      const { publicKey: clientPublicKey } = await getPublicKey();
+      const clientPublicKey = await getPublicKey();
 
       const { txHash } = await createEscrowOnChain({
         clientPublicKey,

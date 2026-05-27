@@ -17,18 +17,20 @@ interface NavbarProps {
 }
 
 const links = [
-  { href: "/",            labelKey: "nav.home" },
-  { href: "/jobs",        labelKey: "nav.browseJobs" },
-  { href: "/dashboard",   labelKey: "nav.dashboard" },
-  { href: "/post-job",    labelKey: "nav.postJob" },
-  { href: "/insights",    labelKey: "nav.insights" },
+  { href: "/",               labelKey: "nav.home" },
+  { href: "/jobs",           labelKey: "nav.browseJobs" },
+  { href: "/freelancers",    labelKey: "nav.browseFreelancers" },
+  { href: "/dashboard",      labelKey: "nav.dashboard" },
+  { href: "/post-job",       labelKey: "nav.postJob" },
+  { href: "/insights",       labelKey: "nav.insights" },
 ];
 
 const STELLAR_NETWORK = process.env.NEXT_PUBLIC_STELLAR_NETWORK || "testnet";
 
 export default function Navbar({ publicKey, onConnect, onDisconnect }: NavbarProps) {
   const router = useRouter();
-  const { t, i18n } = useTranslation("common");
+  const { t: tRaw, i18n } = useTranslation("common");
+  const t = (key: string): string => String(tRaw(key));
   const [hasNotification, setHasNotification] = useState(false);
   const [hasJobAlertBadge, setHasJobAlertBadge] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
