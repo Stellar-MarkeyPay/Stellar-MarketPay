@@ -37,6 +37,146 @@ async function logAdminAction({ action, adminAddress, targetId, targetType, deta
   }
 }
 
+// ── GET /api/admin/metrics — platform analytics dashboard ─────────────────────
+router.get("/metrics", verifyJWT, requireAdmin, async (req, res, next) => {
+  try {
+    const { period = "30d" } = req.query;
+    
+    // Calculate date range based on period
+    let daysBack = 30;
+    if (period === "7d") daysBack = 7;
+    else if (period === "90d") daysBack = 90;
+    
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - daysBack);
+    
+    // Platform Health Metrics
+    const platformHealth = await pool.query(`
+      SELECT 
+        COUNT(*) as total_jobs,
+        COUNT(*) FILTER (WHERE status = 'open') as open_jobs,
+        COUNT(*) FILTER (WHERE status = 'completed') as completed_jobs,
+        COUNT(*) FILTER (WHERE status = 'disputed') as disputed_jobs,
+        ROUND(
+          COUNT(*) FILTER (WHERE status = 'completed')::numeric / 
+          NULLIF(COUNT(*) FILTER (WHERE status IN ('completed', 'cancelled'))::numeric, 0) * 100, 2
+        ) as completion_rate,
+        ROUND(
+          COUNT(*) FILTER (WHERE status = 'disputed')::numeric / 
+          NULLIF(COUNT(*)::numeric, 0) * 100, 2
+        ) as dispute_rate
+      FROM jobs 
+      WHERE created_at >= $1
+    `, [startDate]);
+
+    // User Growth Metrics
+    const userGrowth = await pool.query(`
+      SELECT 
+        COUNT(DISTINCT public_key) as total_users,
+        COUNT(DISTINCT public_key) FILTER (WHERE role IN ('freelancer', 'both')) as freelancers,
+        COUNT(DISTINCT public_key) FILTER (WHERE role IN ('client', 'both')) as clients,
+        COUNT(DISTINCT public_key) FILTER (WHERE created_at >= $1) as new_users_period
+      FROM profiles
+    `, [startDate]);
+
+    // Weekly new user growth
+    const weeklyGrowth = await pool.query(`
+      SELECT 
+        DATE_TRUNC('week', created_at) as week,
+        COUNT(*) as new_users
+      FROM profiles 
+      WHERE created_at >= $1
+      GROUP BY DATE_TRUNC('week', created_at)
+      ORDER BY week
+    `, [startDate]);
+
+    // Financial Metrics
+    const financialMetrics = await pool.query(`
+      SELECT 
+        COALESCE(SUM(budget) FILTER (WHERE status = 'funded'), 0) as total_xlm_escrow,
+        COALESCE(SUM(budget) FILTER (WHERE status = 'released'), 0) as total_xlm_released,
+        COALESCE(AVG(budget), 0) as avg_job_budget,
+        COUNT(*) FILTER (WHERE status = 'funded') as active_escrows
+      FROM jobs j
+      LEFT JOIN escrows e ON j.id = e.job_id
+      WHERE j.created_at >= $1
+    `, [startDate]);
+
+    // Quality Metrics
+    const qualityMetrics = await pool.query(`
+      SELECT 
+        COALESCE(AVG(rating), 0) as avg_rating,
+        COUNT(*) as total_ratings,
+        COUNT(DISTINCT j.client_address) FILTER (
+          WHERE EXISTS (
+            SELECT 1 FROM jobs j2 
+            WHERE j2.client_address = j.client_address 
+            AND j2.freelancer_address = j.freelancer_address 
+            AND j2.id != j.id
+          )
+        ) as repeat_hires
+      FROM jobs j
+      LEFT JOIN ratings r ON j.id = r.job_id
+      WHERE j.created_at >= $1 AND j.status = 'completed'
+    `, [startDate]);
+
+    // Dispute Metrics
+    const disputeMetrics = await pool.query(`
+      SELECT 
+        DATE_TRUNC('week', created_at) as week,
+        COUNT(*) FILTER (WHERE status = 'disputed') as disputes_opened,
+        COUNT(*) FILTER (WHERE status = 'resolved') as disputes_resolved
+      FROM jobs
+      WHERE created_at >= $1
+      GROUP BY DATE_TRUNC('week', created_at)
+      ORDER BY week
+    `, [startDate]);
+
+    // Top Earners
+    const topEarners = await pool.query(`
+      SELECT 
+        p.public_key,
+        p.display_name,
+        p.total_earned_xlm,
+        p.completed_jobs,
+        p.rating
+      FROM profiles p
+      WHERE p.total_earned_xlm > 0
+      ORDER BY p.total_earned_xlm DESC
+      LIMIT 10
+    `);
+
+    // Job Volume Over Time
+    const jobVolume = await pool.query(`
+      SELECT 
+        DATE_TRUNC('day', created_at) as date,
+        COUNT(*) as jobs_created,
+        COUNT(*) FILTER (WHERE status = 'completed') as jobs_completed
+      FROM jobs
+      WHERE created_at >= $1
+      GROUP BY DATE_TRUNC('day', created_at)
+      ORDER BY date
+    `, [startDate]);
+
+    res.json({
+      success: true,
+      data: {
+        period,
+        platformHealth: platformHealth.rows[0],
+        userGrowth: userGrowth.rows[0],
+        weeklyGrowth: weeklyGrowth.rows,
+        financialMetrics: financialMetrics.rows[0],
+        qualityMetrics: qualityMetrics.rows[0],
+        disputeMetrics: disputeMetrics.rows,
+        topEarners: topEarners.rows,
+        jobVolume: jobVolume.rows
+      }
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
 // ── GET /api/admin/reports/jobs — list all flagged/reported jobs ───────────────
 router.get("/reports/jobs", verifyJWT, requireAdmin, async (req, res, next) => {
   try {

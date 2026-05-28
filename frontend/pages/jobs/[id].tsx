@@ -3,12 +3,11 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import Head from "next/head";
-import Link from "next/link";
-import { useRouter } from "next/router";
 import ApplicationForm from "@/components/ApplicationForm";
 import WalletConnect from "@/components/WalletConnect";
 import RatingForm from "@/components/RatingForm";
 import ShareJobModal from "@/components/ShareJobModal";
+import RealtimeBidComparison from "@/components/RealtimeBidComparison";
 import { fetchJob, fetchApplications, acceptApplication, releaseEscrow } from "@/lib/api";
 import { formatXLM, formatDate, shortenAddress, statusLabel, statusClass } from "@/utils/format";
 import {
@@ -324,56 +323,16 @@ export default function JobDetail({ publicKey, onConnect }: JobDetailProps) {
           <TimeTracker jobId={job.id} />
         )}
 
-        {isClient && applications.length > 0 && (
+        {isClient && (
           <div className="mb-6">
-            <h2 className="font-display text-xl font-bold text-amber-100 mb-4">
-              Applications ({applications.length})
-            </h2>
-
-            <div className="space-y-4">
-              {applications.map((application) => (
-                <div key={application.id} className="card">
-                  <div className="flex items-start justify-between gap-4 mb-3">
-                    <a
-                      href={accountUrl(application.freelancerAddress)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="address-tag hover:border-market-500/40 transition-colors"
-                    >
-                      {shortenAddress(application.freelancerAddress)} ↗
-                    </a>
-
-                    <div className="flex items-center gap-3">
-                      <span className="font-mono text-market-400 font-semibold text-sm">
-                        {formatXLM(application.bidAmount)}
-                      </span>
-
-                      <span className={`text-xs px-2.5 py-1 rounded-full border ${badgeClass(application.status)}`}>
-                        {application.status}
-                      </span>
-                    </div>
-                  </div>
-
-                  <p className="text-amber-700/80 text-sm leading-relaxed mb-4">
-                    {application.proposal}
-                  </p>
-
-                  {application.status === "pending" && job.status === "open" && (
-                    <button
-                      onClick={() => handleAcceptApplication(application.id)}
-                      className="btn-secondary text-sm py-2 px-4"
-                    >
-                      Accept Proposal
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-
-          {actionError && <p className="mt-3 text-red-400 text-sm">{actionError}</p>}
-        </div>
-      )}
+            <RealtimeBidComparison
+              jobId={job.id}
+              initialApplications={applications}
+              isClient={isClient}
+              onAcceptApplication={handleAcceptApplication}
+            />
+          </div>
+        )}
 
 
         {/* Issue #175 — Escrow timeout countdown + refund UI */}

@@ -836,3 +836,85 @@ export async function deletePasskeyCredential(id: string) {
   await api.delete(`/api/webauthn/credentials/${id}`);
 }
 
+// ─── Admin Functions ──────────────────────────────────────────────────────────
+
+export async function fetchAdminMetrics(period: "7d" | "30d" | "90d" = "30d") {
+  const { data } = await api.get<{ 
+    success: boolean; 
+    data: {
+      period: string;
+      platformHealth: {
+        total_jobs: number;
+        open_jobs: number;
+        completed_jobs: number;
+        disputed_jobs: number;
+        completion_rate: number;
+        dispute_rate: number;
+      };
+      userGrowth: {
+        total_users: number;
+        freelancers: number;
+        clients: number;
+        new_users_period: number;
+      };
+      weeklyGrowth: Array<{ week: string; new_users: number }>;
+      financialMetrics: {
+        total_xlm_escrow: number;
+        total_xlm_released: number;
+        avg_job_budget: number;
+        active_escrows: number;
+      };
+      qualityMetrics: {
+        avg_rating: number;
+        total_ratings: number;
+        repeat_hires: number;
+      };
+      disputeMetrics: Array<{ week: string; disputes_opened: number; disputes_resolved: number }>;
+      topEarners: Array<{
+        public_key: string;
+        display_name: string;
+        total_earned_xlm: number;
+        completed_jobs: number;
+        rating: number;
+      }>;
+      jobVolume: Array<{ date: string; jobs_created: number; jobs_completed: number }>;
+    }
+  }>("/api/admin/metrics", { params: { period } });
+  return data.data;
+}
+
+export async function fetchAdminJobReports() {
+  const { data } = await api.get<{ success: boolean; data: any[] }>("/api/admin/reports/jobs");
+  return data.data;
+}
+
+export async function fetchAdminDisputes() {
+  const { data } = await api.get<{ success: boolean; data: any[] }>("/api/admin/disputes");
+  return data.data;
+}
+
+export async function fetchAdminLogs() {
+  const { data } = await api.get<{ success: boolean; data: any[] }>("/api/admin/logs");
+  return data.data;
+}
+
+export async function fetchFrozenWallets() {
+  const { data } = await api.get<{ success: boolean; data: any[] }>("/api/admin/wallets/frozen");
+  return data.data;
+}
+
+export async function adminCancelJob(jobId: string, reason: string) {
+  const { data } = await api.patch<{ success: boolean; message: string }>(`/api/admin/jobs/${jobId}/cancel`, { reason });
+  return data;
+}
+
+export async function freezeWallet(address: string, reason: string) {
+  const { data } = await api.post<{ success: boolean; message: string }>(`/api/admin/wallets/${address}/freeze`, { reason });
+  return data;
+}
+
+export async function unfreezeWallet(address: string) {
+  const { data } = await api.delete<{ success: boolean; message: string }>(`/api/admin/wallets/${address}/freeze`);
+  return data;
+}
+

@@ -17,6 +17,7 @@ import {
   unfreezeWallet,
 } from "@/lib/api";
 import { shortenAddress, timeAgo } from "@/utils/format";
+import AdminAnalytics from "@/components/AdminAnalytics";
 
 // Wallet addresses with admin access — can also be overridden by env var
 const ADMIN_ADDRESSES = (
@@ -27,7 +28,7 @@ interface AdminPageProps {
   publicKey: string | null;
 }
 
-type ActiveTab = "disputes" | "reports" | "wallets" | "logs";
+type ActiveTab = "analytics" | "disputes" | "reports" | "wallets" | "logs";
 
 function Badge({ label, color }: { label: string; color: "red" | "amber" | "emerald" | "blue" | "gray" }) {
   const colorMap = {
@@ -70,7 +71,7 @@ function EmptyState({ message }: { message: string }) {
 
 export default function AdminDashboard({ publicKey }: AdminPageProps) {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<ActiveTab>("disputes");
+  const [activeTab, setActiveTab] = useState<ActiveTab>("analytics");
   const [disputes, setDisputes] = useState<any[]>([]);
   const [reports, setReports] = useState<any[]>([]);
   const [logs, setLogs] = useState<any[]>([]);
@@ -203,6 +204,7 @@ export default function AdminDashboard({ publicKey }: AdminPageProps) {
   }
 
   const tabs: { id: ActiveTab; label: string; count?: number }[] = [
+    { id: "analytics", label: "Analytics" },
     { id: "disputes", label: "Open Disputes", count: disputes.length },
     { id: "reports",  label: "Flagged Jobs",  count: reports.length },
     { id: "wallets",  label: "Frozen Wallets", count: frozenWallets.length },
@@ -276,6 +278,11 @@ export default function AdminDashboard({ publicKey }: AdminPageProps) {
           </div>
         ) : (
           <>
+            {/* ── Analytics Tab ──────────────────────────────────────────────── */}
+            {activeTab === "analytics" && (
+              <AdminAnalytics publicKey={publicKey} />
+            )}
+
             {/* ── Disputes Tab ──────────────────────────────────────────────── */}
             {activeTab === "disputes" && (
               <Section title="Open Disputes" count={disputes.length}>

@@ -140,6 +140,28 @@ router.get("/freelancer/:publicKey", generalApplicationRateLimiter, async (req, 
 router.post("/", applicationRateLimiter, async (req, res, next) => {
   try {
     const app = await submitApplication(req.body);
+    
+    // Emit WebSocket event for real-time bid updates
+    const broadcastRealtime = req.app.locals.broadcastRealtime;
+    if (broadcastRealtime) {
+      // Get job details for the broadcast
+      const job = await getJob(app.jobId);
+      
+      broadcastRealtime(`job:${app.jobId}:bids`, {
+        type: 'new_bid',
+        application: {
+          id: app.id,
+          freelancerAddress: app.freelancerAddress,
+          bidAmount: app.bidAmount,
+          proposal: app.proposal,
+          estimatedDuration: app.estimatedDuration,
+          createdAt: app.createdAt,
+          status: app.status
+        },
+        jobTitle: job.title
+      });
+    }
+    
     res.status(201).json({ success: true, data: app });
   } catch (e) { next(e); }
 });
