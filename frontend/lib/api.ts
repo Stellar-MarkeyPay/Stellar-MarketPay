@@ -918,3 +918,73 @@ export async function unfreezeWallet(address: string) {
   return data;
 }
 
+
+// ─── Time Tracking (Issue #346) ───────────────────────────────────────────────
+
+import type { TimeEntry, TimeInvoice } from "@/utils/types";
+
+/**
+ * Log a time entry for a job.
+ */
+export async function logTimeEntry(payload: {
+  jobId: string;
+  durationMinutes: number;
+  description?: string;
+  startedAt?: string;
+}): Promise<TimeEntry> {
+  const { data } = await api.post<{ success: boolean; data: TimeEntry }>(
+    "/api/time-entries",
+    payload,
+  );
+  return data.data;
+}
+
+/**
+ * Fetch all time entries for a job.
+ */
+export async function fetchTimeEntries(jobId: string): Promise<TimeEntry[]> {
+  const { data } = await api.get<{ success: boolean; data: TimeEntry[] }>(
+    `/api/time-entries/job/${jobId}`,
+  );
+  return data.data;
+}
+
+/**
+ * Fetch all invoices for a job.
+ */
+export async function fetchTimeInvoices(jobId: string): Promise<TimeInvoice[]> {
+  const { data } = await api.get<{ success: boolean; data: TimeInvoice[] }>(
+    `/api/time-entries/job/${jobId}/invoices`,
+  );
+  return data.data;
+}
+
+/**
+ * Generate an invoice from time entries.
+ */
+export async function generateTimeInvoice(payload: {
+  jobId: string;
+  hourlyRateXlm: number;
+  entryIds?: string[];
+}): Promise<TimeInvoice> {
+  const { data } = await api.post<{ success: boolean; data: TimeInvoice }>(
+    "/api/time-entries/invoice",
+    payload,
+  );
+  return data.data;
+}
+
+/**
+ * Client approves or rejects a time invoice.
+ */
+export async function reviewTimeInvoice(
+  invoiceId: string,
+  decision: "approved" | "rejected",
+  contractTxHash?: string,
+): Promise<TimeInvoice> {
+  const { data } = await api.patch<{ success: boolean; data: TimeInvoice }>(
+    `/api/time-entries/invoice/${invoiceId}/review`,
+    { decision, ...(contractTxHash ? { contractTxHash } : {}) },
+  );
+  return data.data;
+}

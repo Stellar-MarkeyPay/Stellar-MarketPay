@@ -174,3 +174,32 @@ export interface TokenBalance {
   balance: string;
   symbol: string;
 }
+
+// ─── Time Tracking (Issue #346) ───────────────────────────────────────────────
+
+export interface TimeEntry {
+  id: string;
+  jobId: string;
+  freelancerAddress: string;
+  durationMinutes: number;
+  description: string | null;
+  startedAt: string | null;
+  createdAt: string;
+}
+
+export type InvoiceStatus = "pending" | "approved" | "rejected";
+
+export interface TimeInvoice {
+  id: string;
+  jobId: string;
+  freelancerAddress: string;
+  clientAddress: string;
+  totalMinutes: number;
+  hourlyRateXlm: string;
+  totalAmountXlm: string;
+  status: InvoiceStatus;
+  entryIds: string[];
+  contractTxHash: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
