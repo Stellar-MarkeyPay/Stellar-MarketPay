@@ -8,7 +8,7 @@ import WalletConnect from "@/components/WalletConnect";
 import RatingForm from "@/components/RatingForm";
 import ShareJobModal from "@/components/ShareJobModal";
 import RealtimeBidComparison from "@/components/RealtimeBidComparison";
-import { fetchJob, fetchApplications, acceptApplication, releaseEscrow } from "@/lib/api";
+import { fetchJob, fetchApplications, acceptApplication, releaseEscrow, fetchClientReputation } from "@/lib/api";
 import { formatXLM, formatDate, shortenAddress, statusLabel, statusClass } from "@/utils/format";
 import {
   accountUrl,
@@ -22,7 +22,7 @@ import {
 } from "@/lib/stellar";
 import { Asset, type Transaction } from "@stellar/stellar-sdk";
 import { signTransactionWithWallet } from "@/lib/wallet";
-import type { Application, Job } from "@/utils/types";
+import type { Application, Job, ClientReputation } from "@/utils/types";
 
 interface JobDetailProps {
   publicKey: string | null;
@@ -55,6 +55,7 @@ export default function JobDetail({ publicKey, onConnect }: JobDetailProps) {
   const [disputeDescription, setDisputeDescription] = useState("");
   const [raisingDispute, setRaisingDispute] = useState(false);
   const [resolvingDispute, setResolvingDispute] = useState(false);
+  const [clientReputation, setClientReputation] = useState<ClientReputation | null>(null);
 
   const isClient = Boolean(publicKey && job?.clientAddress === publicKey);
   const isFreelancer = Boolean(publicKey && job?.freelancerAddress === publicKey);
@@ -74,9 +75,15 @@ export default function JobDetail({ publicKey, onConnect }: JobDetailProps) {
     }
 
     Promise.all([fetchJob(id as string), fetchApplications(id as string)])
-      .then(([loadedJob, loadedApplications]) => {
+      .then(async ([loadedJob, loadedApplications]) => {
         setJob(loadedJob);
         setApplications(loadedApplications);
+        try {
+          const rep = await fetchClientReputation(loadedJob.clientAddress);
+          setClientReputation(rep);
+        } catch {
+          setClientReputation(null);
+        }
       })
       .catch(() => router.push("/jobs"))
       .finally(() => setLoading(false));
@@ -302,6 +309,24 @@ export default function JobDetail({ publicKey, onConnect }: JobDetailProps) {
               </div>
             </div>
           </section>
+
+          {clientReputation && (
+            <div className="mt-6 rounded-xl border border-market-500/20 bg-ink-900/40 p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-display text-base font-semibold text-amber-100">Client Reputation</h3>
+                <span className="inline-flex items-center rounded-full border border-market-500/30 bg-market-500/10 px-2.5 py-1 text-xs font-semibold text-market-300">
+                  ★ {clientReputation.score.toFixed(1)} / 5.0
+                </span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-amber-700">
+                <p>Payment release rate: {clientReputation.paymentReleaseRate}%</p>
+                <p>Dispute rate: {clientReputation.disputeRate}%</p>
+                <p>Completion rate: {clientReputation.completionRate}%</p>
+                <p>Avg payment release time: {clientReputation.avgTimeToReleaseHours}h</p>
+                <p>Response time to applications: {clientReputation.responseTimeToApplicationsHours}h</p>
+              </div>
+            </div>
+          )}
 
           {actionError && (
             <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">

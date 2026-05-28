@@ -13,6 +13,7 @@ import type {
   PortfolioFile,
   TokenInfo,
   TokenBalance,
+  ClientReputation,
 } from "@/utils/types";
 
 const api = axios.create({
@@ -381,6 +382,13 @@ export async function fetchPriceAlertPreference(publicKey: string) {
 export async function fetchClientSpendingAnalytics(publicKey: string) {
   const { data } = await api.get<{ success: boolean; data: ClientSpendingAnalytics }>(
     `/api/profiles/${encodeURIComponent(publicKey)}/spending`,
+  );
+  return data.data;
+}
+
+export async function fetchClientReputation(publicKey: string): Promise<ClientReputation> {
+  const { data } = await api.get<{ success: boolean; data: ClientReputation }>(
+    `/api/profiles/${encodeURIComponent(publicKey)}/client-reputation`
   );
   return data.data;
 }
