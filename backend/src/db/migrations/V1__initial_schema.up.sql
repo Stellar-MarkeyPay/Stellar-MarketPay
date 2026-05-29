@@ -160,7 +160,8 @@ CREATE TABLE IF NOT EXISTS private_messages (
   recipient_public_key  TEXT        NOT NULL,
   nonce                 TEXT        NOT NULL,
   cipher_text           TEXT        NOT NULL,
-  created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (nonce)
 );
 
 CREATE INDEX IF NOT EXISTS private_messages_participants_idx

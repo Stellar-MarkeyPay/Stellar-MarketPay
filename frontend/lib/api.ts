@@ -1,4 +1,5 @@
 import axios from "axios";
+import { optionalClientEnv } from "./env";
 import type {
   Availability,
   Job,
@@ -17,7 +18,7 @@ import type {
 } from "@/utils/types";
 
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000",
+  baseURL: optionalClientEnv("NEXT_PUBLIC_API_URL", "http://localhost:4000"),
   headers: { "Content-Type": "application/json" },
   withCredentials: true,
   timeout: 10000,
@@ -92,6 +93,83 @@ export async function fetchRelatedJobs(category: string, currentJobId: string) {
 export async function fetchRecentlyCompletedJobs(limit = 3): Promise<Job[]> {
   const { jobs } = await fetchJobs({ status: "completed", limit });
   return jobs;
+}
+
+export interface InsightCategory {
+  category: string;
+  totalJobs: number;
+  avgBudget: number;
+  avgApplicationsPerJob: number;
+  acceptanceRate: number;
+  lowCompetitionJobs: number;
+  uniqueClients: number;
+}
+
+export interface InsightClientMix {
+  newClients: number;
+  returningClients: number;
+  totalClients: number;
+}
+
+export interface InsightSkill {
+  skill: string;
+  demandCount: number;
+  avgApplicationsPerJob: number;
+  lowCompetitionJobs: number;
+}
+
+export interface InsightCompetitiveJob {
+  id: string;
+  title: string;
+  category: string;
+  budget: number;
+  currency: string;
+  clientAddress: string;
+  createdAt: string;
+  applicationCount: number;
+  competitionLevel: "uncontested" | "light" | "active";
+}
+
+export interface InsightPayTrend {
+  date: string;
+  category: string;
+  avgBudget: number;
+  jobCount: number;
+}
+
+export async function fetchInsightCategories(limit = 20) {
+  const { data } = await api.get<{
+    success: boolean;
+    data: {
+      categories: InsightCategory[];
+      clientMix: InsightClientMix;
+    };
+  }>("/api/insights/categories", { params: { limit } });
+  return data.data;
+}
+
+export async function fetchInsightSkills(limit = 20) {
+  const { data } = await api.get<{ success: boolean; data: InsightSkill[] }>(
+    "/api/insights/skills",
+    { params: { limit } },
+  );
+  return data.data;
+}
+
+export async function fetchInsightCompetitive(limit = 20) {
+  const { data } = await api.get<{ success: boolean; data: InsightCompetitiveJob[] }>(
+    "/api/insights/competitive",
+    { params: { limit } },
+  );
+  return data.data;
+}
+
+export async function fetchInsightPayTrends(days = 30) {
+  const { data } = await api.get<{ success: boolean; data: InsightPayTrend[] }>(
+    "/api/insights/trends/pay",
+    { params: { days } },
+  );
+  return data.data;
 }
 
 /**
@@ -967,6 +1045,81 @@ export async function fetchPasskeyCredentials(): Promise<PasskeyCredential[]> {
 
 export async function deletePasskeyCredential(id: string) {
   await api.delete(`/api/webauthn/credentials/${id}`);
+}
+
+// ─── Developer API ────────────────────────────────────────────────────────────
+
+export interface DeveloperApiKey {
+  id: string;
+  label: string;
+  key_prefix: string;
+  created_at: string;
+  last_used_at: string | null;
+  revoked_at: string | null;
+  requests_today: number;
+}
+
+export interface CreatedDeveloperApiKey {
+  id: string;
+  label: string;
+  keyPrefix: string;
+  createdAt: string;
+  apiKey: string;
+}
+
+function buildApiKeyHeaders(apiKey: string) {
+  return { headers: { "X-API-Key": apiKey } };
+}
+
+export async function fetchDeveloperApiKeys(): Promise<DeveloperApiKey[]> {
+  const { data } = await api.get<{ success: boolean; data: DeveloperApiKey[] }>(
+    "/api/developer/keys",
+  );
+  return data.data;
+}
+
+export async function createDeveloperApiKey(
+  label?: string,
+): Promise<CreatedDeveloperApiKey> {
+  const { data } = await api.post<{ success: boolean; data: CreatedDeveloperApiKey }>(
+    "/api/developer/keys",
+    { label },
+  );
+  return data.data;
+}
+
+export async function revokeDeveloperApiKey(id: string): Promise<void> {
+  await api.delete(`/api/developer/keys/${id}`);
+}
+
+export async function fetchPublicJobs(apiKey: string, limit = 20) {
+  const { data } = await api.get<{ success: boolean; data: any[] }>(
+    "/api/public/jobs",
+    {
+      params: { limit },
+      ...buildApiKeyHeaders(apiKey),
+    },
+  );
+  return data.data;
+}
+
+export async function fetchPublicJob(apiKey: string, id: string) {
+  const { data } = await api.get<{ success: boolean; data: any }>(
+    `/api/public/jobs/${encodeURIComponent(id)}`,
+    buildApiKeyHeaders(apiKey),
+  );
+  return data.data;
+}
+
+export async function fetchPublicFreelancerProfile(
+  apiKey: string,
+  publicKey: string,
+) {
+  const { data } = await api.get<{ success: boolean; data: any }>(
+    `/api/public/freelancers/${encodeURIComponent(publicKey)}`,
+    buildApiKeyHeaders(apiKey),
+  );
+  return data.data;
 }
 
 // ─── Skill Certificates ─────────────────────────────────────────

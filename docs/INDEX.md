@@ -20,11 +20,13 @@ Welcome to Stellar MarketPay documentation. This index helps you find what you n
 
 - **[Architecture Overview](./architecture.md)** - System design and components
 - **[Deployment Guide](./deployment.md)** - How to deploy Stellar MarketPay
+- **[Environment Variables](./environment-variables.md)** - Single source of truth for runtime config
 
 ### API Documentation
 
 - **[API Documentation](./API_DOCUMENTATION.md)** - REST API endpoints
 - **[API Reference](./api.md)** - Detailed API reference
+- **[Scope WebSocket Protocol](./websocket-scope-protocol.md)** - Realtime session protocol and client schema
 
 ---
 
@@ -143,6 +145,14 @@ Decisions that shaped Stellar MarketPay's architecture:
 - `frontend/components/DisputeEvidenceUpload.tsx` - Upload component
 - `backend/src/routes/disputes.js` - Backend endpoints
 - Database schema for disputes
+
+---
+
+### Private Message Encryption
+
+**File**: [messaging-encryption.md](./messaging-encryption.md)
+
+**Purpose**: Documents the client-side encryption contract for private job messages and the nonce uniqueness requirement.
 
 ---
 
