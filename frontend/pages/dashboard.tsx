@@ -18,22 +18,12 @@ import {
   upsertPriceAlertPreference,
   fetchClientSpendingAnalytics,
   extendJobExpiry,
-  bulkCancelJobs,
-  bulkExtendJobs,
-  bulkBoostJobs,
+  fetchMyInvitations,
+  declineInvitation,
+  acceptInvitation,
 } from "@/lib/api";
-import StateMessage from "@/components/StateMessage";
-import {
-  formatXLM,
-  shortenAddress,
-  timeAgo,
-  statusLabel,
-  statusClass,
-  copyToClipboard,
-  exportJobsToCSV,
-  exportApplicationsToCSV,
-} from "@/utils/format";
-import type { Job, Application, ClientSpendingAnalytics } from "@/utils/types";
+import { formatXLM, shortenAddress, timeAgo, statusLabel, statusClass, copyToClipboard, exportJobsToCSV, exportApplicationsToCSV } from "@/utils/format";
+import type { Job, Application, ClientSpendingAnalytics, JobInvitation } from "@/utils/types";
 import EditProfileForm from "@/components/EditProfileForm";
 import SendPaymentForm from "@/components/SendPaymentForm";
 import BuyXLMModal from "@/components/BuyXLMModal";
@@ -66,17 +56,7 @@ interface DashboardProps {
   onConnect: (pk: string) => void;
 }
 
-type Tab =
-  | "posted"
-  | "applied"
-  | "analytics"
-  | "spending"
-  | "send"
-  | "edit_profile"
-  | "templates"
-  | "price_alerts"
-  | "withdrawals"
-  | "referrals";
+type Tab = "posted" | "applied" | "invitations" | "analytics" | "spending" | "send" | "edit_profile" | "templates" | "price_alerts" | "withdrawals";
 const REPOST_JOB_PREFILL_STORAGE_KEY = "marketpay_repost_job_prefill";
 
 async function fetchBalances(
@@ -103,6 +83,8 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
   const [canViewSpending, setCanViewSpending] = useState(true);
   const [myJobs, setMyJobs] = useState<Job[]>([]);
   const [myApplications, setMyApplications] = useState<Application[]>([]);
+  const [myInvitations, setMyInvitations] = useState<JobInvitation[]>([]);
+  const [acceptingInvite, setAcceptingInvite] = useState<string | null>(null);
   const [balance, setBalance] = useState<string | null>(null);
   const [usdcBalance, setUsdcBalance] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -275,12 +257,14 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
       fetchMyJobs(publicKey),
       fetchMyApplications(publicKey),
       fetchBalances(publicKey),
+      fetchMyInvitations().catch(() => []),
     ])
-      .then(([jobs, apps, balances]) => {
+      .then(([jobs, apps, balances, invites]) => {
         setMyJobs(jobs);
         setMyApplications(apps);
         setBalance(balances.xlm);
         setUsdcBalance(balances.usdc);
+        setMyInvitations(invites as JobInvitation[]);
       })
       .finally(() => setLoading(false));
   }, [publicKey]);
@@ -502,54 +486,36 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
           </div>
         )}
 
-        {/* Tabs */}
-        <div className="flex border-b border-market-500/10 mb-6 overflow-x-auto">
-          {(
-            [
-              "posted",
-              "applied",
-              "analytics",
-              ...(canViewSpending ? (["spending"] as Tab[]) : []),
-              "send",
-              "edit_profile",
-              "templates",
-              "price_alerts",
-              "withdrawals",
-              "referrals",
-            ] as Tab[]
-          ).map((t) => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              className={clsx(
-                "px-6 py-3 text-sm font-medium transition-all border-b-2 -mb-px whitespace-nowrap",
-                tab === t
-                  ? "border-market-400 text-market-300"
-                  : "border-transparent text-amber-700 hover:text-amber-400",
-              )}
-            >
-              {t === "posted"
-                ? `Jobs Posted (${myJobs.length})`
-                : t === "applied"
-                  ? `Applications (${myApplications.length})`
-                  : t === "analytics"
-                    ? "Job Analytics"
-                    : t === "spending"
-                      ? "Spending"
-                      : t === "send"
-                        ? "Send Payment"
-                        : t === "templates"
-                          ? "Proposal Templates"
-                          : t === "price_alerts"
-                            ? "Price Alerts"
-                            : t === "withdrawals"
-                              ? `Withdrawals (${withdrawHistory.length})`
-                              : t === "referrals"
-                                ? "Referrals"
-                                : "Edit Profile"}
-            </button>
-          ))}
-        </div>
+      {/* Tabs */}
+      <div className="flex border-b border-market-500/10 mb-6 overflow-x-auto">
+        {(
+          [
+            "posted",
+            "applied",
+            "invitations",
+            "analytics",
+            ...(canViewSpending ? (["spending"] as Tab[]) : []),
+            "send",
+            "edit_profile",
+            "templates",
+            "price_alerts",
+            "withdrawals",
+          ] as Tab[]
+        ).map((t) => (
+          <button key={t} onClick={() => setTab(t)} className={clsx("px-6 py-3 text-sm font-medium transition-all border-b-2 -mb-px whitespace-nowrap", tab === t ? "border-market-400 text-market-300" : "border-transparent text-amber-700 hover:text-amber-400")}>
+            {t === "posted" ? `Jobs Posted (${myJobs.length})` :
+             t === "applied" ? `Applications (${myApplications.length})` :
+             t === "invitations" ? `Invitations${myInvitations.length > 0 ? ` (${myInvitations.length})` : ""}` :
+             t === "analytics" ? "Job Analytics" :
+             t === "spending" ? "Spending" :
+             t === "send" ? "Send Payment" :
+             t === "templates" ? "Proposal Templates" :
+             t === "price_alerts" ? "Price Alerts" :
+             t === "withdrawals" ? `Withdrawals (${withdrawHistory.length})` :
+             "Edit Profile"}
+          </button>
+        ))}
+      </div>
 
         {loading ? (
           <div className="space-y-3">
@@ -800,8 +766,94 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
                     {template.content}
                   </p>
                 </div>
-              ))
-            )}
+                <p className="font-mono font-semibold text-market-400">{formatXLM(app.bidAmount)}</p>
+              </Link>
+            ))}
+          </div>
+        )
+      ) : tab === "invitations" ? (
+        myInvitations.length === 0 ? (
+          <div className="card text-center py-16">
+            <p className="font-display text-xl text-amber-100 mb-2">No invitations yet</p>
+            <p className="text-amber-800 text-sm">When a client invites you to apply to their job, it will appear here.</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {myInvitations.map((inv) => (
+              <div key={inv.id} className="card space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <Link href={`/jobs/${inv.jobId}`} className="font-display font-semibold text-amber-100 hover:text-market-300 transition-colors truncate block">
+                      {inv.jobTitle}
+                    </Link>
+                    <p className="text-xs text-amber-700 mt-0.5">
+                      From: {inv.clientName || inv.clientAddress.slice(0, 12) + "…"} · {timeAgo(inv.createdAt)}
+                    </p>
+                  </div>
+                  <span className="font-mono text-market-400 font-semibold text-sm flex-shrink-0">
+                    {formatXLM(inv.jobBudget)} {inv.jobCurrency}
+                  </span>
+                </div>
+                <p className="text-xs text-amber-700 bg-ink-800 rounded-lg px-3 py-2 border border-market-500/10">
+                  Hi! {inv.clientName || "A client"} has invited you to apply to their job: &ldquo;{inv.jobTitle}&rdquo; — {inv.jobBudget} {inv.jobCurrency}.{" "}
+                  <Link href={`/jobs/${inv.jobId}`} className="text-market-400 hover:underline">View Job</Link>
+                </p>
+                <div className="flex gap-2">
+                  <Link
+                    href={`/jobs/${inv.jobId}`}
+                    className="flex-1 btn-primary text-xs py-2 text-center"
+                  >
+                    View &amp; Apply
+                  </Link>
+                  <button
+                    onClick={async () => {
+                      try {
+                        await declineInvitation(inv.id);
+                        setMyInvitations((prev) => prev.filter((i) => i.id !== inv.id));
+                        success("Invitation declined.");
+                      } catch {
+                        // ignore
+                      }
+                    }}
+                    className="flex-1 btn-secondary text-xs py-2"
+                  >
+                    Decline
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )
+      ) : tab === "analytics" ? (
+        selectedJob ? <JobAnalytics job={selectedJob} onExtend={() => handleExtendJob(selectedJob.id)} /> : (
+          <div className="space-y-3">
+            {myJobs.map((job) => (
+              <button key={job.id} onClick={() => setSelectedJob(job)} className="btn-secondary text-sm px-3 py-2 mr-2 mb-2">{job.title}{extendingJob === job.id ? " (Extending...)" : ""}</button>
+            ))}
+          </div>
+        )
+      ) : tab === "spending" ? (
+        <ClientSpendingTab analytics={spendingAnalytics} loading={spendingLoading} xlmPriceUsd={xlmPriceUsd} />
+      ) : tab === "send" ? (
+        <SendPaymentForm fromPublicKey={publicKey} />
+      ) : tab === "templates" ? (
+        <div className="space-y-4">
+          <div className="card space-y-3">
+            <input value={templateName} onChange={(e) => setTemplateName(e.target.value)} className="input-field" placeholder="Template name" />
+            <textarea value={templateContent} onChange={(e) => setTemplateContent(e.target.value)} className="textarea-field" rows={5} placeholder="Template proposal content" />
+            <button className="btn-primary text-sm" onClick={async () => {
+              if (!templateName.trim() || !templateContent.trim()) return;
+              if (editingTemplateId) {
+                const updated = await updateProposalTemplate(editingTemplateId, { name: templateName, content: templateContent });
+                setTemplates((current) => current.map((item) => item.id === updated.id ? updated : item));
+                setEditingTemplateId(null);
+              } else {
+                const created = await createProposalTemplate({ name: templateName, content: templateContent });
+                setTemplates((current) => [created, ...current]);
+              }
+              setTemplateName("");
+              setTemplateContent("");
+            }}>{editingTemplateId ? "Update Template" : "Create Template"}</button>
           </div>
         ) : tab === "price_alerts" ? (
           (!minPrice && !maxPrice && !emailEnabled) ? (

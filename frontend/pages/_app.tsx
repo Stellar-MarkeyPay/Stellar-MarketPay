@@ -198,7 +198,7 @@ function App({ Component, pageProps }: AppProps) {
               onConnect={handleConnect}
               onDisconnect={() => setPublicKey(null)}
             />
-            <main className="flex-1">
+            <main id="main-content" className="flex-1">
               <Component
                 {...pageProps}
                 publicKey={publicKey}
