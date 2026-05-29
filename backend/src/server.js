@@ -39,9 +39,6 @@ const referralRoutes  = require("./routes/referrals");
 const eventsRoutes    = require("./routes/events");
 const invitationRoutes = require("./routes/invitations");
 
-const referralRoutes  = require("./routes/referrals");
-const eventsRoutes    = require("./routes/events");
- main
 const pool            = require("./db/pool");
 const { migrate } = require("./db/migrate");
 const IndexerService  = require("./services/indexerService");

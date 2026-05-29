@@ -2372,6 +2372,5 @@ mod fuzz_testing {
             assert_eq!(escrow.status, EscrowStatus::Released);
         }
     }
-}
 */
 }
