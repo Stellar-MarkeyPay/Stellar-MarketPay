@@ -200,6 +200,36 @@ export function formatUSDEquivalent(xlmAmount: string | number, xlmPriceUsd: num
 }
 
 /**
+ * Formats a price based on the active currency mode.
+ * Returns the formatted string and optionally the USD equivalent.
+ */
+export function formatPrice(
+  xlmAmount: string | number,
+  xlmPriceUsd: number | null,
+  currencyMode: "XLM" | "USD",
+): { display: string; usdEquiv: string | null } {
+  const num = typeof xlmAmount === "string" ? parseFloat(xlmAmount) : xlmAmount;
+  if (isNaN(num)) return { display: "0 XLM", usdEquiv: null };
+
+  const usdEquiv = xlmPriceUsd !== null
+    ? `$${(num * xlmPriceUsd).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    : null;
+
+  if (currencyMode === "USD" && xlmPriceUsd !== null) {
+    const usd = num * xlmPriceUsd;
+    return {
+      display: `$${usd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      usdEquiv: null,
+    };
+  }
+
+  return {
+    display: `${num.toLocaleString("en-US", { maximumFractionDigits: 4 })} XLM`,
+    usdEquiv,
+  };
+}
+
+/**
  * Calculates a monthly equivalent estimate for a given budget.
  * If no duration is provided, it assumes the budget is for a month of work.
  */

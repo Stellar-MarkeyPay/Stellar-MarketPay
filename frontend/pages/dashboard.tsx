@@ -21,6 +21,10 @@ import {
   fetchMyInvitations,
   declineInvitation,
   acceptInvitation,
+  fetchSavedSearches,
+  updateSavedSearch,
+  deleteSavedSearch,
+  type SavedSearch,
 } from "@/lib/api";
 import { formatXLM, shortenAddress, timeAgo, statusLabel, statusClass, copyToClipboard, exportJobsToCSV, exportApplicationsToCSV } from "@/utils/format";
 import type { Job, Application, ClientSpendingAnalytics, JobInvitation } from "@/utils/types";
@@ -56,7 +60,7 @@ interface DashboardProps {
   onConnect: (pk: string) => void;
 }
 
-type Tab = "posted" | "applied" | "invitations" | "analytics" | "spending" | "send" | "edit_profile" | "templates" | "price_alerts" | "withdrawals";
+type Tab = "posted" | "applied" | "invitations" | "analytics" | "spending" | "send" | "edit_profile" | "templates" | "price_alerts" | "withdrawals" | "saved_searches";
 const REPOST_JOB_PREFILL_STORAGE_KEY = "marketpay_repost_job_prefill";
 
 async function fetchBalances(
@@ -117,6 +121,10 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
   const { success } = useToast();
   const { xlmPriceUsd } = usePriceContext();
   const { progress, checklistItems } = useOnboarding(publicKey);
+
+  // ── Saved searches state (Issue #284) ──────────────────────────────────────
+  const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([]);
+  const [savedSearchesLoading, setSavedSearchesLoading] = useState(false);
 
   // ── Bulk selection state ──────────────────────────────────────────────────
   const [selectedJobIds, setSelectedJobIds] = useState<Set<string>>(new Set());
@@ -314,6 +322,15 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
   }, [publicKey]);
 
   useEffect(() => {
+    if (!publicKey) return;
+    setSavedSearchesLoading(true);
+    fetchSavedSearches()
+      .then(setSavedSearches)
+      .catch(() => {})
+      .finally(() => setSavedSearchesLoading(false));
+  }, [publicKey]);
+
+  useEffect(() => {
     if (tab === "spending" && !canViewSpending) setTab("posted");
   }, [tab, canViewSpending]);
 
@@ -500,6 +517,7 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
             "templates",
             "price_alerts",
             "withdrawals",
+            "saved_searches",
           ] as Tab[]
         ).map((t) => (
           <button key={t} onClick={() => setTab(t)} className={clsx("px-6 py-3 text-sm font-medium transition-all border-b-2 -mb-px whitespace-nowrap", tab === t ? "border-market-400 text-market-300" : "border-transparent text-amber-700 hover:text-amber-400")}>
@@ -512,6 +530,7 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
              t === "templates" ? "Proposal Templates" :
              t === "price_alerts" ? "Price Alerts" :
              t === "withdrawals" ? `Withdrawals (${withdrawHistory.length})` :
+             t === "saved_searches" ? `Saved Searches${savedSearches.length > 0 ? ` (${savedSearches.length})` : ""}` :
              "Edit Profile"}
           </button>
         ))}
@@ -930,6 +949,89 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
                   <p className="font-display font-semibold text-amber-100">
                     {entry.amount} {entry.asset} → {entry.fiatCurrency}
                   </p>
+                </div>
+              ))}
+            </div>
+          )
+        ) : tab === "saved_searches" ? (
+          savedSearchesLoading ? (
+            <div className="space-y-3">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="card animate-pulse h-20" />
+              ))}
+            </div>
+          ) : savedSearches.length === 0 ? (
+            <StateMessage
+              type="empty"
+              title="No saved searches"
+              description="Save a search on the Jobs page to get notified when matching jobs are posted"
+              ctaLabel="Browse Jobs"
+              onCta={() => router.push("/jobs")}
+            />
+          ) : (
+            <div className="space-y-3">
+              {savedSearches.map((s) => (
+                <div key={s.id} className="card flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-wrap gap-1.5 mb-2">
+                      {Object.entries(s.query_params).map(([key, val]) => (
+                        <span
+                          key={key}
+                          className="text-xs bg-market-500/10 text-market-400 border border-market-500/20 px-2 py-0.5 rounded-md"
+                        >
+                          {key}: {val}
+                        </span>
+                      ))}
+                      {Object.keys(s.query_params).length === 0 && (
+                        <span className="text-xs text-amber-700">All jobs</span>
+                      )}
+                    </div>
+                    <p className="text-xs text-amber-800">
+                      Saved {new Date(s.created_at).toLocaleDateString()} ·
+                      In-app: {s.notify_in_app ? "✓" : "✕"} ·
+                      Email: {s.notify_email ? "✓" : "✕"}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <button
+                      onClick={async () => {
+                        try {
+                          const updated = await updateSavedSearch(s.id, {
+                            notify_in_app: !s.notify_in_app,
+                          });
+                          setSavedSearches((prev) =>
+                            prev.map((x) => (x.id === updated.id ? updated : x))
+                          );
+                          success("Notification preference updated");
+                        } catch {
+                          // ignore
+                        }
+                      }}
+                      className={`text-xs px-3 py-2 rounded-lg border min-h-[44px] transition-colors ${
+                        s.notify_in_app
+                          ? "bg-market-500/15 text-market-300 border-market-500/30"
+                          : "bg-ink-800 text-amber-700 border-market-500/10"
+                      }`}
+                      title="Toggle in-app notifications"
+                    >
+                      🔔 In-app
+                    </button>
+                    <button
+                      onClick={async () => {
+                        try {
+                          await deleteSavedSearch(s.id);
+                          setSavedSearches((prev) => prev.filter((x) => x.id !== s.id));
+                          success("Saved search removed");
+                        } catch {
+                          // ignore
+                        }
+                      }}
+                      className="text-xs px-3 py-2 rounded-lg border border-red-500/20 text-red-400 hover:bg-red-500/10 min-h-[44px] transition-colors"
+                      title="Delete saved search"
+                    >
+                      ✕ Remove
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>

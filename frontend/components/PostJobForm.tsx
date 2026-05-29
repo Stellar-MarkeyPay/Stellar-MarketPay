@@ -425,6 +425,11 @@ export default function PostJobForm({
                 disabled={isInProgress}
                 className="input-field"
               />
+              {xlmPriceUsd !== null && form.budget && !isNaN(parseFloat(form.budget)) && (
+                <p className="text-xs text-amber-700 mt-1">
+                  ≈ ${(parseFloat(form.budget) * xlmPriceUsd).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD
+                </p>
+              )}
             </div>
             <div>
               <label className="label">Currency</label>

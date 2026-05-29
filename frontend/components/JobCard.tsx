@@ -8,11 +8,11 @@ import {
   formatDeadline,
   formatXLM,
   getDeadlineState,
-  getMonthlyEstimate,
   statusClass,
   statusLabel,
   timeAgo,
   formatUSDEquivalent,
+  formatPrice,
 } from "@/utils/format";
 import type { Job } from "@/utils/types";
 import { usePriceContext } from "@/contexts/PriceContext";
@@ -83,9 +83,10 @@ function CountdownTimer({ deadline }: { deadline: string }) {
 }
 
 export default function JobCard({ job, isFocused = false, onFocus }: JobCardProps) {
-  const { xlmPriceUsd } = usePriceContext();
+  const { xlmPriceUsd, currencyMode, priceLoading } = usePriceContext();
   const { isSaved, toggleBookmark } = useBookmarks();
   const usdEquivalent = formatUSDEquivalent(job.budget, xlmPriceUsd);
+  const price = formatPrice(job.budget, xlmPriceUsd, currencyMode);
 
   // ── ISSUE #78: Hover Card State & Logic ──────────────────────────────────────────
   const [showPreview, setShowPreview] = useState(false);
@@ -180,20 +181,20 @@ export default function JobCard({ job, isFocused = false, onFocus }: JobCardProp
           <div className="group/tooltip relative">
             <p className="text-xs text-amber-800 mb-0.5">Budget</p>
             <p className="font-mono font-semibold text-market-400 text-sm cursor-help">
-              {formatXLM(job.budget)}
+              {price.display}
             </p>
-            {usdEquivalent && (
+            {currencyMode === "XLM" && price.usdEquiv && (
               <div className="absolute bottom-full left-0 mb-2 hidden group-hover/tooltip:block z-20">
                 <div className="bg-ink-800 border border-market-500/30 text-amber-100 text-[10px] py-1.5 px-2.5 rounded shadow-xl whitespace-nowrap backdrop-blur-md">
                   <p className="font-semibold text-market-300">
-                    {usdEquivalent}
-                  </p>
-                  <p className="text-amber-800/80 mt-0.5">
-                    {getMonthlyEstimate(job.budget, xlmPriceUsd)}
+                    {price.usdEquiv}
                   </p>
                 </div>
                 <div className="w-2 h-2 bg-ink-800 border-r border-b border-market-500/30 rotate-45 -mt-1 ml-3" />
               </div>
+            )}
+            {priceLoading && (
+              <span className="inline-block ml-1 w-3 h-3 border border-market-400/40 border-t-transparent rounded-full animate-spin align-middle" />
             )}
           </div>
           <div className="text-right flex items-center gap-2">
