@@ -164,6 +164,8 @@ pub enum DataKey {
     ArbitrationCase(u32),
     ArbitrationCaseCount,
     Version,
+    /// Stores list of IPFS CIDs for messages in a job thread
+    MessageCid(String),
 }
 
 /// A governance proposal
@@ -645,6 +647,64 @@ impl MarketPayContract {
     /// Get the contract admin.
     pub fn get_admin(env: Env) -> Address {
         env.storage().instance().get(&DataKey::Admin).expect("Not initialized")
+    }
+
+    // ─── On-chain Message Notarization ─────────────────────────────────────
+    //
+    // Messages are stored off-chain on IPFS.  Only the IPFS CID is stored on-chain
+    // via events, providing censorship resistance and verifiability without the
+    // cost of storing full message content on-chain.
+
+    /// Publish a message CID to the ledger.
+    ///
+    /// The message content itself is stored off-chain (IPFS).  This function
+    /// records the IPFS CID on-chain so recipients can verify message authenticity
+    /// from Stellar Explorer.
+    ///
+    /// Parameters:
+    ///   job_id    — job this message belongs to
+    ///   sender    — the party sending the message
+    ///   recipient — the party receiving the message
+    ///   ipfs_cid  — IPFS content identifier for the encrypted message payload
+    pub fn publish_message(
+        env: Env,
+        job_id: String,
+        sender: Address,
+        recipient: Address,
+        ipfs_cid: String,
+    ) {
+        sender.require_auth();
+
+        // Basic validation
+        if ipfs_cid.len() == 0 {
+            panic!("IPFS CID cannot be empty");
+        }
+
+        // Store CID in contract storage for on-chain verification
+        let mut cids: soroban_sdk::Vec<String> = env.storage().instance()
+            .get(&DataKey::MessageCid(job_id.clone()))
+            .unwrap_or_else(|| soroban_sdk::Vec::new(&env));
+        cids.push_back(ipfs_cid.clone());
+        env.storage().instance().set(&DataKey::MessageCid(job_id.clone()), &cids);
+
+        let ledger_seq = env.ledger().sequence();
+
+        env.events().publish(
+            (Symbol::new(&env, "message_sent"), job_id.clone()),
+            (
+                sender.clone(),
+                recipient.clone(),
+                ipfs_cid,
+                ledger_seq,
+            ),
+        );
+    }
+
+    /// Retrieve all message CIDs stored on-chain for a job.
+    pub fn get_message_cids(env: Env, job_id: String) -> soroban_sdk::Vec<String> {
+        env.storage().instance()
+            .get(&DataKey::MessageCid(job_id))
+            .unwrap_or_else(|| soroban_sdk::Vec::new(&env))
     }
 
     // ─── Governance (DAO) ───────────────────────────────────────────────────

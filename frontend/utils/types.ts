@@ -160,6 +160,8 @@ export interface Message {
   content: string;
   read: boolean;
   createdAt: string;
+  ipfsCid?: string;
+  txHash?: string;
 }
 
 export interface PortfolioFile {

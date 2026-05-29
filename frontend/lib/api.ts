@@ -796,10 +796,11 @@ export async function fetchMessages(jobId: string): Promise<Message[]> {
 export async function sendMessage(
   jobId: string,
   content: string,
+  contractTxHash?: string,
 ): Promise<Message> {
   const { data } = await api.post<{ success: boolean; data: Message }>(
     `/api/messages/job/${jobId}`,
-    { content },
+    { content, contractTxHash },
   );
   return data.data;
 }
@@ -817,6 +818,21 @@ export async function fetchUnreadCount(): Promise<number> {
     data: { unreadCount: number };
   }>("/api/messages/unread-count");
   return data.data.unreadCount;
+}
+
+/**
+ * Attaches an on-chain Soroban transaction hash to a message record.
+ * Called after the frontend signs and submits the publish_message event.
+ */
+export async function attachMessageTxHash(
+  messageId: string,
+  txHash: string,
+): Promise<Message> {
+  const { data } = await api.patch<{ success: boolean; data: Message }>(
+    `/api/messages/${messageId}/tx-hash`,
+    { txHash },
+  );
+  return data.data;
 }
 
 // ─── Earnings (Issue #181) ────────────────────────────────────────────────────
