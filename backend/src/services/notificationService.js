@@ -20,6 +20,7 @@ const EVENT_TYPES = {
   DISPUTE_OPENED: "dispute_opened",
   APPLICATION_ACCEPTED: "application_accepted",
   JOB_COMPLETED: "job_completed",
+  JOB_INVITED: "job_invited",
 };
 
 /**
@@ -172,6 +173,11 @@ function generateEmailContent(eventType, data) {
       subject: `Job Completed: ${jobTitle}`,
       text: `The job "${jobTitle}" has been completed.\n\nJob: ${jobUrl}\n\nThank you for using Stellar MarketPay!`,
       html: `<h2>Job Completed</h2><p>The job "<strong>${jobTitle}</strong>" has been completed.</p><p><a href="${jobUrl}">View Job</a></p><p>Thank you for using Stellar MarketPay!</p>`,
+    },
+    [EVENT_TYPES.JOB_INVITED]: {
+      subject: `You've been invited to apply: ${jobTitle}`,
+      text: `A client has invited you to apply to their job: "${jobTitle}".\n\nBudget: ${amount} ${currency}\nJob: ${jobUrl}\n\nView the job and apply directly from the link above.`,
+      html: `<h2>Job Invitation</h2><p>A client has invited you to apply to their job: "<strong>${jobTitle}</strong>".</p><p><strong>Budget:</strong> ${amount} ${currency}</p><p><a href="${jobUrl}">View Job &amp; Apply</a></p>`,
     },
   };
 

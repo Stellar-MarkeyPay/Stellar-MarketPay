@@ -12,8 +12,11 @@ const jobCreationRateLimiter = createRateLimiter(10, 1); // 10 job creations per
 const generalJobRateLimiter = createRateLimiter(30, 1); // 100 requests per minute for listing/getting jobs
 const suggestRateLimiter = createRateLimiter(60, 1); // 60 suggest requests per minute
 
-const jobService = require("../services/jobService");
-const { createJob, getJob, listJobs, listJobsByClient, updateJobEscrowId, deleteJob, boostJob, incrementShareCount, raiseDispute, resolveDispute, getRecommendedJobs, getSuggestions } = jobService.default || jobService;
+const {
+  createJob, getJob, listJobs, listJobsByClient, updateJobEscrowId, deleteJob,
+  boostJob, incrementShareCount, raiseDispute, resolveDispute,
+  getRecommendedJobs, getSuggestions, extendJobExpiry, incrementViewCount,
+} = require("../services/jobService");
 const { verifyJWT } = require("../middleware/auth");
 
 // Feed Helpers
@@ -316,30 +319,24 @@ router.post("/:id/view", generalJobRateLimiter, async (req, res, next) => {
 });
 
 // POST /api/jobs/:id/invite — invite freelancer to invite-only job
-router.post(
-  "/:id/invite",
-  verifyJWT,
-  generalJobRateLimiter,
-  async (req, res, next) => {
-    try {
-      const invitation = await inviteFreelancerToJob({
-        jobId: req.params.id,
-        clientAddress: req.user.publicKey,
-        freelancerAddress: req.body.freelancerAddress,
-      });
+router.post("/:id/invite", verifyJWT, generalJobRateLimiter, async (req, res, next) => {
+  try {
+    const { inviteFreelancerToJob } = require("../services/jobInvitationService");
+    const invitation = await inviteFreelancerToJob({
+      jobId: req.params.id,
+      clientAddress: req.user.publicKey,
+      freelancerAddress: req.body.freelancerAddress,
+    });
 
-      req.app.locals.broadcastRealtime?.("job:invited", {
-        jobId: req.params.id,
-        recipientAddress: invitation.freelancer_address,
-        invitedAt: invitation.created_at,
-      });
+    req.app.locals.broadcastRealtime?.("job:invited", {
+      jobId: req.params.id,
+      recipientAddress: invitation.freelancer_address,
+      invitedAt: invitation.created_at,
+    });
 
-      res.status(201).json({ success: true, data: invitation });
-    } catch (e) {
-      next(e);
-    }
-  },
-);
+    res.status(201).json({ success: true, data: invitation });
+  } catch (e) { next(e); }
+});
 
 // PATCH /api/jobs/:id/escrow — store escrow contract ID after on-chain lock
 router.patch(
@@ -364,25 +361,22 @@ router.patch(
 );
 
 // PATCH /api/jobs/:id/boost — boost a job listing for 7 days
-router.patch(
-  "/:id/boost",
-  verifyJWT,
-  generalJobRateLimiter,
-  async (req, res, next) => {
-    try {
-      const { txHash } = req.body;
-      if (!txHash || typeof txHash !== "string") {
-        return res
-          .status(400)
-          .json({ success: false, error: "Transaction hash is required" });
-      }
-      const job = await boostJob(req.params.id, txHash);
-      res.json({ success: true, data: job });
-    } catch (e) {
-      next(e);
+router.patch("/:id/boost", verifyJWT, generalJobRateLimiter, async (req, res, next) => {
+  try {
+    const { txHash, amountXlm } = req.body;
+    if (!txHash || typeof txHash !== "string") {
+      return res.status(400).json({ success: false, error: "Transaction hash is required" });
     }
-  },
-);
+
+    // Determine boost duration from payment amount
+    // 5 XLM = 7 days, 15 XLM = 30 days
+    const amount = parseFloat(amountXlm) || 0;
+    const boostDays = amount >= 15 ? 30 : 7;
+
+    const job = await boostJob(req.params.id, txHash, boostDays);
+    res.json({ success: true, data: job });
+  } catch (e) { next(e); }
+});
 
 // GET /api/jobs/:id/analytics — job performance analytics
 router.get("/:id/analytics", generalJobRateLimiter, async (req, res, next) => {
@@ -395,7 +389,8 @@ router.get("/:id/analytics", generalJobRateLimiter, async (req, res, next) => {
   }
 });
 
-// PATCH /api/jobs/:id/extend — extend job expiry by 30 days
+// PATCH /api/jobs/:id/extend — extend job expiry with XLM fee
+// Validates: only job owner, max 90-day total extension, charges 0.5 XLM per 7-day block
 router.patch(
   "/:id/extend",
   verifyJWT,
@@ -403,7 +398,15 @@ router.patch(
   async (req, res, next) => {
     try {
       const { days } = req.body;
-      const job = await extendJobExpiry(req.params.id, days || 30);
+      const validDays = [7, 14, 30];
+      const daysNum = parseInt(days, 10) || 30;
+      if (!validDays.includes(daysNum)) {
+        return res.status(400).json({
+          success: false,
+          error: "Extension days must be 7, 14, or 30",
+        });
+      }
+      const job = await extendJobExpiry(req.params.id, daysNum, req.user.publicKey);
       res.json({ success: true, data: job });
     } catch (e) {
       next(e);

@@ -186,6 +186,27 @@ export interface TokenBalance {
   symbol: string;
 }
 
+// ─── Skill Endorsements ────────────────────────────────────────
+
+export interface SkillEndorsement {
+  skill: string;
+  count: number;
+  endorsers: string[];
+}
+
+export interface SkillBadge {
+  skill: string;
+  score: number;
+  passed: boolean;
+  taken_at: string;
+}
+
+export interface AssessmentQuestion {
+  id: number;
+  question: string;
+  options: string[];
+}
+
 // ─── Referrals ────────────────────────────────────────────────────────────────
 
 export type ReferralStatus = "pending" | "paid" | "ineligible";
@@ -219,4 +240,19 @@ export interface ReferralStats {
   bonusBps: number;
   referees: ReferralReferee[];
   payouts: ReferralPayout[];
+}
+
+// ─── Job Invitations (Issue #342) ─────────────────────────────────────────────
+
+export interface JobInvitation {
+  id: string;
+  jobId: string;
+  jobTitle: string;
+  jobBudget: string;
+  jobCurrency: Currency;
+  clientAddress: string;
+  clientName?: string;
+  freelancerAddress: string;
+  status: "pending" | "accepted" | "declined";
+  createdAt: string;
 }
