@@ -242,17 +242,20 @@ export interface ReferralStats {
   payouts: ReferralPayout[];
 }
 
-// ─── Job Invitations (Issue #342) ─────────────────────────────────────────────
-
-export interface JobInvitation {
+export interface TimeEntry {
   id: string;
   jobId: string;
-  jobTitle: string;
-  jobBudget: string;
-  jobCurrency: Currency;
-  clientAddress: string;
-  clientName?: string;
-  freelancerAddress: string;
-  status: "pending" | "accepted" | "declined";
+  durationMinutes: number;
+  description?: string;
+  startedAt?: string;
+  createdAt: string;
+}
+
+export interface TimeInvoice {
+  id: string;
+  jobId: string;
+  status: "pending" | "approved" | "rejected";
+  totalMinutes: number;
+  amountXlm: string;
   createdAt: string;
 }

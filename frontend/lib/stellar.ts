@@ -33,10 +33,12 @@ const SOROBAN_RPC_URL = optionalClientEnv(
     ? "https://soroban-mainnet.stellar.org"
     : "https://soroban-testnet.stellar.org",
 );
-const CONTRACT_ID =
-  process.env.NEXT_PUBLIC_USE_CONTRACT_MOCK === "true"
-    ? ""
-    : requireClientEnv("NEXT_PUBLIC_CONTRACT_ID");
+const USE_CONTRACT_MOCK =
+  process.env.NEXT_PUBLIC_USE_CONTRACT_MOCK === "true";
+
+const CONTRACT_ID = USE_CONTRACT_MOCK
+  ? ""
+  : requireClientEnv("NEXT_PUBLIC_CONTRACT_ID");
 
 export const server = new Horizon.Server(HORIZON_URL, { allowHttp: false });
 
@@ -232,12 +234,74 @@ export async function signAndSubmitEscrowTx(
 export async function createEscrowOnChain(
   params: EscrowParams,
 ): Promise<EscrowResult> {
+  if (USE_CONTRACT_MOCK) {
+    const { mockCreateEscrow } = await import("./contractMock");
+    const txHash = await mockCreateEscrow({
+      jobId: params.jobId,
+      client: params.clientPublicKey,
+      freelancer: params.clientPublicKey,
+      token: "native",
+      amount: String(BigInt(Math.round(params.budgetXlm * 10_000_000))),
+    });
+    return { txHash };
+  }
+
   const preparedXdr = await buildCreateEscrowTx(params);
   return signAndSubmitEscrowTx(preparedXdr);
 }
 
+export async function buildReleaseEscrowTransaction(
+  _escrowContractId: string,
+  jobId: string,
+  clientPublicKey: string,
+): Promise<{ toXDR: () => string }> {
+  if (USE_CONTRACT_MOCK) {
+    const { mockReleaseEscrow } = await import("./contractMock");
+    await mockReleaseEscrow({ jobId, client: clientPublicKey });
+    return { toXDR: () => "MOCK_UNSIGNED_XDR" };
+  }
+
+  throw new Error(
+    "Release escrow requires NEXT_PUBLIC_USE_CONTRACT_MOCK=true or a deployed contract integration.",
+  );
+}
+
+export async function submitSignedSorobanTransaction(
+  _signedXDR: string,
+): Promise<{ hash: string }> {
+  if (USE_CONTRACT_MOCK) {
+    return { hash: `mock-${Date.now().toString(16)}` };
+  }
+
+  throw new Error(
+    "Soroban submission requires NEXT_PUBLIC_USE_CONTRACT_MOCK=true or RPC configuration.",
+  );
+}
+
+export const USDC_SAC_ADDRESS = "";
+export const XLM_SAC_ADDRESS = "";
+
+export async function getEscrowState(_jobId: string) {
+  return null;
+}
+
+export function subscribeToContractEvents(
+  _jobId: string,
+  _handler: (event: unknown) => void,
+) {
+  return () => {};
+}
+
+export async function buildPartialReleaseTransaction(
+  _contractId: string,
+  _jobId: string,
+  _clientPublicKey: string,
+  _index: number,
+) {
+  throw new Error("Partial release is not available in mock mode.");
+}
+
 // ---------------------------------------------------------------------------
-<<<<<<< feat-implement-on-chain-messaging-via-Soroban-contract-events
 // On-chain Message Notarization
 // ---------------------------------------------------------------------------
 
@@ -361,19 +425,135 @@ export async function publishMessageOnChain(
 
 // ---------------------------------------------------------------------------
 // Transaction History & Explorer URLs
-=======
 // Shared Soroban RPC server instance (used by sorobanFees.ts)
+// On-chain Message Notarization
 // ---------------------------------------------------------------------------
 
-export const sorobanServer = new SorobanRpc.Server(SOROBAN_RPC_URL, {
-  allowHttp: false,
-});
+export interface MessageTxParams {
+  jobId: string;
+  senderPublicKey: string;
+  recipientPublicKey: string;
+  ipfsCid: string;
+}
 
-export { NETWORK_PASSPHRASE };
+/**
+ * Builds a Soroban `publish_message` transaction, simulates it, and returns
+ * a base64-encoded XDR ready for Freighter signing.
+ */
+export async function buildPublishMessageTx(
+  params: MessageTxParams,
+): Promise<string> {
+  if (!CONTRACT_ID) {
+    throw new Error(
+      "NEXT_PUBLIC_CONTRACT_ID is not set. Add it to your .env.local file.",
+    );
+  }
+
+  const server = new SorobanRpc.Server(SOROBAN_RPC_URL, {
+    allowHttp: false,
+  });
+
+  const { jobId, senderPublicKey, recipientPublicKey, ipfsCid } = params;
+  const account = await server.getAccount(senderPublicKey);
+
+  const contract = new Contract(CONTRACT_ID);
+  const callArgs = [
+    nativeToScVal(jobId, { type: "string" }),
+    Address.fromString(senderPublicKey).toScVal(),
+    Address.fromString(recipientPublicKey).toScVal(),
+    nativeToScVal(ipfsCid, { type: "string" }),
+  ];
+
+  const tx = new TransactionBuilder(account, {
+    fee: BASE_FEE,
+    networkPassphrase: NETWORK_PASSPHRASE,
+  })
+    .addOperation(contract.call("publish_message", ...callArgs))
+    .setTimeout(300)
+    .build();
+
+  const simResponse = await server.simulateTransaction(tx);
+
+  if (SorobanRpc.Api.isSimulationError(simResponse)) {
+    throw new Error(`Soroban simulation failed: ${simResponse.error}`);
+  }
+
+  const assembledTx = SorobanRpc.assembleTransaction(tx, simResponse).build();
+  return assembledTx.toXDR();
+}
+
+/**
+ * Signs the prepared publish_message XDR via Freighter and submits it.
+ * Returns the confirmed transaction hash.
+ */
+async function signAndSubmitToSoroban(
+  preparedXdr: string,
+): Promise<string> {
+  const { signTransaction } = await getFreighter();
+
+  const { signedTransaction } = await signTransaction(preparedXdr, {
+    network: "TESTNET",
+    networkPassphrase: NETWORK_PASSPHRASE,
+  });
+
+  const server = new SorobanRpc.Server(SOROBAN_RPC_URL, {
+    allowHttp: false,
+  });
+
+  const sendResponse = await server.sendTransaction(
+    (() => {
+      const { Transaction } = require("@stellar/stellar-sdk");
+      return new Transaction(signedTransaction, NETWORK_PASSPHRASE);
+    })(),
+  );
+
+  if (sendResponse.status === "ERROR") {
+    const resultXdr = sendResponse.errorResult?.toXDR("base64") ?? "unknown";
+    throw new Error(`Transaction submission failed. Result XDR: ${resultXdr}`);
+  }
+
+  const txHash = sendResponse.hash;
+
+  let getResponse = await server.getTransaction(txHash);
+  const MAX_POLLS = 20;
+  let polls = 0;
+
+  while (
+    getResponse.status === SorobanRpc.Api.GetTransactionStatus.NOT_FOUND &&
+    polls < MAX_POLLS
+  ) {
+    await new Promise((r) => setTimeout(r, 1500));
+    getResponse = await server.getTransaction(txHash);
+    polls++;
+  }
+
+  if (getResponse.status !== SorobanRpc.Api.GetTransactionStatus.SUCCESS) {
+    throw new Error(
+      `Transaction did not succeed. Status: ${getResponse.status}`,
+    );
+  }
+
+  return txHash;
+}
+
+/**
+ * Convenience: build → sign → submit publish_message in one call.
+ * Returns the transaction hash.
+ */
+export async function publishMessageOnChain(
+  params: MessageTxParams,
+): Promise<string> {
+  const preparedXdr = await buildPublishMessageTx(params);
+  return signAndSubmitToSoroban(preparedXdr);
+}
 
 // ---------------------------------------------------------------------------
+ feat-implement-on-chain-messaging-via-Soroban-contract-events
 // XLM balance helper
->>>>>>> main
+ main
+
+// Transaction History & Explorer URLs
+main
 // ---------------------------------------------------------------------------
 
 /**

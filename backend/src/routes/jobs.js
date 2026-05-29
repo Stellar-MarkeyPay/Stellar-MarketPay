@@ -8,16 +8,23 @@ const router = express.Router();
 
 const { createRateLimiter } = require("../middleware/rateLimiter");
 
-const jobCreationRateLimiter = createRateLimiter(10, 1); // 10 job creations per minute
-const generalJobRateLimiter = createRateLimiter(30, 1); // 100 requests per minute for listing/getting jobs
-const suggestRateLimiter = createRateLimiter(60, 1); // 60 suggest requests per minute
+const jobCreationRateLimiter = createRateLimiter(10, 1);
+const generalJobRateLimiter = createRateLimiter(30, 1);
+const suggestRateLimiter = createRateLimiter(60, 1);
+const reportJobRateLimiter = createRateLimiter(5, 1);
 
 const {
   createJob, getJob, listJobs, listJobsByClient, updateJobEscrowId, deleteJob,
   boostJob, incrementShareCount, raiseDispute, resolveDispute,
   getRecommendedJobs, getSuggestions, extendJobExpiry, incrementViewCount,
 } = require("../services/jobService");
+const { logContractInteraction } = require("../services/contractAuditService");
 const { verifyJWT } = require("../middleware/auth");
+const cache = require("../services/cacheService");
+const jobDraftService = require("../services/jobDraftService");
+const recommendationService = require("../services/recommendationService");
+
+const jobReports = new Map();
 
 // Feed Helpers
 
@@ -162,9 +169,24 @@ router.get("/", generalJobRateLimiter, async (req, res, next) => {
       timezone,
       viewerAddress,
       include_expired,
+      page,
     } = req.query;
     const safeLimit = Math.max(1, Math.min(parseInt(limit, 10) || 20, 100));
     const includeExpired = include_expired === "true";
+
+    // Deprecated offset-style `page` param — cursor pagination is canonical (#291).
+    if (page !== undefined && cursor === undefined) {
+      res.set("Deprecation", "true");
+      res.set("Link", '</api/jobs>; rel="deprecation"');
+      res.set("Sunset", "2025-12-31");
+    }
+
+    const cacheKey = cache.jobListKey({ category, status, limit: String(safeLimit), search, cursor, timezone, viewerAddress, include_expired: String(includeExpired) });
+    const cached = await cache.get(cacheKey);
+    if (cached) {
+      res.set("X-Cache", "HIT");
+      return res.json({ success: true, ...cached, ...(page !== undefined && cursor === undefined && { _deprecation: "The `page` parameter is deprecated. Use cursor-based pagination via `nextCursor`." }) });
+    }
 
     const result = await listJobs({
       category,
@@ -176,10 +198,16 @@ router.get("/", generalJobRateLimiter, async (req, res, next) => {
       viewerAddress,
       includeExpired,
     });
+
+    await cache.set(cacheKey, { data: result.jobs, nextCursor: result.nextCursor }, cache.TTL.JOBS_LIST);
+    res.set("X-Cache", "MISS");
     res.json({
       success: true,
       data: result.jobs,
       nextCursor: result.nextCursor,
+      ...(page !== undefined && cursor === undefined && {
+        _deprecation: "The `page` parameter is deprecated. Use cursor-based pagination via `nextCursor`.",
+      }),
     });
   } catch (e) {
     next(e);
@@ -302,6 +330,7 @@ router.get("/:id", generalJobRateLimiter, async (req, res, next) => {
 router.post("/", jobCreationRateLimiter, async (req, res, next) => {
   try {
     const job = await createJob(req.body);
+    await cache.delPattern("jobs:list:*");
     res.status(201).json({ success: true, data: job });
   } catch (e) {
     next(e);
@@ -422,8 +451,7 @@ router.post("/:id/referral", generalJobRateLimiter, async (req, res, next) => {
       return res
         .status(400)
         .json({ success: false, error: "Referrer address is required" });
-    const ip = req.ip;
-    await trackReferral(req.params.id, referrer, ip);
+    await incrementShareCount(req.params.id);
     res.json({ success: true });
   } catch (e) {
     next(e);

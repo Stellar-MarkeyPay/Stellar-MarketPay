@@ -13,6 +13,7 @@
 
 const pool = require("../db/pool");
 const { uploadMessage, getGatewayUrl } = require("./ipfsService");
+const { uploadMessage } = require("./ipfsService");
 
 /* ─── helpers ────────────────────────────────────────────────────────────────── */
 

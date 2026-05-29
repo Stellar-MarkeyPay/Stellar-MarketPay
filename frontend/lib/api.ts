@@ -15,6 +15,8 @@ import type {
   TokenInfo,
   TokenBalance,
   ReferralStats,
+  TimeEntry,
+  TimeInvoice,
 } from "@/utils/types";
 
 const api = axios.create({
@@ -553,6 +555,57 @@ export async function resolveDispute(jobId: string) {
   return data.data;
 }
 
+// ─── Time entries ─────────────────────────────────────────────────────────────
+
+export async function logTimeEntry(payload: {
+  jobId: string;
+  durationMinutes: number;
+  description?: string;
+  startedAt?: string;
+}) {
+  const { data } = await api.post<{ success: boolean; data: TimeEntry }>(
+    "/api/time-entries",
+    payload,
+  );
+  return data.data;
+}
+
+export async function fetchTimeEntries(jobId: string): Promise<TimeEntry[]> {
+  const { data } = await api.get<{ success: boolean; data: TimeEntry[] }>(
+    `/api/time-entries/job/${jobId}`,
+  );
+  return data.data;
+}
+
+export async function fetchTimeInvoices(jobId: string): Promise<TimeInvoice[]> {
+  const { data } = await api.get<{ success: boolean; data: TimeInvoice[] }>(
+    `/api/time-entries/job/${jobId}/invoices`,
+  );
+  return data.data;
+}
+
+export async function generateTimeInvoice(payload: {
+  jobId: string;
+  hourlyRateXlm: number;
+}) {
+  const { data } = await api.post<{ success: boolean; data: TimeInvoice }>(
+    "/api/time-entries/invoice",
+    payload,
+  );
+  return data.data;
+}
+
+export async function reviewTimeInvoice(
+  invoiceId: string,
+  decision: "approved" | "rejected",
+) {
+  const { data } = await api.patch<{ success: boolean; data: TimeInvoice }>(
+    `/api/time-entries/invoice/${invoiceId}/review`,
+    { decision },
+  );
+  return data.data;
+}
+
 // ─── Ratings ──────────────────────────────────────────────────────────────────
 
 export async function submitRating(payload: {
@@ -984,13 +1037,20 @@ export async function fetchDisputeDetail(
 export async function uploadDisputeEvidence(
   jobId: string,
   file: File,
+  onProgress?: (pct: number) => void,
 ): Promise<DisputeEvidence> {
   const formData = new FormData();
   formData.append("file", file);
   const { data } = await api.post<{ success: boolean; data: DisputeEvidence }>(
     `/api/disputes/${jobId}/evidence`,
     formData,
-    { headers: { "Content-Type": "multipart/form-data" }, timeout: 60000 },
+    {
+      headers: { "Content-Type": "multipart/form-data" },
+      timeout: 60000,
+      onUploadProgress: onProgress
+        ? (e) => { if (e.total) onProgress(Math.round((e.loaded / e.total) * 100)); }
+        : undefined,
+    },
   );
   return data.data;
 }
