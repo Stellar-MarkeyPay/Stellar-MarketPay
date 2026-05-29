@@ -29,6 +29,15 @@ ALTER TABLE profiles
 ALTER TABLE profiles
   ADD COLUMN IF NOT EXISTS blocked_addresses TEXT[] NOT NULL DEFAULT '{}';
 
+-- Weekly digest fields (V5)
+ALTER TABLE profiles
+  ADD COLUMN IF NOT EXISTS email                   TEXT,
+  ADD COLUMN IF NOT EXISTS last_login_at           TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS digest_unsubscribe_token UUID NOT NULL DEFAULT gen_random_uuid();
+
+CREATE UNIQUE INDEX IF NOT EXISTS profiles_digest_unsubscribe_token_idx
+  ON profiles(digest_unsubscribe_token);
+
 -- ─────────────────────────────────────────
 -- jobs
 -- ─────────────────────────────────────────
@@ -333,48 +342,29 @@ CREATE INDEX IF NOT EXISTS time_invoices_freelancer_idx    ON time_invoices(free
 CREATE INDEX IF NOT EXISTS time_invoices_client_idx        ON time_invoices(client_address);
 
 -- ─────────────────────────────────────────
--- admin audit trail + frozen wallets + developer API keys
+-- job_invitations  (Issue #342 — direct invitations)
 -- ─────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS audit_logs (
-  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  actor_address   TEXT        NOT NULL,
-  action          TEXT        NOT NULL,
-  target          TEXT,
-  reason          TEXT,
-  metadata        JSONB       NOT NULL DEFAULT '{}'::jsonb,
-  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+CREATE TABLE IF NOT EXISTS job_invitations (
+  id                  UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  job_id              UUID        NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+  client_address      TEXT        NOT NULL REFERENCES profiles(public_key),
+  freelancer_address  TEXT        NOT NULL REFERENCES profiles(public_key),
+  status              TEXT        NOT NULL DEFAULT 'pending'
+                                  CHECK (status IN ('pending', 'accepted', 'declined')),
+  created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (job_id, freelancer_address)
 );
 
-CREATE INDEX IF NOT EXISTS audit_logs_actor_idx    ON audit_logs(actor_address);
-CREATE INDEX IF NOT EXISTS audit_logs_action_idx   ON audit_logs(action);
-CREATE INDEX IF NOT EXISTS audit_logs_created_idx  ON audit_logs(created_at DESC);
+CREATE INDEX IF NOT EXISTS job_invitations_freelancer_idx ON job_invitations(freelancer_address);
+CREATE INDEX IF NOT EXISTS job_invitations_job_id_idx     ON job_invitations(job_id);
 
-CREATE TABLE IF NOT EXISTS frozen_wallets (
-  address         TEXT PRIMARY KEY,
-  reason          TEXT,
-  frozen_by       TEXT        NOT NULL REFERENCES profiles(public_key),
-  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
+-- Add status column to existing job_invitations if it was created without it
+ALTER TABLE job_invitations ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'pending'
+  CHECK (status IN ('pending', 'accepted', 'declined'));
 
-CREATE TABLE IF NOT EXISTS api_keys (
-  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  owner_public_key  TEXT        NOT NULL REFERENCES profiles(public_key) ON DELETE CASCADE,
-  label             TEXT        NOT NULL DEFAULT 'Developer key',
-  key_prefix        TEXT        NOT NULL,
-  key_hash          TEXT        NOT NULL UNIQUE,
-  last_used_at      TIMESTAMPTZ,
-  revoked_at        TIMESTAMPTZ,
-  created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX IF NOT EXISTS api_keys_owner_idx      ON api_keys(owner_public_key);
-CREATE INDEX IF NOT EXISTS api_keys_prefix_idx     ON api_keys(key_prefix);
-CREATE INDEX IF NOT EXISTS api_keys_revoked_idx    ON api_keys(revoked_at);
-
-CREATE TABLE IF NOT EXISTS api_key_usage_daily (
-  api_key_id       UUID        NOT NULL REFERENCES api_keys(id) ON DELETE CASCADE,
-  usage_date       DATE        NOT NULL,
-  request_count    INTEGER     NOT NULL DEFAULT 0,
-  updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY (api_key_id, usage_date)
-);
+-- ─────────────────────────────────────────
+-- notification_queue additions (in_app type support)
+-- ─────────────────────────────────────────
+-- Allow 'in_app' as a notification_type in addition to 'email' and 'webhook'
+-- The notification_queue table was created without a CHECK constraint on
+-- notification_type so this is a no-op schema change (just documentation).

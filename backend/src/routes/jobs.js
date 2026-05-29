@@ -18,6 +18,7 @@ const {
   getRecommendedJobs, getSuggestions, extendJobExpiry, incrementViewCount,
 } = require("../services/jobService");
 const { verifyJWT } = require("../middleware/auth");
+const cache = require("../services/cacheService");
 
 // Feed Helpers
 
@@ -162,9 +163,24 @@ router.get("/", generalJobRateLimiter, async (req, res, next) => {
       timezone,
       viewerAddress,
       include_expired,
+      page,
     } = req.query;
     const safeLimit = Math.max(1, Math.min(parseInt(limit, 10) || 20, 100));
     const includeExpired = include_expired === "true";
+
+    // Deprecated offset-style `page` param — cursor pagination is canonical (#291).
+    if (page !== undefined && cursor === undefined) {
+      res.set("Deprecation", "true");
+      res.set("Link", '</api/jobs>; rel="deprecation"');
+      res.set("Sunset", "2025-12-31");
+    }
+
+    const cacheKey = cache.jobListKey({ category, status, limit: String(safeLimit), search, cursor, timezone, viewerAddress, include_expired: String(includeExpired) });
+    const cached = await cache.get(cacheKey);
+    if (cached) {
+      res.set("X-Cache", "HIT");
+      return res.json({ success: true, ...cached, ...(page !== undefined && cursor === undefined && { _deprecation: "The `page` parameter is deprecated. Use cursor-based pagination via `nextCursor`." }) });
+    }
 
     const result = await listJobs({
       category,
@@ -176,10 +192,16 @@ router.get("/", generalJobRateLimiter, async (req, res, next) => {
       viewerAddress,
       includeExpired,
     });
+
+    await cache.set(cacheKey, { data: result.jobs, nextCursor: result.nextCursor }, cache.TTL.JOBS_LIST);
+    res.set("X-Cache", "MISS");
     res.json({
       success: true,
       data: result.jobs,
       nextCursor: result.nextCursor,
+      ...(page !== undefined && cursor === undefined && {
+        _deprecation: "The `page` parameter is deprecated. Use cursor-based pagination via `nextCursor`.",
+      }),
     });
   } catch (e) {
     next(e);
@@ -302,6 +324,7 @@ router.get("/:id", generalJobRateLimiter, async (req, res, next) => {
 router.post("/", jobCreationRateLimiter, async (req, res, next) => {
   try {
     const job = await createJob(req.body);
+    await cache.delPattern("jobs:list:*");
     res.status(201).json({ success: true, data: job });
   } catch (e) {
     next(e);
@@ -319,30 +342,24 @@ router.post("/:id/view", generalJobRateLimiter, async (req, res, next) => {
 });
 
 // POST /api/jobs/:id/invite — invite freelancer to invite-only job
-router.post(
-  "/:id/invite",
-  verifyJWT,
-  generalJobRateLimiter,
-  async (req, res, next) => {
-    try {
-      const invitation = await inviteFreelancerToJob({
-        jobId: req.params.id,
-        clientAddress: req.user.publicKey,
-        freelancerAddress: req.body.freelancerAddress,
-      });
+router.post("/:id/invite", verifyJWT, generalJobRateLimiter, async (req, res, next) => {
+  try {
+    const { inviteFreelancerToJob } = require("../services/jobInvitationService");
+    const invitation = await inviteFreelancerToJob({
+      jobId: req.params.id,
+      clientAddress: req.user.publicKey,
+      freelancerAddress: req.body.freelancerAddress,
+    });
 
-      req.app.locals.broadcastRealtime?.("job:invited", {
-        jobId: req.params.id,
-        recipientAddress: invitation.freelancer_address,
-        invitedAt: invitation.created_at,
-      });
+    req.app.locals.broadcastRealtime?.("job:invited", {
+      jobId: req.params.id,
+      recipientAddress: invitation.freelancer_address,
+      invitedAt: invitation.created_at,
+    });
 
-      res.status(201).json({ success: true, data: invitation });
-    } catch (e) {
-      next(e);
-    }
-  },
-);
+    res.status(201).json({ success: true, data: invitation });
+  } catch (e) { next(e); }
+});
 
 // PATCH /api/jobs/:id/escrow — store escrow contract ID after on-chain lock
 router.patch(
@@ -367,25 +384,22 @@ router.patch(
 );
 
 // PATCH /api/jobs/:id/boost — boost a job listing for 7 days
-router.patch(
-  "/:id/boost",
-  verifyJWT,
-  generalJobRateLimiter,
-  async (req, res, next) => {
-    try {
-      const { txHash } = req.body;
-      if (!txHash || typeof txHash !== "string") {
-        return res
-          .status(400)
-          .json({ success: false, error: "Transaction hash is required" });
-      }
-      const job = await boostJob(req.params.id, txHash);
-      res.json({ success: true, data: job });
-    } catch (e) {
-      next(e);
+router.patch("/:id/boost", verifyJWT, generalJobRateLimiter, async (req, res, next) => {
+  try {
+    const { txHash, amountXlm } = req.body;
+    if (!txHash || typeof txHash !== "string") {
+      return res.status(400).json({ success: false, error: "Transaction hash is required" });
     }
-  },
-);
+
+    // Determine boost duration from payment amount
+    // 5 XLM = 7 days, 15 XLM = 30 days
+    const amount = parseFloat(amountXlm) || 0;
+    const boostDays = amount >= 15 ? 30 : 7;
+
+    const job = await boostJob(req.params.id, txHash, boostDays);
+    res.json({ success: true, data: job });
+  } catch (e) { next(e); }
+});
 
 // GET /api/jobs/:id/analytics — job performance analytics
 router.get("/:id/analytics", generalJobRateLimiter, async (req, res, next) => {

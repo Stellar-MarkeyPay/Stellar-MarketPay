@@ -15,6 +15,8 @@ import type {
   TokenInfo,
   TokenBalance,
   ReferralStats,
+  TimeEntry,
+  TimeInvoice,
 } from "@/utils/types";
 
 const api = axios.create({
@@ -553,6 +555,57 @@ export async function resolveDispute(jobId: string) {
   return data.data;
 }
 
+// ─── Time entries ─────────────────────────────────────────────────────────────
+
+export async function logTimeEntry(payload: {
+  jobId: string;
+  durationMinutes: number;
+  description?: string;
+  startedAt?: string;
+}) {
+  const { data } = await api.post<{ success: boolean; data: TimeEntry }>(
+    "/api/time-entries",
+    payload,
+  );
+  return data.data;
+}
+
+export async function fetchTimeEntries(jobId: string): Promise<TimeEntry[]> {
+  const { data } = await api.get<{ success: boolean; data: TimeEntry[] }>(
+    `/api/time-entries/job/${jobId}`,
+  );
+  return data.data;
+}
+
+export async function fetchTimeInvoices(jobId: string): Promise<TimeInvoice[]> {
+  const { data } = await api.get<{ success: boolean; data: TimeInvoice[] }>(
+    `/api/time-entries/job/${jobId}/invoices`,
+  );
+  return data.data;
+}
+
+export async function generateTimeInvoice(payload: {
+  jobId: string;
+  hourlyRateXlm: number;
+}) {
+  const { data } = await api.post<{ success: boolean; data: TimeInvoice }>(
+    "/api/time-entries/invoice",
+    payload,
+  );
+  return data.data;
+}
+
+export async function reviewTimeInvoice(
+  invoiceId: string,
+  decision: "approved" | "rejected",
+) {
+  const { data } = await api.patch<{ success: boolean; data: TimeInvoice }>(
+    `/api/time-entries/invoice/${invoiceId}/review`,
+    { decision },
+  );
+  return data.data;
+}
+
 // ─── Ratings ──────────────────────────────────────────────────────────────────
 
 export async function submitRating(payload: {
@@ -877,10 +930,11 @@ export async function fetchMessages(jobId: string): Promise<Message[]> {
 export async function sendMessage(
   jobId: string,
   content: string,
+  contractTxHash?: string,
 ): Promise<Message> {
   const { data } = await api.post<{ success: boolean; data: Message }>(
     `/api/messages/job/${jobId}`,
-    { content },
+    { content, contractTxHash },
   );
   return data.data;
 }
@@ -898,6 +952,21 @@ export async function fetchUnreadCount(): Promise<number> {
     data: { unreadCount: number };
   }>("/api/messages/unread-count");
   return data.data.unreadCount;
+}
+
+/**
+ * Attaches an on-chain Soroban transaction hash to a message record.
+ * Called after the frontend signs and submits the publish_message event.
+ */
+export async function attachMessageTxHash(
+  messageId: string,
+  txHash: string,
+): Promise<Message> {
+  const { data } = await api.patch<{ success: boolean; data: Message }>(
+    `/api/messages/${messageId}/tx-hash`,
+    { txHash },
+  );
+  return data.data;
 }
 
 // ─── Earnings (Issue #181) ────────────────────────────────────────────────────
@@ -968,13 +1037,20 @@ export async function fetchDisputeDetail(
 export async function uploadDisputeEvidence(
   jobId: string,
   file: File,
+  onProgress?: (pct: number) => void,
 ): Promise<DisputeEvidence> {
   const formData = new FormData();
   formData.append("file", file);
   const { data } = await api.post<{ success: boolean; data: DisputeEvidence }>(
     `/api/disputes/${jobId}/evidence`,
     formData,
-    { headers: { "Content-Type": "multipart/form-data" }, timeout: 60000 },
+    {
+      headers: { "Content-Type": "multipart/form-data" },
+      timeout: 60000,
+      onUploadProgress: onProgress
+        ? (e) => { if (e.total) onProgress(Math.round((e.loaded / e.total) * 100)); }
+        : undefined,
+    },
   );
   return data.data;
 }
@@ -1313,4 +1389,69 @@ export async function registerReferral(
     referrerAddress,
     refereeAddress,
   });
+}
+
+// ─── Job Boost (Issue #344) ───────────────────────────────────────────────────
+
+/**
+ * Notify the backend that a boost payment was made on-chain.
+ * The backend sets boosted=true and calculates the expiry from amountXlm.
+ */
+export async function boostJob(
+  jobId: string,
+  txHash: string,
+  amountXlm: number,
+): Promise<Job> {
+  const { data } = await api.patch<{ success: boolean; data: Job }>(
+    `/api/jobs/${jobId}/boost`,
+    { txHash, amountXlm },
+  );
+  return data.data;
+}
+
+// ─── Job Invitations (Issue #342) ────────────────────────────────────────────
+
+export interface JobInvitation {
+  id: string;
+  jobId: string;
+  jobTitle: string;
+  jobBudget: string;
+  jobCurrency: string;
+  clientAddress: string;
+  clientName?: string;
+  freelancerAddress: string;
+  status: "pending" | "accepted" | "declined";
+  createdAt: string;
+}
+
+/**
+ * Fetch all pending invitations for the authenticated freelancer.
+ */
+export async function fetchMyInvitations(): Promise<JobInvitation[]> {
+  const { data } = await api.get<{ success: boolean; data: JobInvitation[] }>(
+    "/api/invitations",
+  );
+  return data.data;
+}
+
+/**
+ * Decline a job invitation.
+ */
+export async function declineInvitation(invitationId: string): Promise<void> {
+  await api.patch(`/api/invitations/${invitationId}/decline`);
+}
+
+/**
+ * Accept a job invitation (auto-creates an application).
+ */
+export async function acceptInvitation(
+  invitationId: string,
+  proposal: string,
+  bidAmount: string,
+): Promise<Application> {
+  const { data } = await api.post<{ success: boolean; data: Application }>(
+    `/api/invitations/${invitationId}/accept`,
+    { proposal, bidAmount },
+  );
+  return data.data;
 }

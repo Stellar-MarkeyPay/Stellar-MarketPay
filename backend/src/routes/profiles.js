@@ -12,6 +12,7 @@ const { uploadFile, getGatewayUrl, MAX_FILE_SIZE } = require("../services/ipfsSe
 
 const profileUpdateRateLimiter = createRateLimiter(5, 1); // 5 profile updates per minute
 const generalProfileRateLimiter = createRateLimiter(30, 1); // 100 requests per minute for getting profiles
+const cache = require("../services/cacheService");
 
 const {
   getProfile,
@@ -31,7 +32,18 @@ const {
 } = require("../services/priceAlertService");
 
 router.get("/:publicKey", generalProfileRateLimiter, async (req, res, next) => {
-  try { res.json({ success: true, data: await getProfile(req.params.publicKey) }); }
+  try {
+    const key = cache.profileKey(req.params.publicKey);
+    const cached = await cache.get(key);
+    if (cached) {
+      res.set("X-Cache", "HIT");
+      return res.json({ success: true, data: cached });
+    }
+    const data = await getProfile(req.params.publicKey);
+    await cache.set(key, data, cache.TTL.PROFILE);
+    res.set("X-Cache", "MISS");
+    res.json({ success: true, data });
+  }
   catch (e) { next(e); }
 });
 
@@ -46,7 +58,11 @@ router.get("/:publicKey/response-time", generalProfileRateLimiter, async (req, r
 });
 
 router.post("/", profileUpdateRateLimiter, async (req, res, next) => {
-  try { res.json({ success: true, data: await upsertProfile(req.body) }); }
+  try {
+    const data = await upsertProfile(req.body);
+    if (req.body.publicKey) await cache.del(cache.profileKey(req.body.publicKey));
+    res.json({ success: true, data });
+  }
   catch (e) { next(e); }
 });
 
