@@ -984,13 +984,20 @@ export async function fetchDisputeDetail(
 export async function uploadDisputeEvidence(
   jobId: string,
   file: File,
+  onProgress?: (pct: number) => void,
 ): Promise<DisputeEvidence> {
   const formData = new FormData();
   formData.append("file", file);
   const { data } = await api.post<{ success: boolean; data: DisputeEvidence }>(
     `/api/disputes/${jobId}/evidence`,
     formData,
-    { headers: { "Content-Type": "multipart/form-data" }, timeout: 60000 },
+    {
+      headers: { "Content-Type": "multipart/form-data" },
+      timeout: 60000,
+      onUploadProgress: onProgress
+        ? (e) => { if (e.total) onProgress(Math.round((e.loaded / e.total) * 100)); }
+        : undefined,
+    },
   );
   return data.data;
 }

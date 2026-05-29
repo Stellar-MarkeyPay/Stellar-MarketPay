@@ -1052,6 +1052,10 @@ impl MarketPayContract {
             panic!("Only participants can raise a dispute");
         }
 
+        if escrow.status == EscrowStatus::Released || escrow.status == EscrowStatus::Refunded {
+            panic!("Cannot dispute a resolved escrow");
+        }
+        
         escrow.status = EscrowStatus::Disputed;
         env.storage()
             .instance()
@@ -1802,15 +1806,7 @@ mod timeout_tests {
 
         let job_id = String::from_str(&env, "timeout_job_1");
         let timeout_ledgers = 10u32;
-        client.create_escrow(
-            &job_id,
-            &contract_client,
-            &freelancer,
-            &token_id,
-            &1000,
-            &None,
-            &Some(timeout_ledgers),
-        );
+        client.create_escrow(&job_id, &contract_client, &freelancer, &token_id, &1000, &None, &Some(timeout_ledgers), &None);
 
         let escrow = client.get_escrow(&job_id);
         assert_eq!(escrow.status, EscrowStatus::Locked);
@@ -1842,15 +1838,7 @@ mod timeout_tests {
 
         let job_id = String::from_str(&env, "timeout_job_2");
         let timeout_ledgers = 100u32;
-        client.create_escrow(
-            &job_id,
-            &contract_client,
-            &freelancer,
-            &token_id,
-            &1000,
-            &None,
-            &Some(timeout_ledgers),
-        );
+        client.create_escrow(&job_id, &contract_client, &freelancer, &token_id, &1000, &None, &Some(timeout_ledgers), &None);
 
         // Try to timeout refund before timeout — should panic
         client.timeout_refund(&job_id, &contract_client);
@@ -1865,15 +1853,7 @@ mod timeout_tests {
 
         let job_id = String::from_str(&env, "timeout_job_3");
         let timeout_ledgers = 5u32;
-        client.create_escrow(
-            &job_id,
-            &contract_client,
-            &freelancer,
-            &token_id,
-            &1000,
-            &None,
-            &Some(timeout_ledgers),
-        );
+        client.create_escrow(&job_id, &contract_client, &freelancer, &token_id, &1000, &None, &Some(timeout_ledgers), &None);
 
         let mut ledger_info = env.ledger().get();
         ledger_info.sequence_number += timeout_ledgers + 1;
@@ -1892,15 +1872,7 @@ mod timeout_tests {
 
         let job_id = String::from_str(&env, "timeout_job_4");
         let timeout_ledgers = 10u32;
-        client.create_escrow(
-            &job_id,
-            &contract_client,
-            &freelancer,
-            &token_id,
-            &1000,
-            &None,
-            &Some(timeout_ledgers),
-        );
+        client.create_escrow(&job_id, &contract_client, &freelancer, &token_id, &1000, &None, &Some(timeout_ledgers), &None);
 
         // Start work changes status to InProgress
         client.start_work(&job_id, &contract_client);
@@ -1920,15 +1892,7 @@ mod timeout_tests {
 
         let job_id = String::from_str(&env, "custom_timeout_job");
         let custom_timeout = 50u32;
-        client.create_escrow(
-            &job_id,
-            &contract_client,
-            &freelancer,
-            &token_id,
-            &500,
-            &None,
-            &Some(custom_timeout),
-        );
+        client.create_escrow(&job_id, &contract_client, &freelancer, &token_id, &500, &None, &Some(custom_timeout), &None);
 
         let escrow = client.get_escrow(&job_id);
         assert_eq!(
@@ -1944,15 +1908,7 @@ mod timeout_tests {
         let (client, contract_client, freelancer, token_id, _admin) = setup_contract(&env);
 
         let job_id = String::from_str(&env, "default_timeout_job");
-        client.create_escrow(
-            &job_id,
-            &contract_client,
-            &freelancer,
-            &token_id,
-            &500,
-            &None,
-            &None,
-        );
+        client.create_escrow(&job_id, &contract_client, &freelancer, &token_id, &500, &None, &None, &None);
 
         let escrow = client.get_escrow(&job_id);
         assert_eq!(
@@ -1969,15 +1925,7 @@ mod timeout_tests {
 
         let job_id = String::from_str(&env, "get_timeout_job");
         let timeout = 25u32;
-        client.create_escrow(
-            &job_id,
-            &contract_client,
-            &freelancer,
-            &token_id,
-            &500,
-            &None,
-            &Some(timeout),
-        );
+        client.create_escrow(&job_id, &contract_client, &freelancer, &token_id, &500, &None, &Some(timeout), &None);
 
         assert_eq!(
             client.get_timeout_ledger(&job_id),
@@ -2009,16 +1957,8 @@ mod regression_tests {
         let mut milestones = Vec::new(&env);
         milestones.push_back(i128::MAX);
         milestones.push_back(1);
-
-        client.create_escrow(
-            &job_id,
-            &admin,
-            &freelancer,
-            &token,
-            &i128::MAX,
-            &Some(milestones),
-            &None,
-        );
+        
+        client.create_escrow(&job_id, &admin, &freelancer, &token, &i128::MAX, &Some(milestones), &None, &None);
     }
 
     #[test]
@@ -2040,15 +1980,7 @@ mod regression_tests {
         token_admin.mint(&client, &1000);
 
         let job_id = String::from_str(&env, "job1");
-        contract_client.create_escrow(
-            &job_id,
-            &client.clone(),
-            &freelancer,
-            &token_id,
-            &1000,
-            &None,
-            &None,
-        );
+        contract_client.create_escrow(&job_id, &client.clone(), &freelancer, &token_id, &1000, &None, &None, &None);
         contract_client.start_work(&job_id, &client.clone());
 
         contract_client.release_escrow(&job_id, &client.clone());
@@ -2076,17 +2008,9 @@ mod regression_tests {
         token_admin.mint(&client, &1000);
 
         let job_id = String::from_str(&env, "job_conv");
-        contract_client.create_escrow(
-            &job_id,
-            &client.clone(),
-            &freelancer,
-            &token_id,
-            &1000,
-            &None,
-            &None,
-        );
-
-        let target_token = Address::generate(&env);
+        contract_client.create_escrow(&job_id, &client.clone(), &freelancer, &token_id, &1000, &None, &None, &None);
+        
+        let target_token = Address::generate(&env); 
         contract_client.release_with_conversion(&job_id, &client.clone(), &target_token, &900);
 
         let escrow = contract_client.get_escrow(&job_id);
@@ -2115,14 +2039,7 @@ mod regression_tests {
         milestones.push_back(600);
 
         let job_id = String::from_str(&env, "job_partial");
-        contract_client.create_escrow(
-            &job_id,
-            &client.clone(),
-            &freelancer,
-            &token_id,
-            &1000,
-            &Some(milestones),
-        );
+        contract_client.create_escrow(&job_id, &client.clone(), &freelancer, &token_id, &1000, &Some(milestones), &None, &None);
         contract_client.start_work(&job_id, &client.clone());
 
         // Raise dispute to test that we can still partial release
@@ -2188,7 +2105,7 @@ mod upgrade_tests {
         token_admin.mint(&depositor, &500);
 
         let job_id = String::from_str(&env, "upgrade_job_1");
-        client.create_escrow(&job_id, &depositor, &freelancer, &token_id, &500, &None);
+        client.create_escrow(&job_id, &depositor, &freelancer, &token_id, &500, &None, &None, &None);
 
         // Simulate the version bump that upgrade() performs (without WASM swap)
         env.as_contract(&id, || {

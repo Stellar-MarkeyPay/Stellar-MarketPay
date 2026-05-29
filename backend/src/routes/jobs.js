@@ -18,6 +18,7 @@ const {
   getRecommendedJobs, getSuggestions, extendJobExpiry, incrementViewCount,
 } = require("../services/jobService");
 const { verifyJWT } = require("../middleware/auth");
+const cache = require("../services/cacheService");
 
 // Feed Helpers
 
@@ -162,9 +163,24 @@ router.get("/", generalJobRateLimiter, async (req, res, next) => {
       timezone,
       viewerAddress,
       include_expired,
+      page,
     } = req.query;
     const safeLimit = Math.max(1, Math.min(parseInt(limit, 10) || 20, 100));
     const includeExpired = include_expired === "true";
+
+    // Deprecated offset-style `page` param — cursor pagination is canonical (#291).
+    if (page !== undefined && cursor === undefined) {
+      res.set("Deprecation", "true");
+      res.set("Link", '</api/jobs>; rel="deprecation"');
+      res.set("Sunset", "2025-12-31");
+    }
+
+    const cacheKey = cache.jobListKey({ category, status, limit: String(safeLimit), search, cursor, timezone, viewerAddress, include_expired: String(includeExpired) });
+    const cached = await cache.get(cacheKey);
+    if (cached) {
+      res.set("X-Cache", "HIT");
+      return res.json({ success: true, ...cached, ...(page !== undefined && cursor === undefined && { _deprecation: "The `page` parameter is deprecated. Use cursor-based pagination via `nextCursor`." }) });
+    }
 
     const result = await listJobs({
       category,
@@ -176,10 +192,16 @@ router.get("/", generalJobRateLimiter, async (req, res, next) => {
       viewerAddress,
       includeExpired,
     });
+
+    await cache.set(cacheKey, { data: result.jobs, nextCursor: result.nextCursor }, cache.TTL.JOBS_LIST);
+    res.set("X-Cache", "MISS");
     res.json({
       success: true,
       data: result.jobs,
       nextCursor: result.nextCursor,
+      ...(page !== undefined && cursor === undefined && {
+        _deprecation: "The `page` parameter is deprecated. Use cursor-based pagination via `nextCursor`.",
+      }),
     });
   } catch (e) {
     next(e);
@@ -302,6 +324,7 @@ router.get("/:id", generalJobRateLimiter, async (req, res, next) => {
 router.post("/", jobCreationRateLimiter, async (req, res, next) => {
   try {
     const job = await createJob(req.body);
+    await cache.delPattern("jobs:list:*");
     res.status(201).json({ success: true, data: job });
   } catch (e) {
     next(e);
