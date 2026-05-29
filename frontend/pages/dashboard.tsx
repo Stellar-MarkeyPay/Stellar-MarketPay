@@ -766,9 +766,7 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
                     {template.content}
                   </p>
                 </div>
-                <p className="font-mono font-semibold text-market-400">{formatXLM(app.bidAmount)}</p>
-              </Link>
-            ))}
+              ))}
           </div>
         )
       ) : tab === "invitations" ? (
