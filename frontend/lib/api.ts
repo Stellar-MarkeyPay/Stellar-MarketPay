@@ -1,4 +1,5 @@
 import axios from "axios";
+import { optionalClientEnv } from "./env";
 import type {
   Availability,
   Job,
@@ -17,7 +18,7 @@ import type {
 } from "@/utils/types";
 
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000",
+  baseURL: optionalClientEnv("NEXT_PUBLIC_API_URL", "http://localhost:4000"),
   headers: { "Content-Type": "application/json" },
   withCredentials: true,
   timeout: 10000,
@@ -94,6 +95,83 @@ export async function fetchRecentlyCompletedJobs(limit = 3): Promise<Job[]> {
   return jobs;
 }
 
+export interface InsightCategory {
+  category: string;
+  totalJobs: number;
+  avgBudget: number;
+  avgApplicationsPerJob: number;
+  acceptanceRate: number;
+  lowCompetitionJobs: number;
+  uniqueClients: number;
+}
+
+export interface InsightClientMix {
+  newClients: number;
+  returningClients: number;
+  totalClients: number;
+}
+
+export interface InsightSkill {
+  skill: string;
+  demandCount: number;
+  avgApplicationsPerJob: number;
+  lowCompetitionJobs: number;
+}
+
+export interface InsightCompetitiveJob {
+  id: string;
+  title: string;
+  category: string;
+  budget: number;
+  currency: string;
+  clientAddress: string;
+  createdAt: string;
+  applicationCount: number;
+  competitionLevel: "uncontested" | "light" | "active";
+}
+
+export interface InsightPayTrend {
+  date: string;
+  category: string;
+  avgBudget: number;
+  jobCount: number;
+}
+
+export async function fetchInsightCategories(limit = 20) {
+  const { data } = await api.get<{
+    success: boolean;
+    data: {
+      categories: InsightCategory[];
+      clientMix: InsightClientMix;
+    };
+  }>("/api/insights/categories", { params: { limit } });
+  return data.data;
+}
+
+export async function fetchInsightSkills(limit = 20) {
+  const { data } = await api.get<{ success: boolean; data: InsightSkill[] }>(
+    "/api/insights/skills",
+    { params: { limit } },
+  );
+  return data.data;
+}
+
+export async function fetchInsightCompetitive(limit = 20) {
+  const { data } = await api.get<{ success: boolean; data: InsightCompetitiveJob[] }>(
+    "/api/insights/competitive",
+    { params: { limit } },
+  );
+  return data.data;
+}
+
+export async function fetchInsightPayTrends(days = 30) {
+  const { data } = await api.get<{ success: boolean; data: InsightPayTrend[] }>(
+    "/api/insights/trends/pay",
+    { params: { days } },
+  );
+  return data.data;
+}
+
 /**
  * Fetches a single job by its identifier.
  *
@@ -113,9 +191,13 @@ export async function fetchJob(id: string, viewerAddress?: string) {
 }
 
 export async function createJob(payload: {
-  title: string; description: string; budget: string;
+  title: string;
+  description: string;
+  budget: string;
   currency?: "XLM" | "USDC";
-  category: string; skills: string[]; deadline?: string;
+  category: string;
+  skills: string[];
+  deadline?: string;
   timezone?: string;
   clientAddress: string;
   screeningQuestions?: string[];
@@ -163,14 +245,17 @@ export async function fetchJobAnalytics(jobId: string) {
 }
 
 /**
- * Extend a job's expiry by 30 days.
+ * Extend a job's expiry by the given number of days.
+ * Charges a 0.5 XLM fee per 7-day block.
  *
  * @param jobId Job identifier.
+ * @param days Number of days to extend (7, 14, or 30).
  * @returns Updated job record.
  */
-export async function extendJobExpiry(jobId: string) {
+export async function extendJobExpiry(jobId: string, days = 30) {
   const { data } = await api.patch<{ success: boolean; data: Job }>(
     `/api/jobs/${jobId}/extend`,
+    { days },
   );
   return data.data;
 }
@@ -304,7 +389,9 @@ export async function verifyIdentity(publicKey: string, didHash: string) {
 // ─── Escrow ───────────────────────────────────────────────────────────────────
 
 export async function fetchEscrow(jobId: string) {
-  const { data } = await api.get<{ success: boolean; data: any }>(`/api/escrow/${jobId}`);
+  const { data } = await api.get<{ success: boolean; data: any }>(
+    `/api/escrow/${jobId}`,
+  );
   return data.data;
 }
 
@@ -322,7 +409,11 @@ export async function releaseEscrow(
   return data.data;
 }
 
-export async function timeoutRefund(jobId: string, clientAddress: string, contractTxHash?: string) {
+export async function timeoutRefund(
+  jobId: string,
+  clientAddress: string,
+  contractTxHash?: string,
+) {
   const { data } = await api.post(`/api/escrow/${jobId}/timeout-refund`, {
     clientAddress,
     ...(contractTxHash ? { contractTxHash } : {}),
@@ -330,10 +421,16 @@ export async function timeoutRefund(jobId: string, clientAddress: string, contra
   return data.data;
 }
 
-export async function inviteFreelancer(jobId: string, freelancerAddress: string) {
-  const { data } = await api.post<{ success: boolean; data: any }>(`/api/jobs/${jobId}/invite`, {
-    freelancerAddress,
-  });
+export async function inviteFreelancer(
+  jobId: string,
+  freelancerAddress: string,
+) {
+  const { data } = await api.post<{ success: boolean; data: any }>(
+    `/api/jobs/${jobId}/invite`,
+    {
+      freelancerAddress,
+    },
+  );
   return data.data;
 }
 
@@ -380,9 +477,10 @@ export async function fetchPriceAlertPreference(publicKey: string) {
 }
 
 export async function fetchClientSpendingAnalytics(publicKey: string) {
-  const { data } = await api.get<{ success: boolean; data: ClientSpendingAnalytics }>(
-    `/api/profiles/${encodeURIComponent(publicKey)}/spending`,
-  );
+  const { data } = await api.get<{
+    success: boolean;
+    data: ClientSpendingAnalytics;
+  }>(`/api/profiles/${encodeURIComponent(publicKey)}/spending`);
   return data.data;
 }
 
@@ -438,8 +536,14 @@ export async function deleteJob(jobId: string) {
  * @param payload Dispute details (reason and description).
  * @returns The updated job record.
  */
-export async function raiseDispute(jobId: string, payload: { reason: string; description: string }) {
-  const { data } = await api.post<{ success: boolean; data: Job }>(`/api/jobs/${jobId}/dispute`, payload);
+export async function raiseDispute(
+  jobId: string,
+  payload: { reason: string; description: string },
+) {
+  const { data } = await api.post<{ success: boolean; data: Job }>(
+    `/api/jobs/${jobId}/dispute`,
+    payload,
+  );
   return data.data;
 }
 
@@ -450,7 +554,60 @@ export async function raiseDispute(jobId: string, payload: { reason: string; des
  * @returns The updated job record.
  */
 export async function resolveDispute(jobId: string) {
-  const { data } = await api.post<{ success: boolean; data: Job }>(`/api/jobs/${jobId}/resolve`);
+  const { data } = await api.post<{ success: boolean; data: Job }>(
+    `/api/jobs/${jobId}/resolve`,
+  );
+  return data.data;
+}
+
+// ─── Time entries ─────────────────────────────────────────────────────────────
+
+export async function logTimeEntry(payload: {
+  jobId: string;
+  durationMinutes: number;
+  description?: string;
+  startedAt?: string;
+}) {
+  const { data } = await api.post<{ success: boolean; data: TimeEntry }>(
+    "/api/time-entries",
+    payload,
+  );
+  return data.data;
+}
+
+export async function fetchTimeEntries(jobId: string): Promise<TimeEntry[]> {
+  const { data } = await api.get<{ success: boolean; data: TimeEntry[] }>(
+    `/api/time-entries/job/${jobId}`,
+  );
+  return data.data;
+}
+
+export async function fetchTimeInvoices(jobId: string): Promise<TimeInvoice[]> {
+  const { data } = await api.get<{ success: boolean; data: TimeInvoice[] }>(
+    `/api/time-entries/job/${jobId}/invoices`,
+  );
+  return data.data;
+}
+
+export async function generateTimeInvoice(payload: {
+  jobId: string;
+  hourlyRateXlm: number;
+}) {
+  const { data } = await api.post<{ success: boolean; data: TimeInvoice }>(
+    "/api/time-entries/invoice",
+    payload,
+  );
+  return data.data;
+}
+
+export async function reviewTimeInvoice(
+  invoiceId: string,
+  decision: "approved" | "rejected",
+) {
+  const { data } = await api.patch<{ success: boolean; data: TimeInvoice }>(
+    `/api/time-entries/invoice/${invoiceId}/review`,
+    { decision },
+  );
   return data.data;
 }
 
@@ -478,20 +635,40 @@ export async function fetchRatings(publicKey: string) {
 
 // ─── Recommendations ──────────────────────────────────────────────────────────
 
-export async function fetchRecommendedJobs(publicKey: string): Promise<(Job & { matchScore: number })[]> {
-  const { data } = await api.get<{ success: boolean; data: (Job & { matchScore: number })[] }>(
-    `/api/jobs/recommended/${encodeURIComponent(publicKey)}`
-  );
+export async function fetchRecommendedJobs(
+  publicKey: string,
+): Promise<(Job & { matchScore: number })[]> {
+  const { data } = await api.get<{
+    success: boolean;
+    data: (Job & { matchScore: number })[];
+  }>(`/api/jobs/recommended/${encodeURIComponent(publicKey)}`);
   return data.data;
 }
 
 export async function fetchDrafts() {
-  const { data } = await api.get<{ success: boolean; data: any[] }>("/api/jobs/drafts");
+  const { data } = await api.get<{ success: boolean; data: any[] }>(
+    "/api/jobs/drafts",
+  );
   return data.data;
 }
 
 export async function fetchDraft(draftId: string) {
-  const { data } = await api.get<{ success: boolean; data: any }>(`/api/jobs/drafts/${draftId}`);
+  const { data } = await api.get<{ success: boolean; data: any }>(
+    `/api/jobs/drafts/${draftId}`,
+  );
+  return data.data;
+}
+
+export async function saveDraft(draft: {
+  id?: string;
+  title?: string;
+  description?: string;
+  budget?: number;
+  category?: string;
+  skills?: string[];
+  deadline?: string;
+}) {
+  const { data } = await api.post<{ success: boolean; data: { id: string } }>("/api/jobs/drafts", draft);
   return data.data;
 }
 
@@ -499,10 +676,40 @@ export async function deleteDraft(draftId: string) {
   await api.delete(`/api/jobs/drafts/${draftId}`);
 }
 
+// ─── Admin 2FA ────────────────────────────────────────────────────────────────
+
+export async function fetchAdmin2FAStatus() {
+  const { data } = await api.get<{
+    success: boolean;
+    data: { totp_enabled: boolean; verified: boolean };
+  }>("/api/admin/2fa/status");
+  return data.data;
+}
+
+export async function setupAdmin2FA() {
+  const { data } = await api.post<{
+    success: boolean;
+    data: { qrCode: string; manualEntryKey: string };
+  }>("/api/admin/2fa/setup");
+  return data.data;
+}
+
+export async function verifyAdmin2FA(token: string, setup = false) {
+  const { data } = await api.post<{
+    success: boolean;
+    token?: string;
+    data: { backupCodes?: string[]; message?: string };
+  }>("/api/admin/2fa/verify", { token, setup });
+  return { token: data.token, backupCodes: data.data?.backupCodes, message: data.data?.message };
+}
+
 // ─── Job Recommendations (Issue #221) ───────────────────────────────────
 
 export async function fetchRecommendedJobs(limit = 10) {
-  const { data } = await api.get<{ success: boolean; data: Job[] }>("/api/jobs/recommended", { params: { limit } });
+  const { data } = await api.get<{ success: boolean; data: Job[] }>(
+    "/api/jobs/recommended",
+    { params: { limit } },
+  );
   return data.data;
 }
 
@@ -510,18 +717,18 @@ export async function fetchRecommendedJobs(limit = 10) {
 
 export async function uploadPortfolioFiles(publicKey: string, files: FileList) {
   const formData = new FormData();
-  
+
   // Append all files to FormData
   Array.from(files).forEach((file) => {
     formData.append("files", file);
   });
 
-  const { data } = await api.post<{ 
-    success: boolean; 
-    data: { 
+  const { data } = await api.post<{
+    success: boolean;
+    data: {
       uploadedFiles: PortfolioFile[];
       gatewayUrls: string[];
-    }
+    };
   }>(`/api/profiles/${encodeURIComponent(publicKey)}/upload-files`, formData, {
     headers: {
       "Content-Type": "multipart/form-data",
@@ -535,8 +742,8 @@ export async function uploadPortfolioFiles(publicKey: string, files: FileList) {
 // ─── Stellar Faucet (Issue #205) ───────────────────────────────────────────
 
 export async function fundTestnetWallet(publicKey: string) {
-  const { data } = await api.post<{ 
-    success: boolean; 
+  const { data } = await api.post<{
+    success: boolean;
     data: {
       success: boolean;
       message: string;
@@ -544,34 +751,34 @@ export async function fundTestnetWallet(publicKey: string) {
       newBalance?: string;
       transactionHash?: string;
       ledger?: number;
-    }
+    };
   }>("/api/faucet/fund", { publicKey });
 
   return data.data;
 }
 
 export async function checkAccountNeedsFunding(publicKey: string) {
-  const { data } = await api.get<{ 
-    success: boolean; 
+  const { data } = await api.get<{
+    success: boolean;
     data: {
       needsFunding: boolean;
       currentBalance: string;
       exists: boolean;
-    }
+    };
   }>(`/api/faucet/check/${encodeURIComponent(publicKey)}`);
 
   return data.data;
 }
 
 export async function getFaucetStatus() {
-  const { data } = await api.get<{ 
-    success: boolean; 
+  const { data } = await api.get<{
+    success: boolean;
     data: {
       enabled: boolean;
       network: string;
       amount: string;
       asset: string;
-    }
+    };
   }>("/api/faucet/status");
 
   return data.data;
@@ -580,8 +787,8 @@ export async function getFaucetStatus() {
 // ─── Token Support (Issue #228) ─────────────────────────────────────────────
 
 export async function getPopularTokens() {
-  const { data } = await api.get<{ 
-    success: boolean; 
+  const { data } = await api.get<{
+    success: boolean;
     data: TokenInfo[];
   }>("/api/tokens/popular");
 
@@ -589,8 +796,8 @@ export async function getPopularTokens() {
 }
 
 export async function searchTokens(query: string) {
-  const { data } = await api.get<{ 
-    success: boolean; 
+  const { data } = await api.get<{
+    success: boolean;
     data: TokenInfo[];
   }>("/api/tokens/search", { params: { q: query } });
 
@@ -598,8 +805,8 @@ export async function searchTokens(query: string) {
 }
 
 export async function getTokenMetadata(contractId: string) {
-  const { data } = await api.get<{ 
-    success: boolean; 
+  const { data } = await api.get<{
+    success: boolean;
     data: TokenInfo;
   }>(`/api/tokens/${contractId}/metadata`);
 
@@ -607,8 +814,8 @@ export async function getTokenMetadata(contractId: string) {
 }
 
 export async function getTokenBalance(contractId: string, publicKey: string) {
-  const { data } = await api.get<{ 
-    success: boolean; 
+  const { data } = await api.get<{
+    success: boolean;
     data: TokenBalance;
   }>(`/api/tokens/${contractId}/balance/${publicKey}`);
 
@@ -616,8 +823,8 @@ export async function getTokenBalance(contractId: string, publicKey: string) {
 }
 
 export async function validateTokenContract(contractId: string) {
-  const { data } = await api.post<{ 
-    success: boolean; 
+  const { data } = await api.post<{
+    success: boolean;
     data: {
       valid: boolean;
       error?: string;
@@ -629,9 +836,12 @@ export async function validateTokenContract(contractId: string) {
 
 // ─── Stellar Turrets (Issue #224) ───────────────────────────────────────────
 
-export async function submitViaTurrets(transactionXDR: string, useTurret?: boolean) {
-  const { data } = await api.post<{ 
-    success: boolean; 
+export async function submitViaTurrets(
+  transactionXDR: string,
+  useTurret?: boolean,
+) {
+  const { data } = await api.post<{
+    success: boolean;
     data: {
       success: boolean;
       hash: string;
@@ -646,8 +856,8 @@ export async function submitViaTurrets(transactionXDR: string, useTurret?: boole
 }
 
 export async function getTurretsStatus() {
-  const { data } = await api.get<{ 
-    success: boolean; 
+  const { data } = await api.get<{
+    success: boolean;
     data: {
       available: boolean;
       url?: string;
@@ -663,8 +873,8 @@ export async function getTurretsStatus() {
 }
 
 export async function estimateTurretsFee(transactionXDR: string) {
-  const { data } = await api.post<{ 
-    success: boolean; 
+  const { data } = await api.post<{
+    success: boolean;
     data: {
       success: boolean;
       baseFee: string;
@@ -679,8 +889,8 @@ export async function estimateTurretsFee(transactionXDR: string) {
 }
 
 export async function getTurretsConfig() {
-  const { data } = await api.get<{ 
-    success: boolean; 
+  const { data } = await api.get<{
+    success: boolean;
     data: {
       configured: boolean;
       url: string | null;
@@ -704,7 +914,9 @@ export async function getTurretsConfig() {
  * @see backend/src/routes/messageRoutes.js
  */
 export async function fetchMessages(jobId: string): Promise<Message[]> {
-  const { data } = await api.get<{ success: boolean; data: Message[] }>(`/api/messages/job/${jobId}`);
+  const { data } = await api.get<{ success: boolean; data: Message[] }>(
+    `/api/messages/job/${jobId}`,
+  );
   return data.data;
 }
 
@@ -720,8 +932,15 @@ export async function fetchMessages(jobId: string): Promise<Message[]> {
  * @throws {import("axios").AxiosError} If unauthorized, validation fails, or request fails.
  * @see backend/src/routes/messageRoutes.js
  */
-export async function sendMessage(jobId: string, content: string): Promise<Message> {
-  const { data } = await api.post<{ success: boolean; data: Message }>(`/api/messages/job/${jobId}`, { content });
+export async function sendMessage(
+  jobId: string,
+  content: string,
+  contractTxHash?: string,
+): Promise<Message> {
+  const { data } = await api.post<{ success: boolean; data: Message }>(
+    `/api/messages/job/${jobId}`,
+    { content, contractTxHash },
+  );
   return data.data;
 }
 
@@ -733,8 +952,26 @@ export async function sendMessage(jobId: string, content: string): Promise<Messa
  * @see backend/src/routes/messageRoutes.js
  */
 export async function fetchUnreadCount(): Promise<number> {
-  const { data } = await api.get<{ success: boolean; data: { unreadCount: number } }>("/api/messages/unread-count");
+  const { data } = await api.get<{
+    success: boolean;
+    data: { unreadCount: number };
+  }>("/api/messages/unread-count");
   return data.data.unreadCount;
+}
+
+/**
+ * Attaches an on-chain Soroban transaction hash to a message record.
+ * Called after the frontend signs and submits the publish_message event.
+ */
+export async function attachMessageTxHash(
+  messageId: string,
+  txHash: string,
+): Promise<Message> {
+  const { data } = await api.patch<{ success: boolean; data: Message }>(
+    `/api/messages/${messageId}/tx-hash`,
+    { txHash },
+  );
+  return data.data;
 }
 
 // ─── Earnings (Issue #181) ────────────────────────────────────────────────────
@@ -749,7 +986,7 @@ export interface EarningPayment {
 }
 
 export interface MonthlyEarning {
-  month: string;      // "YYYY-MM"
+  month: string; // "YYYY-MM"
   totalXlm: number;
 }
 
@@ -759,9 +996,11 @@ export interface EarningsData {
   monthly: MonthlyEarning[];
 }
 
-export async function fetchFreelancerEarnings(publicKey: string): Promise<EarningsData> {
+export async function fetchFreelancerEarnings(
+  publicKey: string,
+): Promise<EarningsData> {
   const { data } = await api.get<{ success: boolean; data: EarningsData }>(
-    `/api/profiles/${encodeURIComponent(publicKey)}/earnings`
+    `/api/profiles/${encodeURIComponent(publicKey)}/earnings`,
   );
   return data.data;
 }
@@ -791,18 +1030,32 @@ export interface DisputeDetail {
   evidence: DisputeEvidence[];
 }
 
-export async function fetchDisputeDetail(jobId: string): Promise<DisputeDetail> {
-  const { data } = await api.get<{ success: boolean; data: DisputeDetail }>(`/api/disputes/${jobId}`);
+export async function fetchDisputeDetail(
+  jobId: string,
+): Promise<DisputeDetail> {
+  const { data } = await api.get<{ success: boolean; data: DisputeDetail }>(
+    `/api/disputes/${jobId}`,
+  );
   return data.data;
 }
 
-export async function uploadDisputeEvidence(jobId: string, file: File): Promise<DisputeEvidence> {
+export async function uploadDisputeEvidence(
+  jobId: string,
+  file: File,
+  onProgress?: (pct: number) => void,
+): Promise<DisputeEvidence> {
   const formData = new FormData();
   formData.append("file", file);
   const { data } = await api.post<{ success: boolean; data: DisputeEvidence }>(
     `/api/disputes/${jobId}/evidence`,
     formData,
-    { headers: { "Content-Type": "multipart/form-data" }, timeout: 60000 }
+    {
+      headers: { "Content-Type": "multipart/form-data" },
+      timeout: 60000,
+      onUploadProgress: onProgress
+        ? (e) => { if (e.total) onProgress(Math.round((e.loaded / e.total) * 100)); }
+        : undefined,
+    },
   );
   return data.data;
 }
@@ -816,27 +1069,42 @@ export interface PasskeyCredential {
 }
 
 export async function fetchPasskeyRegistrationOptions(publicKey: string) {
-  const { data } = await api.post<{ success: boolean; data: any }>("/api/webauthn/register-options", { publicKey });
+  const { data } = await api.post<{ success: boolean; data: any }>(
+    "/api/webauthn/register-options",
+    { publicKey },
+  );
   return data.data;
 }
 
 export async function verifyPasskeyRegistration(credential: any, name: string) {
-  const { data } = await api.post<{ success: boolean; message: string }>("/api/webauthn/register-verify", { credential, name });
+  const { data } = await api.post<{ success: boolean; message: string }>(
+    "/api/webauthn/register-verify",
+    { credential, name },
+  );
   return data;
 }
 
 export async function fetchPasskeyLoginOptions(publicKey: string) {
-  const { data } = await api.post<{ success: boolean; data: any }>("/api/webauthn/login-options", { publicKey });
+  const { data } = await api.post<{ success: boolean; data: any }>(
+    "/api/webauthn/login-options",
+    { publicKey },
+  );
   return data.data;
 }
 
 export async function verifyPasskeyLogin(credential: any, publicKey: string) {
-  const { data } = await api.post<{ success: boolean; token: string }>("/api/webauthn/login-verify", { credential, publicKey });
+  const { data } = await api.post<{ success: boolean; token: string }>(
+    "/api/webauthn/login-verify",
+    { credential, publicKey },
+  );
   return data;
 }
 
 export async function fetchPasskeyCredentials(): Promise<PasskeyCredential[]> {
-  const { data } = await api.get<{ success: boolean; data: PasskeyCredential[] }>("/api/webauthn/credentials");
+  const { data } = await api.get<{
+    success: boolean;
+    data: PasskeyCredential[];
+  }>("/api/webauthn/credentials");
   return data.data;
 }
 
@@ -844,11 +1112,162 @@ export async function deletePasskeyCredential(id: string) {
   await api.delete(`/api/webauthn/credentials/${id}`);
 }
 
+// ─── Developer API ────────────────────────────────────────────────────────────
+
+export interface DeveloperApiKey {
+  id: string;
+  label: string;
+  key_prefix: string;
+  created_at: string;
+  last_used_at: string | null;
+  revoked_at: string | null;
+  requests_today: number;
+}
+
+export interface CreatedDeveloperApiKey {
+  id: string;
+  label: string;
+  keyPrefix: string;
+  createdAt: string;
+  apiKey: string;
+}
+
+function buildApiKeyHeaders(apiKey: string) {
+  return { headers: { "X-API-Key": apiKey } };
+}
+
+export async function fetchDeveloperApiKeys(): Promise<DeveloperApiKey[]> {
+  const { data } = await api.get<{ success: boolean; data: DeveloperApiKey[] }>(
+    "/api/developer/keys",
+  );
+  return data.data;
+}
+
+export async function createDeveloperApiKey(
+  label?: string,
+): Promise<CreatedDeveloperApiKey> {
+  const { data } = await api.post<{ success: boolean; data: CreatedDeveloperApiKey }>(
+    "/api/developer/keys",
+    { label },
+  );
+  return data.data;
+}
+
+export async function revokeDeveloperApiKey(id: string): Promise<void> {
+  await api.delete(`/api/developer/keys/${id}`);
+}
+
+export async function fetchPublicJobs(apiKey: string, limit = 20) {
+  const { data } = await api.get<{ success: boolean; data: any[] }>(
+    "/api/public/jobs",
+    {
+      params: { limit },
+      ...buildApiKeyHeaders(apiKey),
+    },
+  );
+  return data.data;
+}
+
+export async function fetchPublicJob(apiKey: string, id: string) {
+  const { data } = await api.get<{ success: boolean; data: any }>(
+    `/api/public/jobs/${encodeURIComponent(id)}`,
+    buildApiKeyHeaders(apiKey),
+  );
+  return data.data;
+}
+
+export async function fetchPublicFreelancerProfile(
+  apiKey: string,
+  publicKey: string,
+) {
+  const { data } = await api.get<{ success: boolean; data: any }>(
+    `/api/public/freelancers/${encodeURIComponent(publicKey)}`,
+    buildApiKeyHeaders(apiKey),
+  );
+  return data.data;
+}
+
+// ─── Skill Certificates ─────────────────────────────────────────
+
+export interface CertificateData {
+  id: string;
+  publicKey: string;
+  displayName: string | null;
+  skill: string;
+  score: number;
+  certificateHash: string;
+  ipfsCid: string | null;
+  txHash: string | null;
+  issuedAt: string;
+  verifyUrl: string;
+}
+
+export async function fetchCertificate(id: string): Promise<CertificateData> {
+  const { data } = await api.get<{ success: boolean; data: CertificateData }>(
+    `/api/certificates/${id}`,
+  );
+  return data.data;
+}
+
+export async function fetchUserCertificates(
+  publicKey: string,
+): Promise<CertificateData[]> {
+  const { data } = await api.get<{
+    success: boolean;
+    data: CertificateData[];
+  }>(`/api/certificates/user/${encodeURIComponent(publicKey)}`);
+  return data.data;
+}
+
+// ─── Skill Endorsements ─────────────────────────────────────────
+
+export interface SkillEndorsementData {
+  skill: string;
+  count: number;
+  endorsers: string[];
+}
+
+export async function fetchSkillEndorsements(
+  publicKey: string,
+): Promise<SkillEndorsementData[]> {
+  const { data } = await api.get<{
+    success: boolean;
+    data: SkillEndorsementData[];
+  }>(`/api/profiles/${encodeURIComponent(publicKey)}/endorsements`);
+  return data.data;
+}
+
+export async function endorseSkill(
+  publicKey: string,
+  skill: string,
+): Promise<void> {
+  await api.post(`/api/profiles/${encodeURIComponent(publicKey)}/endorse`, {
+    skill,
+  });
+}
+
+export interface SkillBadge {
+  skill: string;
+  score: number;
+  passed: boolean;
+  taken_at: string;
+}
+
+export async function fetchSkillBadges(
+  publicKey: string,
+): Promise<SkillBadge[]> {
+  const { data } = await api.get<{
+    success: boolean;
+    data: SkillBadge[];
+  }>(`/api/assessments/results/${encodeURIComponent(publicKey)}`);
+  return data.data;
+}
+
 // ─── Admin Functions ──────────────────────────────────────────────────────────
 
 export async function fetchAdminMetrics(period: "7d" | "30d" | "90d" = "30d") {
-  const { data } = await api.get<{ 
-    success: boolean; 
+  const { data } = await api.get<{
+    success: boolean;
     data: {
       period: string;
       platformHealth: {
@@ -877,7 +1296,11 @@ export async function fetchAdminMetrics(period: "7d" | "30d" | "90d" = "30d") {
         total_ratings: number;
         repeat_hires: number;
       };
-      disputeMetrics: Array<{ week: string; disputes_opened: number; disputes_resolved: number }>;
+      disputeMetrics: Array<{
+        week: string;
+        disputes_opened: number;
+        disputes_resolved: number;
+      }>;
       topEarners: Array<{
         public_key: string;
         display_name: string;
@@ -885,64 +1308,155 @@ export async function fetchAdminMetrics(period: "7d" | "30d" | "90d" = "30d") {
         completed_jobs: number;
         rating: number;
       }>;
-      jobVolume: Array<{ date: string; jobs_created: number; jobs_completed: number }>;
-    }
+      jobVolume: Array<{
+        date: string;
+        jobs_created: number;
+        jobs_completed: number;
+      }>;
+    };
   }>("/api/admin/metrics", { params: { period } });
   return data.data;
 }
 
 export async function fetchAdminJobReports() {
-  const { data } = await api.get<{ success: boolean; data: any[] }>("/api/admin/reports/jobs");
-  return data.data;
-}
-
-export async function fetchAdminDisputes() {
-  const { data } = await api.get<{ success: boolean; data: any[] }>("/api/admin/disputes");
-  return data.data;
-}
-
-export async function fetchAdminLogs() {
-  const { data } = await api.get<{ success: boolean; data: any[] }>("/api/admin/logs");
-  return data.data;
-}
-
-export async function fetchFrozenWallets() {
-  const { data } = await api.get<{ success: boolean; data: any[] }>("/api/admin/wallets/frozen");
-  return data.data;
-}
-
-export async function adminCancelJob(jobId: string, reason: string) {
-  const { data } = await api.patch<{ success: boolean; message: string }>(`/api/admin/jobs/${jobId}/cancel`, { reason });
-  return data;
-}
-
-export async function freezeWallet(address: string, reason: string) {
-  const { data } = await api.post<{ success: boolean; message: string }>(`/api/admin/wallets/${address}/freeze`, { reason });
-  return data;
-}
-
-export async function unfreezeWallet(address: string) {
-  const { data } = await api.delete<{ success: boolean; message: string }>(`/api/admin/wallets/${address}/freeze`);
-  return data;
-}
-
-
-export async function uploadPortfolioItem(publicKey: string, file: File, title?: string) {
-  const formData = new FormData();
-  formData.append("file", file);
-  if (title) formData.append("title", title);
-
-  const { data } = await api.post<{ success: boolean; data: any }>(
-    `/api/profiles/${encodeURIComponent(publicKey)}/portfolio`,
-    formData,
-    { headers: { "Content-Type": "multipart/form-data" }, timeout: 60000 }
+  const { data } = await api.get<{ success: boolean; data: any[] }>(
+    "/api/admin/reports/jobs",
   );
   return data.data;
 }
 
-export async function deletePortfolioItem(publicKey: string, itemId: string) {
-  const { data } = await api.delete<{ success: boolean; data: { deleted: boolean } }>(
-    `/api/profiles/${encodeURIComponent(publicKey)}/portfolio/${encodeURIComponent(itemId)}`
+export async function fetchAdminDisputes() {
+  const { data } = await api.get<{ success: boolean; data: any[] }>(
+    "/api/admin/disputes",
+  );
+  return data.data;
+}
+
+export async function fetchAdminLogs() {
+  const { data } = await api.get<{ success: boolean; data: any[] }>(
+    "/api/admin/logs",
+  );
+  return data.data;
+}
+
+export async function fetchFrozenWallets() {
+  const { data } = await api.get<{ success: boolean; data: any[] }>(
+    "/api/admin/wallets/frozen",
+  );
+  return data.data;
+}
+
+export async function adminCancelJob(jobId: string, reason: string) {
+  const { data } = await api.patch<{ success: boolean; message: string }>(
+    `/api/admin/jobs/${jobId}/cancel`,
+    { reason },
+  );
+  return data;
+}
+
+export async function freezeWallet(address: string, reason: string) {
+  const { data } = await api.post<{ success: boolean; message: string }>(
+    `/api/admin/wallets/${address}/freeze`,
+    { reason },
+  );
+  return data;
+}
+
+export async function unfreezeWallet(address: string) {
+  const { data } = await api.delete<{ success: boolean; message: string }>(
+    `/api/admin/wallets/${address}/freeze`,
+  );
+  return data;
+}
+
+// ─── Referrals ────────────────────────────────────────────────────────────────
+
+/**
+ * Fetch referral stats and history for a referrer.
+ */
+export async function fetchReferralStats(
+  publicKey: string,
+): Promise<ReferralStats> {
+  const { data } = await api.get<{ success: boolean; data: ReferralStats }>(
+    `/api/referrals/${encodeURIComponent(publicKey)}`,
+  );
+  return data.data;
+}
+
+/**
+ * Register a referral relationship when a new user signs up via a referral link.
+ */
+export async function registerReferral(
+  referrerAddress: string,
+  refereeAddress: string,
+): Promise<void> {
+  await api.post("/api/referrals/register", {
+    referrerAddress,
+    refereeAddress,
+  });
+}
+
+// ─── Job Boost (Issue #344) ───────────────────────────────────────────────────
+
+/**
+ * Notify the backend that a boost payment was made on-chain.
+ * The backend sets boosted=true and calculates the expiry from amountXlm.
+ */
+export async function boostJob(
+  jobId: string,
+  txHash: string,
+  amountXlm: number,
+): Promise<Job> {
+  const { data } = await api.patch<{ success: boolean; data: Job }>(
+    `/api/jobs/${jobId}/boost`,
+    { txHash, amountXlm },
+  );
+  return data.data;
+}
+
+// ─── Job Invitations (Issue #342) ────────────────────────────────────────────
+
+export interface JobInvitation {
+  id: string;
+  jobId: string;
+  jobTitle: string;
+  jobBudget: string;
+  jobCurrency: string;
+  clientAddress: string;
+  clientName?: string;
+  freelancerAddress: string;
+  status: "pending" | "accepted" | "declined";
+  createdAt: string;
+}
+
+/**
+ * Fetch all pending invitations for the authenticated freelancer.
+ */
+export async function fetchMyInvitations(): Promise<JobInvitation[]> {
+  const { data } = await api.get<{ success: boolean; data: JobInvitation[] }>(
+    "/api/invitations",
+  );
+  return data.data;
+}
+
+/**
+ * Decline a job invitation.
+ */
+export async function declineInvitation(invitationId: string): Promise<void> {
+  await api.patch(`/api/invitations/${invitationId}/decline`);
+}
+
+/**
+ * Accept a job invitation (auto-creates an application).
+ */
+export async function acceptInvitation(
+  invitationId: string,
+  proposal: string,
+  bidAmount: string,
+): Promise<Application> {
+  const { data } = await api.post<{ success: boolean; data: Application }>(
+    `/api/invitations/${invitationId}/accept`,
+    { proposal, bidAmount },
   );
   return data.data;
 }

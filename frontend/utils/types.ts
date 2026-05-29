@@ -3,11 +3,20 @@
  * Shared TypeScript types for Stellar MarketPay.
  */
 
-export type JobStatus = "open" | "in_progress" | "completed" | "cancelled" | "disputed";
-export type UserRole  = "client" | "freelancer" | "both";
-export type Currency  = "XLM" | "USDC";
+export type JobStatus =
+  | "open"
+  | "in_progress"
+  | "completed"
+  | "cancelled"
+  | "disputed";
+export type UserRole = "client" | "freelancer" | "both";
+export type Currency = "XLM" | "USDC";
 export type JobVisibility = "public" | "private" | "invite_only";
-export type FreelancerTier = "Newcomer" | "Rising Star" | "Expert" | "Top Talent";
+export type FreelancerTier =
+  | "Newcomer"
+  | "Rising Star"
+  | "Expert"
+  | "Top Talent";
 export type AvailabilityStatus = "available" | "busy" | "unavailable";
 export type PortfolioItemType = "link" | "image" | "pdf";
 
@@ -27,8 +36,8 @@ export interface Job {
   id: string;
   title: string;
   description: string;
-  budget: string;        // Amount as string
-  currency: Currency;   // XLM or USDC
+  budget: string; // Amount as string
+  currency: Currency; // XLM or USDC
   category: string;
   visibility?: JobVisibility;
   skills: string[];
@@ -37,15 +46,15 @@ export interface Job {
   freelancerAddress?: string;
   escrowContractId?: string;
   applicantCount: number;
-  shareCount?: number;   // Track share clicks
-  boosted?: boolean;     // Featured/boosted status
+  shareCount?: number; // Track share clicks
+  boosted?: boolean; // Featured/boosted status
   boostedUntil?: string; // ISO date when boost expires
   createdAt: string;
   updatedAt: string;
   deadline?: string;
-  timezone?: string;     // IANA timezone string (e.g., "America/New_York")
-  screeningQuestions?: string[];  // Up to 5 screening questions
-  expiresAt?: string;    // ISO date when job expires if not hired
+  timezone?: string; // IANA timezone string (e.g., "America/New_York")
+  screeningQuestions?: string[]; // Up to 5 screening questions
+  expiresAt?: string; // ISO date when job expires if not hired
   extendedCount?: number; // Number of times expiry has been extended
   extendedUntil?: string; // Final expiry after all extensions
   clientReputationScore?: number | null;
@@ -74,10 +83,10 @@ export interface Application {
   freelancerAddress: string;
   freelancerTier?: FreelancerTier;
   proposal: string;
-  bidAmount: string;     // Amount as string
-  currency: Currency;    // XLM or USDC
+  bidAmount: string; // Amount as string
+  currency: Currency; // XLM or USDC
   status: "pending" | "accepted" | "rejected";
-  screeningAnswers?: Record<string, string>;  // Question -> Answer mapping
+  screeningAnswers?: Record<string, string>; // Question -> Answer mapping
   createdAt: string;
 }
 
@@ -107,7 +116,7 @@ export interface Rating {
   jobId: string;
   raterAddress: string;
   ratedAddress: string;
-  stars: number;          // 1–5
+  stars: number; // 1–5
   review?: string;
   createdAt: string;
 }
@@ -169,6 +178,8 @@ export interface Message {
   content: string;
   read: boolean;
   createdAt: string;
+  ipfsCid?: string;
+  txHash?: string;
 }
 
 export interface PortfolioFile {
@@ -193,31 +204,76 @@ export interface TokenBalance {
   symbol: string;
 }
 
-// ─── Time Tracking (Issue #346) ───────────────────────────────────────────────
+// ─── Skill Endorsements ────────────────────────────────────────
+
+export interface SkillEndorsement {
+  skill: string;
+  count: number;
+  endorsers: string[];
+}
+
+export interface SkillBadge {
+  skill: string;
+  score: number;
+  passed: boolean;
+  taken_at: string;
+}
+
+export interface AssessmentQuestion {
+  id: number;
+  question: string;
+  options: string[];
+}
+
+// ─── Referrals ────────────────────────────────────────────────────────────────
+
+export type ReferralStatus = "pending" | "paid" | "ineligible";
+
+export interface ReferralReferee {
+  id: string;
+  refereeAddress: string;
+  refereeDisplayName: string | null;
+  status: ReferralStatus;
+  payoutAmount: string | null; // XLM string, e.g. "0.5000000"
+  paidAt: string | null;
+  jobTitle: string | null;
+  createdAt: string;
+}
+
+export interface ReferralPayout {
+  id: string;
+  refereeAddress: string;
+  jobId: string;
+  jobTitle: string;
+  amountXlm: string;
+  contractTxHash: string | null;
+  createdAt: string;
+}
+
+export interface ReferralStats {
+  totalReferrals: number;
+  paidReferrals: number;
+  pendingReferrals: number;
+  totalEarnedXlm: string;
+  bonusBps: number;
+  referees: ReferralReferee[];
+  payouts: ReferralPayout[];
+}
 
 export interface TimeEntry {
   id: string;
   jobId: string;
-  freelancerAddress: string;
   durationMinutes: number;
-  description: string | null;
-  startedAt: string | null;
+  description?: string;
+  startedAt?: string;
   createdAt: string;
 }
-
-export type InvoiceStatus = "pending" | "approved" | "rejected";
 
 export interface TimeInvoice {
   id: string;
   jobId: string;
-  freelancerAddress: string;
-  clientAddress: string;
+  status: "pending" | "approved" | "rejected";
   totalMinutes: number;
-  hourlyRateXlm: string;
-  totalAmountXlm: string;
-  status: InvoiceStatus;
-  entryIds: string[];
-  contractTxHash: string | null;
+  amountXlm: string;
   createdAt: string;
-  updatedAt: string;
 }

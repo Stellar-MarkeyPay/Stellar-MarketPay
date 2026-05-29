@@ -3,14 +3,24 @@
  * Browse all open jobs with category filtering and search autocomplete.
  */
 import JobCard, { JobCardSkeleton } from "@/components/JobCard";
+import StateMessage from "@/components/StateMessage";
 import { fetchJobs, fetchRecommendedJobs } from "@/lib/api";
-import { JOB_CATEGORIES, CATEGORY_ICONS } from "@/utils/format";
+import { JOB_CATEGORIES, CATEGORY_ICONS, categoryToSlug } from "@/utils/format";
 import type { Job } from "@/utils/types";
 import clsx from "clsx";
+import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { getTimezoneOffset } from "date-fns-tz";
+import { getConnectedPublicKey } from "@/lib/wallet";
+import { useBookmarks } from "@/hooks/useBookmarks";
+
+interface Suggestion {
+  type: string;
+  value: string;
+}
 
 // ── Job Alert localStorage helpers ──────────────────────────────────────────
 const ALERT_KEY = "marketpay_job_alerts";
@@ -58,6 +68,17 @@ export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
   // ── Job-alert state ────────────────────────────────────────────────────────
   const [alertedCategories, setAlertedCategories] = useState<string[]>([]);
   const [alertStatus, setAlertStatus] = useState<"idle" | "granted" | "denied">("idle");
+  const [viewerAddress, setViewerAddress] = useState<string | null>(null);
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [activeSuggestion, setActiveSuggestion] = useState(0);
+  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
+  const [focusedJobId, setFocusedJobId] = useState<string | null>(null);
+
+  const searchRef = useRef<HTMLInputElement>(null);
+  const suggestionsRef = useRef<HTMLDivElement>(null);
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { toggleBookmark } = useBookmarks();
 
   // Sync alertedCategories from localStorage on mount
   useEffect(() => {
@@ -66,6 +87,25 @@ export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
     window.addEventListener("job-alerts-changed", handler);
     return () => window.removeEventListener("job-alerts-changed", handler);
   }, []);
+
+  useEffect(() => {
+    if (jobs.length > 0 && !focusedJobId) {
+      setFocusedJobId(jobs[0].id);
+    }
+  }, [jobs, focusedJobId]);
+
+  useEffect(() => {
+    const onFocusSearch = () => searchRef.current?.focus();
+    const onToggleBookmark = () => {
+      if (focusedJobId) toggleBookmark(focusedJobId);
+    };
+    window.addEventListener("shortcut-focus-search", onFocusSearch);
+    window.addEventListener("shortcut-toggle-bookmark", onToggleBookmark);
+    return () => {
+      window.removeEventListener("shortcut-focus-search", onFocusSearch);
+      window.removeEventListener("shortcut-toggle-bookmark", onToggleBookmark);
+    };
+  }, [focusedJobId, toggleBookmark]);
 
   const handleSetAlert = async (cat: string) => {
     if (alertedCategories.includes(cat)) {
@@ -204,17 +244,24 @@ export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
     }
 
     setIsLoadingSuggestions(true);
-    try {
-      const data = await fetchJobSuggestions(query);
-      setSuggestions(data);
-      setShowSuggestions(data.length > 0);
-      setActiveSuggestion(0);
-    } catch (err) {
-      console.error("Suggestion fetch error:", err);
-    } finally {
-      setIsLoadingSuggestions(false);
-    }
-  }, []);
+    const q = query.toLowerCase();
+    const fromCategories: Suggestion[] = JOB_CATEGORIES.filter((c) => c.toLowerCase().includes(q))
+      .slice(0, 3)
+      .map((c) => ({ type: "category", value: c }));
+    const fromJobs: Suggestion[] = jobs
+      .filter(
+        (j) =>
+          j.title.toLowerCase().includes(q) ||
+          j.skills.some((s) => s.toLowerCase().includes(q))
+      )
+      .slice(0, 5)
+      .map((j) => ({ type: "job", value: j.title }));
+    const combined = [...fromCategories, ...fromJobs];
+    setSuggestions(combined);
+    setShowSuggestions(combined.length > 0);
+    setActiveSuggestion(0);
+    setIsLoadingSuggestions(false);
+  }, [jobs]);
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -401,6 +448,7 @@ export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
         <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-amber-800" />
         <input
           ref={searchRef}
+          data-job-search
           type="text" value={search} onChange={handleSearchChange} onKeyDown={handleKeyDown}
           placeholder={t("jobs.searchPlaceholder")}
           className="input-field pl-10"
@@ -666,20 +714,32 @@ export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
               ))}
             </div>
           ) : error ? (
-            <div className="card text-center py-12">
-              <p className="text-red-400 mb-3">{error}</p>
-              <button onClick={() => window.location.reload()} className="btn-secondary text-sm">Retry</button>
-            </div>
+            <StateMessage
+              type="error"
+              title="Something went wrong"
+              description="Please try again."
+              ctaLabel="Retry"
+              onCta={() => window.location.reload()}
+            />
           ) : filtered.length === 0 ? (
-            <div className="card text-center py-16">
-              <p className="font-display text-xl text-amber-100 mb-2">{t("jobs.noJobsFound")}</p>
-              <p className="text-amber-800 text-sm mb-6">{t("jobs.tryAdjusting")}</p>
-              <Link href="/post-job" locale={false} className="btn-primary text-sm">{t("jobs.postFirstJob")} →</Link>
-            </div>
+            <StateMessage
+              type="empty"
+              title="No jobs match your filters"
+              description="Try adjusting your search or filters."
+              ctaLabel="Post a Job"
+              onCta={() => router.push('/post-job')}
+            />
           ) : (
             <>
               <div className="grid sm:grid-cols-2 gap-4">
-                {filtered.map((job) => <JobCard key={job.id} job={job} />)}
+                {filtered.map((job) => (
+                  <JobCard
+                    key={job.id}
+                    job={job}
+                    isFocused={focusedJobId === job.id}
+                    onFocus={() => setFocusedJobId(job.id)}
+                  />
+                ))}
               </div>
 
               {nextCursor && (

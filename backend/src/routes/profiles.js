@@ -12,6 +12,7 @@ const { uploadFile, getGatewayUrl, MAX_FILE_SIZE } = require("../services/ipfsSe
 
 const profileUpdateRateLimiter = createRateLimiter(5, 1); // 5 profile updates per minute
 const generalProfileRateLimiter = createRateLimiter(30, 1); // 100 requests per minute for getting profiles
+const cache = require("../services/cacheService");
 
 const {
   getProfile,
@@ -28,7 +29,18 @@ const {
 } = require("../services/priceAlertService");
 
 router.get("/:publicKey", generalProfileRateLimiter, async (req, res, next) => {
-  try { res.json({ success: true, data: await getProfile(req.params.publicKey) }); }
+  try {
+    const key = cache.profileKey(req.params.publicKey);
+    const cached = await cache.get(key);
+    if (cached) {
+      res.set("X-Cache", "HIT");
+      return res.json({ success: true, data: cached });
+    }
+    const data = await getProfile(req.params.publicKey);
+    await cache.set(key, data, cache.TTL.PROFILE);
+    res.set("X-Cache", "MISS");
+    res.json({ success: true, data });
+  }
   catch (e) { next(e); }
 });
 
@@ -43,7 +55,11 @@ router.get("/:publicKey/response-time", generalProfileRateLimiter, async (req, r
 });
 
 router.post("/", profileUpdateRateLimiter, async (req, res, next) => {
-  try { res.json({ success: true, data: await upsertProfile(req.body) }); }
+  try {
+    const data = await upsertProfile(req.body);
+    if (req.body.publicKey) await cache.del(cache.profileKey(req.body.publicKey));
+    res.json({ success: true, data });
+  }
   catch (e) { next(e); }
 });
 
@@ -266,6 +282,56 @@ router.post("/:publicKey/portfolio", verifyJWT, upload.single("file"), async (re
     await pool.query("UPDATE profiles SET portfolio_items = $2::jsonb, updated_at = NOW() WHERE public_key = $1", [publicKey, JSON.stringify(updated)]);
 
     res.json({ success: true, data: item });
+  } catch (e) { next(e); }
+});
+
+// GET /api/profiles/:publicKey/endorsements — get skill endorsements
+router.get("/:publicKey/endorsements", generalProfileRateLimiter, async (req, res, next) => {
+  try {
+    const data = await getSkillEndorsements(req.params.publicKey);
+    res.json({ success: true, data });
+  } catch (e) { next(e); }
+});
+
+// POST /api/profiles/:publicKey/endorse — endorse a skill
+router.post("/:publicKey/endorse", verifyJWT, async (req, res, next) => {
+  try {
+    const { publicKey } = req.params;
+    const { skill } = req.body;
+    const endorserAddress = req.user.publicKey;
+
+    if (!skill || typeof skill !== "string" || !skill.trim()) {
+      return res.status(400).json({ error: "Skill name is required" });
+    }
+
+    // Validate skill exists in recipient's profile
+    const { rows: profileRows } = await pool.query(
+      "SELECT skills FROM profiles WHERE public_key = $1",
+      [publicKey]
+    );
+    if (!profileRows.length) {
+      return res.status(404).json({ error: "Profile not found" });
+    }
+    if (!profileRows[0].skills || !profileRows[0].skills.includes(skill.trim())) {
+      return res.status(400).json({ error: "Skill not found in freelancer's profile" });
+    }
+
+    // Only past clients who completed a job can endorse
+    const { rows: jobRows } = await pool.query(
+      `SELECT 1 FROM jobs
+       WHERE client_address = $1
+         AND freelancer_address = $2
+         AND status = 'completed'
+       LIMIT 1`,
+      [endorserAddress, publicKey]
+    );
+    if (!jobRows.length) {
+      return res.status(403).json({ error: "Only past clients with completed jobs can endorse" });
+    }
+
+    await endorseSkill({ skill: skill.trim(), endorserAddress, recipientAddress: publicKey });
+
+    res.status(201).json({ success: true, data: { skill: skill.trim(), endorsed: true } });
   } catch (e) { next(e); }
 });
 

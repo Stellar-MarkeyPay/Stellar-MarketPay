@@ -13,15 +13,15 @@ import {
   statusLabel,
   timeAgo,
   formatUSDEquivalent,
-  getMonthlyEstimate,
 } from "@/utils/format";
 import type { Job } from "@/utils/types";
 import { usePriceContext } from "@/contexts/PriceContext";
 import { useBookmarks } from "@/hooks/useBookmarks";
-import { useState, useEffect } from "react";
 
 interface JobCardProps {
   job: Job;
+  isFocused?: boolean;
+  onFocus?: () => void;
 }
 
 function getClientReputationBadge(score?: number | null) {
@@ -105,7 +105,7 @@ function CountdownTimer({ deadline }: { deadline: string }) {
   );
 }
 
-export default function JobCard({ job }: JobCardProps) {
+export default function JobCard({ job, isFocused = false, onFocus }: JobCardProps) {
   const { xlmPriceUsd } = usePriceContext();
   const { isSaved, toggleBookmark } = useBookmarks();
   const usdEquivalent = formatUSDEquivalent(job.budget, xlmPriceUsd);
@@ -154,8 +154,14 @@ export default function JobCard({ job }: JobCardProps) {
   return (
     <Link href={`/jobs/${job.id}`}>
       {/* ── ISSUE #78: Added relative positioning and hover handlers ── */}
-      <div 
-        className="card-hover group animate-fade-in relative cursor-pointer" 
+      <div
+        className={[
+          "card-hover group animate-fade-in relative cursor-pointer outline-none",
+          isFocused ? "ring-2 ring-market-400/50" : "",
+        ].join(" ")}
+        tabIndex={0}
+        data-job-card-focus={isFocused ? "true" : undefined}
+        onFocus={onFocus}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
@@ -236,20 +242,20 @@ export default function JobCard({ job }: JobCardProps) {
                 toggleBookmark(job.id);
               }}
               className="p-1.5 rounded-md transition-all flex items-center justify-center hover:bg-amber-500/10 group/bookmark"
-              title={saved ? "Remove bookmark" : "Save job"}
-              aria-label={saved ? "Remove bookmark" : "Save job"}
+              title={isSaved ? "Remove bookmark" : "Save job"}
+              aria-label={isSaved ? "Remove bookmark" : "Save job"}
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 width="16"
                 height="16"
                 viewBox="0 0 24 24"
-                fill={saved ? "currentColor" : "none"}
+                fill={isSaved(job.id) ? "currentColor" : "none"}
                 stroke="currentColor"
                 strokeWidth="2"
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                className={`transition-colors group-hover/bookmark:text-amber-400 ${saved ? 'text-amber-400' : 'text-amber-700/60 group-hover/bookmark:text-amber-400'}`}
+                className={`transition-colors group-hover/bookmark:text-amber-400 ${isSaved(job.id) ? 'text-amber-400' : 'text-amber-700/60 group-hover/bookmark:text-amber-400'}`}
               >
                 <path d="m14 20 4-6H4l4 6z"/>
                 <path d="M18 8a4 4 0 1 0-8 0 4 4 0 0 0 8 0z"/>
@@ -282,10 +288,15 @@ export default function JobCard({ job }: JobCardProps) {
         </div>
 
         {/* Category pill */}
-        <div className="mt-3">
+        <div className="mt-3 flex items-center gap-2 flex-wrap">
           <span className="text-xs text-amber-700 bg-ink-700 px-2.5 py-1 rounded-full border border-[rgba(251,191,36,0.08)]">
             {job.category}
           </span>
+          {job.boosted && job.boostedUntil && new Date(job.boostedUntil) > new Date() && (
+            <span className="text-xs text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20 font-medium">
+              ⚡ Featured · until {new Date(job.boostedUntil).toLocaleDateString()}
+            </span>
+          )}
         </div>
 
         {/* ── ISSUE #78: Floating Hover Preview Card ── */}

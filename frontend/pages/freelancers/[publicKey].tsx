@@ -7,12 +7,17 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { useEffect, useMemo, useState } from "react";
 import FreelancerTierBadge from "@/components/FreelancerTierBadge";
+import FreelancerProfileSkeleton from "@/components/FreelancerProfileSkeleton";
 import {
   fetchPublicProfile,
   verifyIdentity,
   fetchSkillEndorsements,
   endorseSkill,
+  fetchSkillBadges,
+  fetchUserCertificates,
+  type CertificateData,
 } from "@/lib/api";
+import StateMessage from "@/components/StateMessage";
 import {
   availabilityStatusLabel,
   availabilitySummary,
@@ -25,6 +30,7 @@ import type {
   PortfolioItem,
   SkillEndorsement,
   UserProfile,
+  SkillBadge,
 } from "@/utils/types";
 
 type LoadState =
@@ -77,6 +83,8 @@ export default function PublicFreelancerProfilePage({
   const [verifying, setVerifying] = useState(false);
   const [endorsements, setEndorsements] = useState<SkillEndorsement[]>([]);
   const [endorsingSkill, setEndorsingSkill] = useState<string | null>(null);
+  const [badges, setBadges] = useState<SkillBadge[]>([]);
+  const [certificates, setCertificates] = useState<CertificateData[]>([]);
 
   const isOwner = publicKey && rawKey === publicKey;
 
@@ -95,21 +103,6 @@ export default function PublicFreelancerProfilePage({
       console.error("Verification error:", error);
     } finally {
       setVerifying(false);
-    }
-  };
-
-  const handleEndorse = async (skill: string) => {
-    if (!publicKey || isOwner) return;
-    setEndorsingSkill(skill);
-    try {
-      await endorseSkill(rawKey, skill);
-      const refreshed = await fetchSkillEndorsements(rawKey);
-      setEndorsements(refreshed);
-    } catch (error: unknown) {
-      console.error("Endorsement error:", error);
-      alert(error instanceof Error ? error.message : "Failed to endorse skill");
-    } finally {
-      setEndorsingSkill(null);
     }
   };
 
@@ -185,6 +178,11 @@ export default function PublicFreelancerProfilePage({
       .then((data) => { if (!cancelled) setBadges(data.filter((b) => b.passed)); })
       .catch(() => {});
 
+    // Fetch certificates separately (non-blocking)
+    fetchUserCertificates(rawKey)
+      .then((data) => { if (!cancelled) setCertificates(data); })
+      .catch(() => {});
+
     return () => {
       cancelled = true;
     };
@@ -215,11 +213,7 @@ export default function PublicFreelancerProfilePage({
         </Link>
 
         {state.status === "loading" && (
-          <div className="card space-y-4 animate-pulse" aria-busy="true">
-            <div className="h-8 bg-market-500/10 rounded w-2/3" />
-            <div className="h-4 bg-market-500/8 rounded w-1/2" />
-            <div className="h-24 bg-market-500/8 rounded w-full" />
-          </div>
+          <FreelancerProfileSkeleton />
         )}
 
         {state.status === "invalid" && (
@@ -250,13 +244,12 @@ export default function PublicFreelancerProfilePage({
         )}
 
         {state.status === "error" && (
-          <div className="card border-red-500/20 text-center py-12 sm:py-16">
-            <p className="font-display text-xl text-amber-100 mb-2">
-              Something went wrong
-            </p>
-            <p className="text-red-400/90 text-sm max-w-md mx-auto">
-              {state.message}
-            </p>
+          <div className="space-y-4">
+            <FreelancerProfileSkeleton />
+            <div className="text-center">
+              <p className="text-red-400/90 text-sm max-w-md mx-auto mb-2">{state.message}</p>
+              <button onClick={() => router.replace(router.asPath)} className="btn-primary text-sm">Retry</button>
+            </div>
           </div>
         )}
 
@@ -390,18 +383,25 @@ export default function PublicFreelancerProfilePage({
                   className="mt-2"
                 />
               </div>
-              <div className="rounded-xl bg-ink-900/50 border border-market-500/10 p-4">
-                <p className="label mb-1">Average rating</p>
-                <p className="font-display text-2xl sm:text-3xl font-bold text-market-400">
-                  {state.profile.rating?.toFixed(2) ?? "New"}
-                </p>
-              </div>
+              {state.profile.rating == null ? (
+                <StateMessage
+                  type="empty"
+                  title="No reviews yet"
+                  description="Be the first to hire this freelancer"
+                  ctaLabel="Hire now"
+                  onCta={() => router.push(`/jobs?search=${state.profile.publicKey}`)}
+                />
+              ) : (
+                <div className="rounded-xl bg-ink-900/50 border border-market-500/10 p-4">
+                  <p className="label mb-1">Average rating</p>
+                  <p className="font-display text-2xl sm:text-3xl font-bold text-market-400">
+                    {state.profile.rating?.toFixed(2) ?? "New"}
+                  </p>
+                </div>
+              )}
               <div className="rounded-xl bg-ink-900/50 border border-market-500/10 p-4">
                 <p className="label mb-1">Success rate</p>
                 <p className="font-display text-2xl sm:text-3xl font-bold text-market-400">
-                  {stats ? `${stats.successRate}%` : "—"}
-                </p>
-                <p className="text-[10px] uppercase tracking-wider text-amber-800 mt-1">
                   {stats?.acceptedApplications || 0} / {stats?.totalApplications || 0} accepted
                 </p>
               </div>
@@ -531,17 +531,42 @@ export default function PublicFreelancerProfilePage({
               <div className="mb-6 sm:mb-8">
                 <h2 className="label mb-3">Verified Skills</h2>
                 <ul className="flex flex-wrap gap-2">
-                  {badges.map((b) => (
-                    <li key={b.skill} className="relative group">
-                      <span className="inline-flex items-center gap-1.5 text-sm bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 px-3 py-1.5 rounded-full cursor-default">
-                        ✓ {b.skill.charAt(0).toUpperCase() + b.skill.slice(1)}
-                      </span>
-                      {/* Score tooltip */}
-                      <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 whitespace-nowrap rounded-lg bg-ink-900 border border-market-500/20 px-2.5 py-1 text-xs text-amber-300 opacity-0 group-hover:opacity-100 transition-opacity shadow-lg z-10">
-                        Score: {b.score}% · {new Date(b.taken_at).toLocaleDateString()}
-                      </span>
-                    </li>
-                  ))}
+                  {badges.map((b) => {
+                    const cert = certificates.find(
+                      (c) => c.skill.toLowerCase() === b.skill.toLowerCase(),
+                    );
+                    return (
+                      <li key={b.skill} className="relative group">
+                        <span className="inline-flex items-center gap-1.5 text-sm bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 px-3 py-1.5 rounded-full">
+                          ✓ {b.skill.charAt(0).toUpperCase() + b.skill.slice(1)}
+                        </span>
+                        {/* Score tooltip */}
+                        <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 whitespace-nowrap rounded-lg bg-ink-900 border border-market-500/20 px-2.5 py-1 text-xs text-amber-300 opacity-0 group-hover:opacity-100 transition-opacity shadow-lg z-10">
+                          Score: {b.score}% · {new Date(b.taken_at).toLocaleDateString()}
+                          {cert && (
+                            <>
+                              <br />
+                              <a
+                                href={`/certificates/${cert.id}`}
+                                className="text-market-400 underline"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                View Certificate
+                              </a>
+                            </>
+                          )}
+                        </span>
+                        {cert && (
+                          <Link
+                            href={`/certificates/${cert.id}`}
+                            className="ml-1 inline-flex items-center text-[10px] text-market-400 hover:text-market-300 underline"
+                          >
+                            Verify
+                          </Link>
+                        )}
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
             )}

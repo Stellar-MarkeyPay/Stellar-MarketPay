@@ -171,6 +171,67 @@ function getGatewayUrl(cid) {
 }
 
 /**
+ * Upload a message payload (JSON) to IPFS via Pinata.
+ * Messages are client-side encrypted before upload; the server just pins the JSON blob.
+ * @param {Object} messagePayload - { jobId, senderAddress, recipientAddress, content, encrypted }
+ * @returns {Promise<Object>} - { cid, size, uploadedAt }
+ */
+async function uploadMessage(messagePayload) {
+  if (!PINATA_API_KEY || !PINATA_SECRET_KEY) {
+    throw new Error("Pinata credentials not configured");
+  }
+
+  const jsonStr = JSON.stringify(messagePayload);
+  const buffer = Buffer.from(jsonStr, "utf8");
+
+  try {
+    const formData = new FormData();
+    formData.append("file", buffer, {
+      filename: `msg-${messagePayload.jobId}-${Date.now()}.json`,
+      contentType: "application/json",
+    });
+
+    const metadata = {
+      name: `message-${messagePayload.jobId}`,
+      keyvalues: {
+        app: "stellar-marketpay",
+        type: "message",
+        jobId: messagePayload.jobId,
+        uploadedAt: new Date().toISOString(),
+      },
+    };
+    formData.append("pinataMetadata", JSON.stringify(metadata));
+
+    const response = await axios.post(
+      `${PINATA_API_URL}/pinning/pinFileToIPFS`,
+      formData,
+      {
+        headers: {
+          "pinata_api_key": PINATA_API_KEY,
+          "pinata_secret_api_key": PINATA_SECRET_KEY,
+          ...formData.getHeaders(),
+        },
+        maxContentLength: 1024 * 1024, // 1MB for messages
+        timeout: 15000,
+      },
+    );
+
+    if (!response.data.IpfsHash) {
+      throw new Error("Invalid response from Pinata");
+    }
+
+    return {
+      cid: response.data.IpfsHash,
+      size: buffer.length,
+      uploadedAt: new Date().toISOString(),
+    };
+  } catch (error) {
+    console.error("IPFS message upload error:", error.response?.data || error.message);
+    throw new Error(`Failed to upload message to IPFS: ${error.message}`);
+  }
+}
+
+/**
  * Check if Pinata is properly configured
  * @returns {boolean} - True if configured
  */
@@ -180,6 +241,7 @@ function isConfigured() {
 
 module.exports = {
   uploadFile,
+  uploadMessage,
   validatePortfolioFiles,
   getGatewayUrl,
   isConfigured,

@@ -18,6 +18,8 @@ import {
 } from "@/lib/api";
 import { shortenAddress, timeAgo } from "@/utils/format";
 import AdminAnalytics from "@/components/AdminAnalytics";
+import Admin2FAModal from "@/components/Admin2FAModal";
+import { fetchAdmin2FAStatus } from "@/lib/api";
 
 // Wallet addresses with admin access — can also be overridden by env var
 const ADMIN_ADDRESSES = (
@@ -69,6 +71,14 @@ function EmptyState({ message }: { message: string }) {
   );
 }
 
+function formatAuditTarget(target?: string | null) {
+  if (!target) return "—";
+  if (/^G[A-Z0-9]{55}$/.test(target)) {
+    return shortenAddress(target);
+  }
+  return target;
+}
+
 export default function AdminDashboard({ publicKey }: AdminPageProps) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<ActiveTab>("analytics");
@@ -91,6 +101,8 @@ export default function AdminDashboard({ publicKey }: AdminPageProps) {
   const [freezeModal, setFreezeModal] = useState<{ address: string } | null>(null);
   const [freezeReason, setFreezeReason] = useState("");
 
+  const [twoFaState, setTwoFaState] = useState<"loading" | "setup" | "verify" | "ready">("loading");
+
   const isAdmin = Boolean(publicKey && ADMIN_ADDRESSES.includes(publicKey));
 
   useEffect(() => {
@@ -99,6 +111,17 @@ export default function AdminDashboard({ publicKey }: AdminPageProps) {
       router.replace("/jobs");
     }
   }, [publicKey, isAdmin, router]);
+
+  useEffect(() => {
+    if (!isAdmin || !publicKey) return;
+    fetchAdmin2FAStatus()
+      .then((status) => {
+        if (!status.totp_enabled) setTwoFaState("setup");
+        else if (!status.verified) setTwoFaState("verify");
+        else setTwoFaState("ready");
+      })
+      .catch(() => setTwoFaState("ready"));
+  }, [isAdmin, publicKey]);
 
   const loadData = useCallback(async () => {
     if (!isAdmin) return;
@@ -122,8 +145,9 @@ export default function AdminDashboard({ publicKey }: AdminPageProps) {
   }, [isAdmin]);
 
   useEffect(() => {
+    if (twoFaState !== "ready") return;
     loadData();
-  }, [loadData]);
+  }, [loadData, twoFaState]);
 
   function showSuccess(msg: string) {
     setActionMessage(msg);
@@ -200,6 +224,28 @@ export default function AdminDashboard({ publicKey }: AdminPageProps) {
       <div className="min-h-screen flex items-center justify-center">
         <p className="text-red-400">Access denied. Admin wallets only.</p>
       </div>
+    );
+  }
+
+  if (twoFaState === "loading") {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-amber-800">Verifying admin session…</p>
+      </div>
+    );
+  }
+
+  if (twoFaState === "setup" || twoFaState === "verify") {
+    return (
+      <>
+        <Head>
+          <title>Admin 2FA — Stellar MarketPay</title>
+        </Head>
+        <Admin2FAModal
+          mode={twoFaState}
+          onComplete={() => setTwoFaState("ready")}
+        />
+      </>
     );
   }
 
@@ -455,6 +501,7 @@ export default function AdminDashboard({ publicKey }: AdminPageProps) {
                           <th className="text-left px-4 py-3">Action</th>
                           <th className="text-left px-4 py-3">Admin</th>
                           <th className="text-left px-4 py-3">Target</th>
+                          <th className="text-left px-4 py-3">Reason</th>
                           <th className="text-left px-4 py-3">Time</th>
                         </tr>
                       </thead>
@@ -463,10 +510,13 @@ export default function AdminDashboard({ publicKey }: AdminPageProps) {
                           <tr key={log.id} className="hover:bg-market-500/5 transition-colors">
                             <td className="px-4 py-3 text-amber-100 font-mono text-xs">{log.action}</td>
                             <td className="px-4 py-3 text-amber-800 font-mono text-xs">
-                              {shortenAddress(log.admin_address)}
+                              {shortenAddress(log.actor_address || log.admin_address)}
                             </td>
                             <td className="px-4 py-3 text-amber-800 font-mono text-xs">
-                              {log.target_id ? shortenAddress(log.target_id) : "—"}
+                              {formatAuditTarget(log.target || log.target_id)}
+                            </td>
+                            <td className="px-4 py-3 text-amber-800 text-xs">
+                              {log.reason || "—"}
                             </td>
                             <td className="px-4 py-3 text-amber-900 text-xs whitespace-nowrap">
                               {timeAgo(log.created_at)}

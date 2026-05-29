@@ -29,6 +29,15 @@ ALTER TABLE profiles
 ALTER TABLE profiles
   ADD COLUMN IF NOT EXISTS blocked_addresses TEXT[] NOT NULL DEFAULT '{}';
 
+-- Weekly digest fields (V5)
+ALTER TABLE profiles
+  ADD COLUMN IF NOT EXISTS email                   TEXT,
+  ADD COLUMN IF NOT EXISTS last_login_at           TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS digest_unsubscribe_token UUID NOT NULL DEFAULT gen_random_uuid();
+
+CREATE UNIQUE INDEX IF NOT EXISTS profiles_digest_unsubscribe_token_idx
+  ON profiles(digest_unsubscribe_token);
+
 -- ─────────────────────────────────────────
 -- jobs
 -- ─────────────────────────────────────────
@@ -139,7 +148,8 @@ CREATE TABLE IF NOT EXISTS private_messages (
   recipient_public_key  TEXT        NOT NULL,
   nonce                 TEXT        NOT NULL,
   cipher_text           TEXT        NOT NULL,
-  created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (nonce)
 );
 
 CREATE INDEX IF NOT EXISTS private_messages_participants_idx
@@ -208,8 +218,41 @@ CREATE TABLE IF NOT EXISTS messages (
   created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- ─────────────────────────────────────────
+-- referrals — tracks who referred whom and bonus payout status
+-- ─────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS referrals (
+  id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  referrer_address TEXT        NOT NULL REFERENCES profiles(public_key),
+  referee_address  TEXT        NOT NULL REFERENCES profiles(public_key),
+  job_id           UUID        REFERENCES jobs(id),          -- first job that triggered payout
+  status           TEXT        NOT NULL DEFAULT 'pending',   -- pending | paid | ineligible
+  payout_amount    NUMERIC(20,7),                            -- XLM paid to referrer (2% of job earnings)
+  paid_at          TIMESTAMPTZ,
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (referrer_address, referee_address)                 -- one referral relationship per pair
+);
+
 CREATE INDEX IF NOT EXISTS referrals_referrer_address_idx ON referrals(referrer_address);
-CREATE INDEX IF NOT EXISTS referrals_job_id_idx          ON referrals(job_id);
+CREATE INDEX IF NOT EXISTS referrals_referee_address_idx  ON referrals(referee_address);
+CREATE INDEX IF NOT EXISTS referrals_job_id_idx           ON referrals(job_id);
+
+-- ─────────────────────────────────────────
+-- referral_payouts — audit log of every XLM bonus sent
+-- ─────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS referral_payouts (
+  id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  referral_id      UUID        NOT NULL REFERENCES referrals(id),
+  referrer_address TEXT        NOT NULL REFERENCES profiles(public_key),
+  referee_address  TEXT        NOT NULL REFERENCES profiles(public_key),
+  job_id           UUID        NOT NULL REFERENCES jobs(id),
+  amount_xlm       NUMERIC(20,7) NOT NULL,
+  contract_tx_hash TEXT,                                     -- on-chain tx hash from release_escrow
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS referral_payouts_referrer_idx ON referral_payouts(referrer_address);
+CREATE INDEX IF NOT EXISTS referral_payouts_referee_idx  ON referral_payouts(referee_address);
 
 -- ─────────────────────────────────────────
 -- scope_sessions (real-time collaborative editor — Issue #227)
@@ -297,3 +340,31 @@ CREATE TABLE IF NOT EXISTS time_invoices (
 CREATE INDEX IF NOT EXISTS time_invoices_job_id_idx        ON time_invoices(job_id);
 CREATE INDEX IF NOT EXISTS time_invoices_freelancer_idx    ON time_invoices(freelancer_address);
 CREATE INDEX IF NOT EXISTS time_invoices_client_idx        ON time_invoices(client_address);
+
+-- ─────────────────────────────────────────
+-- job_invitations  (Issue #342 — direct invitations)
+-- ─────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS job_invitations (
+  id                  UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  job_id              UUID        NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+  client_address      TEXT        NOT NULL REFERENCES profiles(public_key),
+  freelancer_address  TEXT        NOT NULL REFERENCES profiles(public_key),
+  status              TEXT        NOT NULL DEFAULT 'pending'
+                                  CHECK (status IN ('pending', 'accepted', 'declined')),
+  created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (job_id, freelancer_address)
+);
+
+CREATE INDEX IF NOT EXISTS job_invitations_freelancer_idx ON job_invitations(freelancer_address);
+CREATE INDEX IF NOT EXISTS job_invitations_job_id_idx     ON job_invitations(job_id);
+
+-- Add status column to existing job_invitations if it was created without it
+ALTER TABLE job_invitations ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'pending'
+  CHECK (status IN ('pending', 'accepted', 'declined'));
+
+-- ─────────────────────────────────────────
+-- notification_queue additions (in_app type support)
+-- ─────────────────────────────────────────
+-- Allow 'in_app' as a notification_type in addition to 'email' and 'webhook'
+-- The notification_queue table was created without a CHECK constraint on
+-- notification_type so this is a no-op schema change (just documentation).

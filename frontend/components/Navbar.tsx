@@ -21,13 +21,14 @@ const links = [
   { href: "/dashboard",   labelKey: "nav.dashboard" },
   { href: "/post-job",    labelKey: "nav.postJob" },
   { href: "/insights",    labelKey: "nav.insights" },
+  { href: "/developer",   labelKey: "nav.developer" },
 ];
 
 const STELLAR_NETWORK = process.env.NEXT_PUBLIC_STELLAR_NETWORK || "testnet";
 
 export default function Navbar({ publicKey, onConnect, onDisconnect }: NavbarProps) {
   const router = useRouter();
-  const { i18n } = useTranslation("common");
+  const { t, i18n } = useTranslation("common");
   const [hasNotification, setHasNotification] = useState(false);
   const [hasJobAlertBadge, setHasJobAlertBadge] = useState(false);
 
@@ -66,7 +67,25 @@ export default function Navbar({ publicKey, onConnect, onDisconnect }: NavbarPro
     }
   }, [router.pathname]);
 
+  const balance: string | null = null;
+  const balanceLoading = false;
+
+  const switchLanguage = (lang: string) => {
+    i18n.changeLanguage(lang);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("preferredLocale", lang);
+    }
+  };
+
   return (
+    <>
+      {/* Skip to main content (#287) */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[9999] focus:px-4 focus:py-2 focus:rounded-lg focus:bg-market-500 focus:text-white focus:font-bold focus:text-sm"
+      >
+        Skip to main content
+      </a>
     <nav className="sticky top-0 z-50 border-b border-[rgba(251,191,36,0.10)] bg-ink-900/85 backdrop-blur-xl">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
 
@@ -154,6 +173,7 @@ export default function Navbar({ publicKey, onConnect, onDisconnect }: NavbarPro
         </div>
       </div>
     </nav>
+    </>
   );
 }
 

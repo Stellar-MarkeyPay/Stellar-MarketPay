@@ -214,6 +214,12 @@ function rowToProfile(row) {
     totalEarnedXLM: row.total_earned_xlm,
     rating: row.rating !== null ? parseFloat(row.rating) : null,
     blockedAddresses: Array.isArray(row.blocked_addresses) ? row.blocked_addresses : [],
+    email: row.email || null,
+    emailNotificationsEnabled: row.email_notifications_enabled !== null ? row.email_notifications_enabled : null,
+    webhookUrl: row.webhook_url || null,
+    webhookSecret: row.webhook_secret || null,
+    isKycVerified: row.is_kyc_verified !== null ? row.is_kyc_verified : null,
+    didHash: row.did_hash || null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -329,7 +335,7 @@ async function getProfile(publicKey) {
  *   role: 'freelancer',
  * });
  */
-async function upsertProfile({ publicKey, displayName, bio, skills, portfolioItems, availability, role }) {
+async function upsertProfile({ publicKey, displayName, bio, skills, portfolioItems, portfolioFiles, availability, role, email, emailNotificationsEnabled, webhookUrl, webhookSecret }) {
   validatePublicKey(publicKey);
 
   const safeSkills = Array.isArray(skills) ? skills.slice(0, 15) : null;
@@ -526,6 +532,43 @@ async function endorseSkill({ skill, endorserAddress, recipientAddress }) {
   );
 }
 
+/**
+ * Verify a user's identity by storing a DID hash.
+ * @param {string} publicKey
+ * @param {string} didHash
+ * @returns {Promise<Object>}
+ */
+async function verifyIdentity(publicKey, didHash) {
+  validatePublicKey(publicKey);
+  if (!didHash || typeof didHash !== "string") {
+    throw createValidationError("didHash is required");
+  }
+  const { rows } = await pool.query(
+    `UPDATE profiles SET did_hash = $1, is_kyc_verified = true, updated_at = NOW()
+     WHERE public_key = $2 RETURNING *`,
+    [didHash.trim(), publicKey]
+  );
+  if (!rows.length) {
+    const e = new Error("Profile not found");
+    e.status = 404;
+    throw e;
+  }
+  return rowToProfile(rows[0]);
+}
+
+/**
+ * Calculate freelancer tier based on completed jobs and rating.
+ * @param {number} completedJobs
+ * @param {number|null} rating
+ * @returns {string}
+ */
+function calculateFreelancerTier(completedJobs, rating) {
+  if (completedJobs >= 25 && (rating || 0) >= 4.5) return "Top Talent";
+  if (completedJobs >= 10 && (rating || 0) >= 4.0) return "Expert";
+  if (completedJobs >= 3 && (rating || 0) >= 3.5) return "Rising Star";
+  return "Newcomer";
+}
+
 async function getClientSpendingAnalytics(publicKey) {
   validatePublicKey(publicKey);
 
@@ -685,6 +728,11 @@ module.exports = {
   getClientSpendingAnalytics,
   getClientReputation,
   calculateFreelancerTier,
+  getProfileStats,
+  getResponseTime,
+  isBlocked,
+  blockFreelancer,
+  unblockFreelancer,
   VALID_PORTFOLIO_TYPES,
   VALID_AVAILABILITY_STATUSES,
   MAX_PORTFOLIO_ITEMS,
