@@ -9,15 +9,34 @@ import {
   Horizon,
 } from "@stellar/stellar-sdk";
 import * as SorobanRpc from "@stellar/stellar-sdk/rpc";
+import { optionalClientEnv, requireClientEnv } from "./env";
 
 // ---------------------------------------------------------------------------
 // Config
 // ---------------------------------------------------------------------------
 
-const NETWORK_PASSPHRASE = Networks.TESTNET;
-const HORIZON_URL = "https://horizon-testnet.stellar.org";
-const SOROBAN_RPC_URL = "https://soroban-testnet.stellar.org";
-const CONTRACT_ID = process.env.NEXT_PUBLIC_CONTRACT_ID ?? "";
+const NETWORK_NAME = optionalClientEnv("NEXT_PUBLIC_STELLAR_NETWORK", "testnet").toLowerCase();
+if (NETWORK_NAME !== "testnet" && NETWORK_NAME !== "mainnet") {
+  throw new Error("NEXT_PUBLIC_STELLAR_NETWORK must be either testnet or mainnet.");
+}
+
+const NETWORK_PASSPHRASE = NETWORK_NAME === "mainnet" ? Networks.PUBLIC : Networks.TESTNET;
+const HORIZON_URL = optionalClientEnv(
+  "NEXT_PUBLIC_HORIZON_URL",
+  NETWORK_NAME === "mainnet"
+    ? "https://horizon.stellar.org"
+    : "https://horizon-testnet.stellar.org",
+);
+const SOROBAN_RPC_URL = optionalClientEnv(
+  "NEXT_PUBLIC_SOROBAN_RPC_URL",
+  NETWORK_NAME === "mainnet"
+    ? "https://soroban-mainnet.stellar.org"
+    : "https://soroban-testnet.stellar.org",
+);
+const CONTRACT_ID =
+  process.env.NEXT_PUBLIC_USE_CONTRACT_MOCK === "true"
+    ? ""
+    : requireClientEnv("NEXT_PUBLIC_CONTRACT_ID");
 
 export const server = new Horizon.Server(HORIZON_URL, { allowHttp: false });
 
@@ -87,7 +106,7 @@ async function getFreighter() {
 
 /**
  * Builds, simulates, and returns a base64-encoded XDR transaction that invokes
- * `create_escrow(job_id: String, client: Address, amount: i128)` on the
+ * `create_escrow(job_id: String, client: Address, freelancer: Address, token: Address, amount: i128, ...)` on the
  * deployed Soroban contract.
  *
  * The returned XDR is ready to be signed by Freighter and submitted.
@@ -344,102 +363,236 @@ export async function publishMessageOnChain(
 // ---------------------------------------------------------------------------
 
 /**
- * Generate a Stellar Expert URL for viewing a transaction
+ * Fetch the native XLM balance for a Stellar account.
+ * Returns "0" if the account does not exist yet.
  */
-export function explorerUrl(txHash: string): string {
-  return `https://stellar.expert/explorer/testnet/tx/${txHash}`;
+export async function getXLMBalance(publicKey: string): Promise<string> {
+  try {
+    const res = await fetch(
+      `${HORIZON_URL}/accounts/${encodeURIComponent(publicKey)}`
+    );
+    if (!res.ok) return "0";
+    const data = await res.json();
+    const native = (data.balances ?? []).find(
+      (b: { asset_type: string; balance: string }) => b.asset_type === "native"
+    );
+    return native?.balance ?? "0";
+  } catch {
+    return "0";
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Build a boost_job Soroban transaction (Issue #344)
+// ---------------------------------------------------------------------------
+
+export interface BoostParams {
+  /** Stellar public key of the client paying for the boost */
+  clientPublicKey: string;
+  /** Backend job UUID */
+  jobId: string;
+  /** Boost amount in XLM (5 = 7 days, 15 = 30 days) */
+  amountXlm: number;
+  /** Platform treasury address that receives the payment */
+  treasuryAddress: string;
 }
 
 /**
- * Generate a Stellar Expert URL for viewing an account
+ * Builds a Soroban transaction that calls `boost_job` on the contract.
+ * Returns the assembled XDR string ready for Freighter signing.
  */
+export async function buildBoostJobTx(params: BoostParams): Promise<string> {
+  const { clientPublicKey, jobId, amountXlm, treasuryAddress } = params;
+
+  if (!CONTRACT_ID) {
+    throw new Error("NEXT_PUBLIC_CONTRACT_ID is not set.");
+  }
+
+  const server = sorobanServer;
+  const account = await server.getAccount(clientPublicKey);
+  const amountStroops = BigInt(Math.round(amountXlm * 10_000_000));
+
+  const contract = new Contract(CONTRACT_ID);
+  const callArgs = [
+    nativeToScVal(jobId, { type: "string" }),
+    Address.fromString(clientPublicKey).toScVal(),
+    Address.fromString(treasuryAddress).toScVal(),
+    nativeToScVal(amountStroops, { type: "i128" }),
+  ];
+
+  const tx = new TransactionBuilder(account, {
+    fee: BASE_FEE,
+    networkPassphrase: NETWORK_PASSPHRASE,
+  })
+    .addOperation(contract.call("boost_job", ...callArgs))
+    .setTimeout(300)
+    .build();
+
+  const simResponse = await server.simulateTransaction(tx);
+  if (SorobanRpc.Api.isSimulationError(simResponse)) {
+    throw new Error(`Soroban simulation failed: ${simResponse.error}`);
+  }
+
+  return SorobanRpc.assembleTransaction(tx, simResponse).build().toXDR();
+}
+
+// ---------------------------------------------------------------------------
+// Build + sign + submit helpers for generic Soroban transactions
+// ---------------------------------------------------------------------------
+
+/**
+ * Sign an XDR transaction with Freighter and submit it to the Soroban RPC.
+ * Polls until confirmed. Returns the transaction hash.
+ */
+export async function signAndSubmitSorobanTx(xdrString: string): Promise<string> {
+  const { signTransaction } = await getFreighter();
+
+  const { signedTransaction } = await signTransaction(xdrString, {
+    network: "TESTNET",
+    networkPassphrase: NETWORK_PASSPHRASE,
+  });
+
+  const server = sorobanServer;
+  const { Transaction } = await import("@stellar/stellar-sdk");
+  const sendResponse = await server.sendTransaction(
+    new Transaction(signedTransaction, NETWORK_PASSPHRASE)
+  );
+
+  if (sendResponse.status === "ERROR") {
+    throw new Error(
+      `Transaction submission failed: ${sendResponse.errorResult?.toXDR("base64") ?? "unknown"}`
+    );
+  }
+
+  const txHash = sendResponse.hash;
+  let getResponse = await server.getTransaction(txHash);
+  let polls = 0;
+
+  while (
+    getResponse.status === SorobanRpc.Api.GetTransactionStatus.NOT_FOUND &&
+    polls < 20
+  ) {
+    await new Promise((r) => setTimeout(r, 1500));
+    getResponse = await server.getTransaction(txHash);
+    polls++;
+  }
+
+  if (getResponse.status !== SorobanRpc.Api.GetTransactionStatus.SUCCESS) {
+    throw new Error(`Transaction did not succeed. Status: ${getResponse.status}`);
+  }
+
+  return txHash;
+}
+
+// ---------------------------------------------------------------------------
+// Release escrow helpers (used by jobs/[id].tsx)
+// ---------------------------------------------------------------------------
+
+export async function buildReleaseEscrowTransaction(
+  contractId: string,
+  jobId: string,
+  clientPublicKey: string
+) {
+  const server = sorobanServer;
+  const account = await server.getAccount(clientPublicKey);
+  const contract = new Contract(contractId);
+
+  const tx = new TransactionBuilder(account, {
+    fee: BASE_FEE,
+    networkPassphrase: NETWORK_PASSPHRASE,
+  })
+    .addOperation(
+      contract.call(
+        "release_escrow",
+        nativeToScVal(jobId, { type: "string" }),
+        Address.fromString(clientPublicKey).toScVal()
+      )
+    )
+    .setTimeout(300)
+    .build();
+
+  const sim = await server.simulateTransaction(tx);
+  if (SorobanRpc.Api.isSimulationError(sim)) {
+    throw new Error(`Simulation failed: ${sim.error}`);
+  }
+  return SorobanRpc.assembleTransaction(tx, sim).build();
+}
+
+export async function buildPartialReleaseTransaction(
+  contractId: string,
+  jobId: string,
+  clientPublicKey: string,
+  milestoneIndex: number
+) {
+  const server = sorobanServer;
+  const account = await server.getAccount(clientPublicKey);
+  const contract = new Contract(contractId);
+
+  const tx = new TransactionBuilder(account, {
+    fee: BASE_FEE,
+    networkPassphrase: NETWORK_PASSPHRASE,
+  })
+    .addOperation(
+      contract.call(
+        "partial_release",
+        nativeToScVal(jobId, { type: "string" }),
+        nativeToScVal(milestoneIndex, { type: "u32" }),
+        Address.fromString(clientPublicKey).toScVal()
+      )
+    )
+    .setTimeout(300)
+    .build();
+
+  const sim = await server.simulateTransaction(tx);
+  if (SorobanRpc.Api.isSimulationError(sim)) {
+    throw new Error(`Simulation failed: ${sim.error}`);
+  }
+  return SorobanRpc.assembleTransaction(tx, sim).build();
+}
+
+export async function submitSignedSorobanTransaction(
+  signedXDR: string
+): Promise<{ hash: string }> {
+  const hash = await signAndSubmitSorobanTx(signedXDR);
+  return { hash };
+}
+
+export async function getEscrowState(contractId: string, jobId: string) {
+  const server = sorobanServer;
+  const contract = new Contract(contractId);
+  // Read-only call — simulate only
+  const account = await server.getAccount(contractId).catch(() => null);
+  if (!account) return null;
+  // Return null for now; actual implementation would parse XDR result
+  return null;
+}
+
+export async function subscribeToContractEvents(
+  contractId: string,
+  onEvent: (event: unknown) => void
+) {
+  // Placeholder — real implementation would use Horizon event streaming
+  return () => {};
+}
+
+export const XLM_SAC_ADDRESS = "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC";
+export const USDC_SAC_ADDRESS = "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA";
+
 export function accountUrl(publicKey: string): string {
   return `https://stellar.expert/explorer/testnet/account/${publicKey}`;
 }
 
-/**
- * Fetch MarketPay transactions for a given account
- * Includes payments, escrow operations, and contract interactions
- */
-export async function fetchMarketPayTransactions(
-  publicKey: string,
-  limit: number = 20,
-  cursor?: string,
-): Promise<FetchTransactionsResponse> {
+export async function signTransactionWithWallet(
+  xdrString: string
+): Promise<{ signedXDR: string | null; error: string | null }> {
   try {
-    // Fetch transactions from Horizon API
-    let query = server
-      .transactions()
-      .forAccount(publicKey)
-      .limit(limit + 1) // Fetch one extra to determine if there are more
-      .order("desc");
-
-    if (cursor) {
-      query = query.cursor(cursor);
-    }
-
-    const response = await query.call();
-    const records = response.records || [];
-
-    // Check if there are more records
-    const hasMore = records.length > limit;
-    const transactions = records.slice(0, limit);
-
-    // Transform Horizon transactions to MarketPayTransaction format
-    const marketPayTransactions: MarketPayTransaction[] = transactions.map(
-      (tx: any) => {
-        // Extract payment operations
-        let from = "";
-        let to = "";
-        let amount = "0";
-        let asset = "XLM";
-        let marketPayType: "escrow" | "payment" | "refund" | "other" = "other";
-
-        // Look for payment operations
-        if (tx.operations && tx.operations.length > 0) {
-          const paymentOp = tx.operations.find(
-            (op: any) =>
-              op.type === "payment" ||
-              op.type === "path_payment_strict_receive",
-          );
-
-          if (paymentOp) {
-            from = paymentOp.from;
-            to = paymentOp.to;
-            amount = paymentOp.amount;
-            asset = paymentOp.asset_code || "XLM";
-            marketPayType = "payment";
-
-            // Detect escrow operations by memo or operation type
-            if (tx.memo && tx.memo.includes("escrow")) {
-              marketPayType = "escrow";
-            }
-          }
-        }
-
-        return {
-          id: tx.id,
-          hash: tx.hash,
-          ledger: tx.ledger_attr,
-          created_at: tx.created_at,
-          from,
-          to,
-          amount,
-          asset,
-          memo: tx.memo,
-          memo_type: tx.memo_type,
-          successful: tx.successful,
-          marketPayType,
-        };
-      },
-    );
-
-    return {
-      transactions: marketPayTransactions,
-      hasMore,
-    };
-  } catch (error) {
-    console.error("Error fetching transactions:", error);
-    throw new Error("Failed to fetch transaction history");
+    const { signTransaction } = await getFreighter();
+    const { signedTransaction } = await signTransaction(xdrString, {
+      network: "TESTNET",
+      networkPassphrase: NETWORK_PASSPHRASE,
+    });
+    return { signedXDR: signedTransaction, error: null };
+  } catch (e) {
+    return { signedXDR: null, error: e instanceof Error ? e.message : "Signing failed" };
   }
 }
