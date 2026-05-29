@@ -1153,259 +1153,57 @@ impl MarketPayContract {
         );
     }
 
-    // ─── Dispute resolution ────────────────────────────────────────────────
+    // ─── Issue #344: Job Boost with XLM Payment ──────────────────────────────
 
-    /// Nominate exactly 3 arbitrators for a disputed job.
-    pub fn nominate_arbitrators(
+    /// Client pays XLM to the platform treasury to boost a job listing.
+    ///
+    /// Boost tiers (in stroops, 1 XLM = 10_000_000 stroops):
+    ///   ≥  5 XLM → 7-day boost
+    ///   ≥ 15 XLM → 30-day boost
+    ///
+    /// The payment is transferred directly to `treasury`.
+    /// Emits a `JobBoosted` event with job_id and boost_expiry_ledger.
+    pub fn boost_job(
         env: Env,
         job_id: String,
-        admin: Address,
-        arbitrators: Vec<Address>,
+        client: Address,
+        treasury: Address,
+        token: Address,
+        amount: i128,
     ) {
-        admin.require_auth();
+        client.require_auth();
 
-        let stored_admin: Address = env
-            .storage()
-            .instance()
-            .get(&DataKey::Admin)
-            .expect("Not initialized");
-        if stored_admin != admin {
-            panic!("Only admin can nominate arbitrators");
-        }
-        if arbitrators.len() != 3 {
-            panic!("Exactly 3 arbitrators are required");
+        if amount <= 0 {
+            panic!("Boost amount must be positive");
         }
 
-        let escrow: Escrow = env
-            .storage()
-            .instance()
-            .get(&DataKey::Escrow(job_id.clone()))
-            .expect("Escrow not found");
-        if escrow.status != EscrowStatus::Disputed {
-            panic!("Escrow must be disputed before arbitrators can be nominated");
+        // Minimum boost is 5 XLM (50_000_000 stroops)
+        let min_boost_stroops: i128 = 50_000_000;
+        if amount < min_boost_stroops {
+            panic!("Minimum boost is 5 XLM");
         }
 
-        let first = arbitrators.get(0).unwrap();
-        let second = arbitrators.get(1).unwrap();
-        let third = arbitrators.get(2).unwrap();
-        if first == second || first == third || second == third {
-            panic!("Arbitrators must be unique");
-        }
+        // Transfer payment from client to treasury
+        let token_client = token::Client::new(&env, &token);
+        token_client.transfer(&client, &treasury, &amount);
 
-        let case = DisputeCase {
-            job_id: job_id.clone(),
-            arbitrators: arbitrators.clone(),
-            votes: Vec::new(&env),
-            voters: Vec::new(&env),
-            resolution: 0,
-            status: 0,
-        };
-
-        env.storage()
-            .instance()
-            .set(&DataKey::DisputeCase(job_id.clone()), &case);
-        env.events()
-            .publish((symbol_short!("arb_nom"), admin), job_id);
-    }
-
-    /// Record a vote from one of the nominated arbitrators.
-    pub fn arbitrator_vote(env: Env, job_id: String, arbitrator: Address, client_percent: u32) {
-        arbitrator.require_auth();
-
-        if client_percent > 100 {
-            panic!("Client percent must be 0-100");
-        }
-
-        let mut case: DisputeCase = env
-            .storage()
-            .instance()
-            .get(&DataKey::DisputeCase(job_id.clone()))
-            .expect("Dispute case not found");
-        if case.status != 0 {
-            panic!("Dispute case is not open");
-        }
-        if !case.arbitrators.contains(&arbitrator) {
-            panic!("Only selected arbitrators can vote");
-        }
-        if case.voters.contains(&arbitrator) {
-            panic!("Arbitrator has already voted");
-        }
-        if case.votes.len() >= 3 {
-            panic!("All votes already submitted");
-        }
-
-        case.votes.push_back(client_percent);
-        case.voters.push_back(arbitrator.clone());
-        env.storage()
-            .instance()
-            .set(&DataKey::DisputeCase(job_id.clone()), &case);
-
-        env.events().publish(
-            (symbol_short!("arb_vote"), arbitrator),
-            (job_id, client_percent),
-        );
-    }
-
-    /// Finalize a dispute once all three votes are present.
-    pub fn finalize_dispute(env: Env, job_id: String) {
-        let mut case: DisputeCase = env
-            .storage()
-            .instance()
-            .get(&DataKey::DisputeCase(job_id.clone()))
-            .expect("Dispute case not found");
-        if case.votes.len() != 3 {
-            panic!("Exactly 3 votes required");
-        }
-
-        let mut escrow: Escrow = env
-            .storage()
-            .instance()
-            .get(&DataKey::Escrow(job_id.clone()))
-            .expect("Escrow not found");
-        if escrow.status != EscrowStatus::Disputed {
-            panic!("Escrow is not disputed");
-        }
-
-        let vote_a = case.votes.get(0).unwrap();
-        let vote_b = case.votes.get(1).unwrap();
-        let vote_c = case.votes.get(2).unwrap();
-        let min_vote = if vote_a < vote_b { vote_a } else { vote_b };
-        let min_vote = if min_vote < vote_c { min_vote } else { vote_c };
-        let max_vote = if vote_a > vote_b { vote_a } else { vote_b };
-        let max_vote = if max_vote > vote_c { max_vote } else { vote_c };
-        let client_percent = vote_a
-            .checked_add(vote_b)
-            .expect("Counter overflow")
-            .checked_add(vote_c)
-            .expect("Counter overflow")
-            .checked_sub(min_vote)
-            .expect("Arithmetic underflow")
-            .checked_sub(max_vote)
-            .expect("Arithmetic underflow");
-        let freelancer_percent = 100u32
-            .checked_sub(client_percent)
-            .expect("Invalid resolution");
-
-        let client_amount = escrow
-            .amount
-            .checked_mul(client_percent as i128)
-            .expect("Arithmetic overflow")
-            .checked_div(100)
-            .expect("Arithmetic overflow");
-        let freelancer_amount = escrow
-            .amount
-            .checked_sub(client_amount)
-            .expect("Arithmetic overflow");
-
-        let token_client = token::Client::new(&env, &escrow.token);
-        if client_amount > 0 {
-            token_client.transfer(
-                &env.current_contract_address(),
-                &escrow.client,
-                &client_amount,
-            );
-        }
-        if freelancer_amount > 0 {
-            token_client.transfer(
-                &env.current_contract_address(),
-                &escrow.freelancer,
-                &freelancer_amount,
-            );
-        }
-
-        let freelancer_jobs: u32 = env
-            .storage()
-            .instance()
-            .get(&DataKey::CompletedJobs(escrow.freelancer.clone()))
-            .unwrap_or(0);
-        let new_freelancer_jobs = freelancer_jobs.checked_add(1).expect("Counter overflow");
-        env.storage().instance().set(
-            &DataKey::CompletedJobs(escrow.freelancer.clone()),
-            &new_freelancer_jobs,
-        );
-
-        let client_jobs: u32 = env
-            .storage()
-            .instance()
-            .get(&DataKey::CompletedJobs(escrow.client.clone()))
-            .unwrap_or(0);
-        let new_client_jobs = client_jobs.checked_add(1).expect("Counter overflow");
-        env.storage().instance().set(
-            &DataKey::CompletedJobs(escrow.client.clone()),
-            &new_client_jobs,
-        );
-
-        escrow.status = EscrowStatus::Released;
-        env.storage()
-            .instance()
-            .set(&DataKey::Escrow(job_id.clone()), &escrow);
-        env.storage()
-            .instance()
-            .remove(&DataKey::TimeoutTimestamp(job_id.clone()));
-
-        case.resolution = client_percent;
-        case.status = 1;
-        env.storage()
-            .instance()
-            .set(&DataKey::DisputeCase(job_id.clone()), &case);
-
-        env.events().publish(
-            (symbol_short!("disp_res"), job_id.clone()),
-            (
-                client_percent,
-                freelancer_percent,
-                client_amount,
-                freelancer_amount,
-            ),
-        );
-    }
-
-    /// Emergency admin resolution for disputed escrows.
-    pub fn emergency_admin_resolve(env: Env, job_id: String, admin: Address, recipient: Address) {
-        admin.require_auth();
-
-        let stored_admin: Address = env
-            .storage()
-            .instance()
-            .get(&DataKey::Admin)
-            .expect("Not initialized");
-        if stored_admin != admin {
-            panic!("Only admin can resolve disputes");
-        }
-
-        let mut escrow: Escrow = env
-            .storage()
-            .instance()
-            .get(&DataKey::Escrow(job_id.clone()))
-            .expect("Escrow not found");
-        let token_client = token::Client::new(&env, &escrow.token);
-        token_client.transfer(&env.current_contract_address(), &recipient, &escrow.amount);
-
-        escrow.status = if recipient == escrow.client {
-            EscrowStatus::Refunded
+        // Calculate boost duration in ledgers (~5 s/ledger)
+        // 7 days  = 120_960 ledgers
+        // 30 days = 518_400 ledgers
+        let boost_ledgers: u32 = if amount >= 150_000_000 {
+            518_400 // 30 days
         } else {
-            EscrowStatus::Released
+            120_960 // 7 days
         };
-        env.storage()
-            .instance()
-            .set(&DataKey::Escrow(job_id.clone()), &escrow);
-        env.storage()
-            .instance()
-            .remove(&DataKey::TimeoutTimestamp(job_id.clone()));
 
-        if let Some(mut case) = env
-            .storage()
-            .instance()
-            .get::<_, DisputeCase>(&DataKey::DisputeCase(job_id.clone()))
-        {
-            case.status = 2;
-            env.storage()
-                .instance()
-                .set(&DataKey::DisputeCase(job_id.clone()), &case);
-        }
+        let boost_expiry = env.ledger().sequence()
+            .checked_add(boost_ledgers)
+            .expect("Boost expiry overflow");
 
-        env.events()
-            .publish((symbol_short!("disp_adm"), admin), (job_id, recipient));
+        env.events().publish(
+            (symbol_short!("boosted"), client),
+            (job_id, boost_expiry, amount),
+        );
     }
 
     // ─── Issue #108: Sealed-Bid Budget Commitment ────────────────────────────

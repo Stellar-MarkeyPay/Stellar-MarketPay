@@ -540,14 +540,18 @@ async function deleteJob(jobId) {
 }
 
 /**
- * Boost a job to increase its visibility for 7 days.
+ * Boost a job to increase its visibility.
+ * Duration is determined by the XLM payment amount:
+ *   5 XLM  → 7 days
+ *   15 XLM → 30 days
  *
  * @param {number|string} jobId - The ID of the job to boost.
- * @param {string} txHash - The transaction hash of the payment for boosting.
+ * @param {string} txHash - The transaction hash of the boost payment.
+ * @param {number} [boostDays=7] - Number of days to boost (7 or 30).
  * @returns {Promise<Object>} The updated job object.
  * @throws {Error} If the job is not found.
  */
-async function boostJob(jobId, txHash) {
+async function boostJob(jobId, txHash, boostDays = 7) {
   // Verify job exists
   const { rows } = await pool.query("SELECT * FROM jobs WHERE id = $1", [
     jobId,
@@ -559,7 +563,7 @@ async function boostJob(jobId, txHash) {
   }
 
   const boostedUntil = new Date();
-  boostedUntil.setDate(boostedUntil.getDate() + 7);
+  boostedUntil.setDate(boostedUntil.getDate() + boostDays);
 
   const { rows: updateRows } = await pool.query(
     `UPDATE jobs

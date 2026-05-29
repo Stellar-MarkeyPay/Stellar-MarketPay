@@ -35,8 +35,12 @@ const disputeRoutes   = require("./routes/disputes");
 const adminRoutes     = require("./routes/admin");
 const admin2faRoutes  = require("./routes/admin2fa");
 const timeEntryRoutes = require("./routes/timeEntries");
+<<<<<<< feat-implement-on-chain-messaging-via-Soroban-contract-events
 const referralRoutes  = require("./routes/referrals");
 const eventsRoutes    = require("./routes/events");
+=======
+const invitationRoutes = require("./routes/invitations");
+>>>>>>> main
 const pool            = require("./db/pool");
 const { migrate } = require("./db/migrate");
 const IndexerService  = require("./services/indexerService");
@@ -285,8 +289,12 @@ app.use("/api/admin",         adminRoutes);
 app.use("/api/developer",     developerRoutes);
 app.use("/api/public",        publicRoutes);
 app.use("/api/time-entries",  timeEntryRoutes);
+<<<<<<< feat-implement-on-chain-messaging-via-Soroban-contract-events
 app.use("/api/referrals",     referralRoutes);
 app.use("/api/events",        eventsRoutes);
+=======
+app.use("/api/invitations",   invitationRoutes);
+>>>>>>> main
 
 app.use((err, req, res, next) => {
   logError(req.logger || serviceLogger, err, {

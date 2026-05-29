@@ -252,10 +252,15 @@ export default function JobCard({ job, isFocused = false, onFocus }: JobCardProp
         </div>
 
         {/* Category pill */}
-        <div className="mt-3">
+        <div className="mt-3 flex items-center gap-2 flex-wrap">
           <span className="text-xs text-amber-700 bg-ink-700 px-2.5 py-1 rounded-full border border-[rgba(251,191,36,0.08)]">
             {job.category}
           </span>
+          {job.boosted && job.boostedUntil && new Date(job.boostedUntil) > new Date() && (
+            <span className="text-xs text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20 font-medium">
+              ⚡ Featured · until {new Date(job.boostedUntil).toLocaleDateString()}
+            </span>
+          )}
         </div>
 
         {/* ── ISSUE #78: Floating Hover Preview Card ── */}
