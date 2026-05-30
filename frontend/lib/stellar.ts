@@ -52,7 +52,12 @@ export const server = new Horizon.Server(HORIZON_URL, { allowHttp: false });
 export interface EscrowParams {
   clientPublicKey: string;
   jobId: string;
-  budgetXlm: number;
+  /** Budget amount in the selected currency */
+  budget: number;
+  /** Payment currency for escrow lock */
+  currency?: "XLM" | "USDC";
+  /** @deprecated Use budget */
+  budgetXlm?: number;
 }
 
 export interface EscrowResult {
@@ -106,7 +111,8 @@ async function getFreighter() {
 export async function buildCreateEscrowTx(
   params: EscrowParams,
 ): Promise<string> {
-  const { clientPublicKey, jobId, budgetXlm } = params;
+  const { clientPublicKey, jobId } = params;
+  const budgetXlm = params.budget ?? params.budgetXlm ?? 0;
 
   if (!CONTRACT_ID) {
     throw new Error(
@@ -211,12 +217,13 @@ export async function createEscrowOnChain(
 ): Promise<EscrowResult> {
   if (USE_CONTRACT_MOCK) {
     const { mockCreateEscrow } = await import("./contractMock");
+    const budgetXlm = params.budget ?? params.budgetXlm ?? 0;
     const txHash = await mockCreateEscrow({
       jobId: params.jobId,
       client: params.clientPublicKey,
       freelancer: params.clientPublicKey,
       token: "native",
-      amount: String(BigInt(Math.round(params.budgetXlm * 10_000_000))),
+      amount: String(BigInt(Math.round(budgetXlm * 10_000_000))),
     });
     return { txHash };
   }

@@ -253,6 +253,7 @@ export default function PostJobForm({
       const xdr = await buildCreateEscrowTx({
         clientPublicKey: publicKey,
         jobId: job.id,
+        budget: parseFloat(form.budget),
         budgetXlm: parseFloat(form.budget),
       });
       const tx = new Transaction(xdr, process.env.NEXT_PUBLIC_STELLAR_NETWORK === "mainnet"
