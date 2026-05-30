@@ -264,9 +264,9 @@ exports[`component snapshots JobCard without bookmark 1`] = `
         class="text-right flex items-center gap-2"
       >
         <button
-          aria-label="Remove bookmark"
+          aria-label="Save job"
           class="p-1.5 rounded-md transition-all flex items-center justify-center hover:bg-amber-500/10 group/bookmark"
-          title="Remove bookmark"
+          title="Save job"
           type="button"
         >
           <svg
