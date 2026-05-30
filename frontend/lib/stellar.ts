@@ -10,6 +10,7 @@ import {
 } from "@stellar/stellar-sdk";
 import * as SorobanRpc from "@stellar/stellar-sdk/rpc";
 import { optionalClientEnv, requireClientEnv } from "./env";
+import { getUsdcContractId } from "./config/tokens";
 
 // ---------------------------------------------------------------------------
 // Config
@@ -41,6 +42,7 @@ const CONTRACT_ID = USE_CONTRACT_MOCK
   : requireClientEnv("NEXT_PUBLIC_CONTRACT_ID");
 
 export const server = new Horizon.Server(HORIZON_URL, { allowHttp: false });
+export const sorobanServer = new SorobanRpc.Server(SOROBAN_RPC_URL, { allowHttp: false });
 
 // ---------------------------------------------------------------------------
 // Types
@@ -51,8 +53,12 @@ export interface EscrowParams {
   clientPublicKey: string;
   /** Unique job identifier (stored in your backend) */
   jobId: string;
-  /** Budget in XLM (e.g. 50 for 50 XLM) */
-  budgetXlm: number;
+  /** Budget amount in the selected currency */
+  budget: number;
+  /** Payment currency for escrow lock */
+  currency?: "XLM" | "USDC";
+  /** @deprecated Use budget */
+  budgetXlm?: number;
 }
 
 export interface EscrowResult {
@@ -116,7 +122,9 @@ async function getFreighter() {
 export async function buildCreateEscrowTx(
   params: EscrowParams,
 ): Promise<string> {
-  const { clientPublicKey, jobId, budgetXlm } = params;
+  const { clientPublicKey, jobId } = params;
+  const currency = params.currency || "XLM";
+  const budget = params.budget ?? params.budgetXlm ?? 0;
 
   if (!CONTRACT_ID) {
     throw new Error(
@@ -124,22 +132,20 @@ export async function buildCreateEscrowTx(
     );
   }
 
-  const server = new SorobanRpc.Server(SOROBAN_RPC_URL, {
-    allowHttp: false,
-  });
-
   // Fetch the source account
-  const account = await server.getAccount(clientPublicKey);
+  const account = await sorobanServer.getAccount(clientPublicKey);
 
-  // Convert XLM to stroops (1 XLM = 10_000_000 stroops)
-  const amountStroops = BigInt(Math.round(budgetXlm * 10_000_000));
+  const { toStroops, tokenAddressForCurrency } = await import("./config/tokens");
+  const amountStroops = toStroops(budget, currency);
+  const tokenAddr = tokenAddressForCurrency(currency);
 
   // Build the contract call arguments
   const contract = new Contract(CONTRACT_ID);
   const callArgs = [
-    nativeToScVal(jobId, { type: "string" }), // job_id: String
-    Address.fromString(clientPublicKey).toScVal(), // client: Address
-    nativeToScVal(amountStroops, { type: "i128" }), // amount: i128 (stroops)
+    nativeToScVal(jobId, { type: "string" }),
+    Address.fromString(clientPublicKey).toScVal(),
+    nativeToScVal(tokenAddr, { type: "string" }),
+    nativeToScVal(amountStroops, { type: "i128" }),
   ];
 
   const tx = new TransactionBuilder(account, {
@@ -184,12 +190,8 @@ export async function signAndSubmitEscrowTx(
     networkPassphrase: NETWORK_PASSPHRASE,
   });
 
-  const server = new SorobanRpc.Server(SOROBAN_RPC_URL, {
-    allowHttp: false,
-  });
-
   // Submit the signed transaction
-  const sendResponse = await server.sendTransaction(
+  const sendResponse = await sorobanServer.sendTransaction(
     // Re-parse from the signed XDR
     (() => {
       const { Transaction } = require("@stellar/stellar-sdk");
@@ -214,7 +216,7 @@ export async function signAndSubmitEscrowTx(
     polls < MAX_POLLS
   ) {
     await new Promise((r) => setTimeout(r, 1500));
-    getResponse = await server.getTransaction(txHash);
+    getResponse = await sorobanServer.getTransaction(txHash);
     polls++;
   }
 
@@ -236,12 +238,15 @@ export async function createEscrowOnChain(
 ): Promise<EscrowResult> {
   if (USE_CONTRACT_MOCK) {
     const { mockCreateEscrow } = await import("./contractMock");
+    const currency = params.currency || "XLM";
+    const budget = params.budget ?? params.budgetXlm ?? 0;
+    const { toStroops, tokenAddressForCurrency } = await import("./config/tokens");
     const txHash = await mockCreateEscrow({
       jobId: params.jobId,
       client: params.clientPublicKey,
       freelancer: params.clientPublicKey,
-      token: "native",
-      amount: String(BigInt(Math.round(params.budgetXlm * 10_000_000))),
+      token: tokenAddressForCurrency(currency),
+      amount: String(toStroops(budget, currency)),
     });
     return { txHash };
   }
@@ -278,8 +283,8 @@ export async function submitSignedSorobanTransaction(
   );
 }
 
-export const USDC_SAC_ADDRESS = "";
-export const XLM_SAC_ADDRESS = "";
+export { getUsdcContractId, USDC_CONTRACT_BY_NETWORK } from "./config/tokens";
+export const USDC_SAC_ADDRESS = getUsdcContractId();
 
 export async function getEscrowState(_jobId: string) {
   return null;
@@ -325,12 +330,8 @@ export async function buildPublishMessageTx(
     );
   }
 
-  const server = new SorobanRpc.Server(SOROBAN_RPC_URL, {
-    allowHttp: false,
-  });
-
   const { jobId, senderPublicKey, recipientPublicKey, ipfsCid } = params;
-  const account = await server.getAccount(senderPublicKey);
+  const account = await sorobanServer.getAccount(senderPublicKey);
 
   const contract = new Contract(CONTRACT_ID);
   const callArgs = [
@@ -348,7 +349,7 @@ export async function buildPublishMessageTx(
     .setTimeout(300)
     .build();
 
-  const simResponse = await server.simulateTransaction(tx);
+  const simResponse = await sorobanServer.simulateTransaction(tx);
 
   if (SorobanRpc.Api.isSimulationError(simResponse)) {
     throw new Error(`Soroban simulation failed: ${simResponse.error}`);
@@ -372,11 +373,7 @@ async function signAndSubmitToSoroban(
     networkPassphrase: NETWORK_PASSPHRASE,
   });
 
-  const server = new SorobanRpc.Server(SOROBAN_RPC_URL, {
-    allowHttp: false,
-  });
-
-  const sendResponse = await server.sendTransaction(
+  const sendResponse = await sorobanServer.sendTransaction(
     (() => {
       const { Transaction } = require("@stellar/stellar-sdk");
       return new Transaction(signedTransaction, NETWORK_PASSPHRASE);
@@ -390,7 +387,7 @@ async function signAndSubmitToSoroban(
 
   const txHash = sendResponse.hash;
 
-  let getResponse = await server.getTransaction(txHash);
+  let getResponse = await sorobanServer.getTransaction(txHash);
   const MAX_POLLS = 20;
   let polls = 0;
 
@@ -641,7 +638,6 @@ export async function subscribeToContractEvents(
 }
 
 export const XLM_SAC_ADDRESS = "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC";
-export const USDC_SAC_ADDRESS = "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA";
 
 export function accountUrl(publicKey: string): string {
   return `https://stellar.expert/explorer/testnet/account/${publicKey}`;
