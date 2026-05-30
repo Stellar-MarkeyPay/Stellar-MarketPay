@@ -259,3 +259,40 @@ export interface TimeInvoice {
   amountXlm: string;
   createdAt: string;
 }
+
+// ─── Analytics ───────────────────────────────────────────────────────────────
+
+export interface JobAnalytics {
+  applicationsPerDay: { day: string; count: number }[];
+  skillDistribution: Record<string, number>;
+  averageBidAmount: { currency: string; avgBid: number; count: number }[];
+  daysToHire: number | null;
+  applicationStatusCounts: {
+    pending: number;
+    accepted: number;
+    rejected: number;
+  };
+}
+
+// ─── Bulk Actions ────────────────────────────────────────────────────────────
+
+export interface BulkActionResponse {
+  succeeded: number;
+  failed: number;
+  results: { success: boolean; id: string; error?: string }[];
+}
+
+// ─── Job Invitations ─────────────────────────────────────────────────────────
+
+export interface JobInvitation {
+  id: string;
+  jobId: string;
+  jobTitle: string;
+  jobBudget: string;
+  jobCurrency: string;
+  clientAddress: string;
+  clientName?: string;
+  freelancerAddress: string;
+  status: "pending" | "accepted" | "declined";
+  createdAt: string;
+}

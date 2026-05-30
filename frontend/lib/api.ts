@@ -699,16 +699,6 @@ export async function verifyAdmin2FA(token: string, setup = false) {
   return { token: data.token, backupCodes: data.data?.backupCodes, message: data.data?.message };
 }
 
-// ─── Job Recommendations (Issue #221) ───────────────────────────────────
-
-export async function fetchRecommendedJobs(limit = 10) {
-  const { data } = await api.get<{ success: boolean; data: Job[] }>(
-    "/api/jobs/recommended",
-    { params: { limit } },
-  );
-  return data.data;
-}
-
 // ─── IPFS File Upload (Issue #202) ──────────────────────────────────────────
 
 export async function uploadPortfolioFiles(publicKey: string, files: FileList) {
