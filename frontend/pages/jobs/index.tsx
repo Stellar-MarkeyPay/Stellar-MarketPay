@@ -12,7 +12,7 @@ import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { useEffect, useState, useRef, useCallback } from "react";
-import { useTranslation } from "@/lib/i18n";
+import { useTranslation } from "react-i18next";
 import { getTimezoneOffset } from "date-fns-tz";
 import { getConnectedPublicKey } from "@/lib/wallet";
 import { useBookmarks } from "@/hooks/useBookmarks";
@@ -48,7 +48,8 @@ function removeAlert(cat: string): void {
 
 export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
   const router = useRouter();
-  const { t } = useTranslation("common");
+  const { i18n } = useTranslation("common");
+  const t = (key: string): string => i18n.t(key) as string;
   const [jobs, setJobs] = useState<Job[]>([]);
   const [recommended, setRecommended] = useState<(Job & { matchScore: number })[]>([]);
   const [recLoading, setRecLoading] = useState(false);
