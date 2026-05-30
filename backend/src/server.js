@@ -37,6 +37,10 @@ const admin2faRoutes  = require("./routes/admin2fa");
 const timeEntryRoutes = require("./routes/timeEntries");
 const referralRoutes  = require("./routes/referrals");
 const eventsRoutes    = require("./routes/events");
+const scopeRoutes     = require("./routes/scope");
+const notificationRoutes = require("./routes/notifications");
+const developerRoutes = require("./routes/developer");
+const publicRoutes    = require("./routes/public");
 const pool            = require("./db/pool");
 const { migrate } = require("./db/migrate");
 const IndexerService  = require("./services/indexerService");
@@ -287,6 +291,7 @@ app.use("/api/public",        publicRoutes);
 app.use("/api/time-entries",  timeEntryRoutes);
 app.use("/api/referrals",     referralRoutes);
 app.use("/api/events",        eventsRoutes);
+app.use("/api/scope",         scopeRoutes);
 
 app.use((err, req, res, next) => {
   logError(req.logger || serviceLogger, err, {

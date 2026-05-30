@@ -913,6 +913,7 @@ async function bulkBoostJobs(jobIds, clientAddress, txHash) {
 
 /**
  * Get recommended jobs for a freelancer based on their skills.
+ * Excludes jobs the freelancer has already applied to, been accepted for, or rejected from.
  * @param {string} publicKey
  * @returns {Promise<Object[]>}
  */
@@ -924,18 +925,34 @@ async function getRecommendedJobs(publicKey) {
   const skills = profileRows.length ? profileRows[0].skills || [] : [];
 
   if (!skills.length) {
-    const result = await listJobs({ status: "open", limit: 5 });
-    return result.jobs;
+    // No skills, return recent open jobs excluding applied ones
+    const { rows } = await pool.query(
+      `SELECT j.* FROM jobs j
+       WHERE j.status = 'open'
+         AND j.visibility = 'public'
+         AND NOT EXISTS (
+           SELECT 1 FROM applications a
+           WHERE a.job_id = j.id AND a.freelancer_address = $1
+         )
+       ORDER BY j.created_at DESC
+       LIMIT 5`,
+      [publicKey]
+    );
+    return rows.map(rowToJob);
   }
 
   const { rows } = await pool.query(
-    `SELECT * FROM jobs
-     WHERE status = 'open'
-       AND visibility = 'public'
-       AND skills && $1
-     ORDER BY created_at DESC
+    `SELECT j.* FROM jobs j
+     WHERE j.status = 'open'
+       AND j.visibility = 'public'
+       AND j.skills && $1
+       AND NOT EXISTS (
+         SELECT 1 FROM applications a
+         WHERE a.job_id = j.id AND a.freelancer_address = $2
+       )
+     ORDER BY j.created_at DESC
      LIMIT 5`,
-    [skills]
+    [skills, publicKey]
   );
 
   return rows.map(rowToJob);
@@ -991,4 +1008,14 @@ module.exports = {
   resolveDispute,
   getCategoryAnalytics,
   getAnalyticsOverview,
+  extendJobExpiry,
+  incrementViewCount,
+  getJobAnalytics,
+  expireOldJobs,
+  getExpiringJobs,
+  bulkCancelJobs,
+  bulkExtendJobs,
+  bulkBoostJobs,
+  getRecommendedJobs,
+  getSuggestions,
 };
