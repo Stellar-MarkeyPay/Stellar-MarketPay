@@ -7,9 +7,14 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 
 interface PriceContextValue {
   xlmPriceUsd: number | null;
+  /** USDC is pegged 1:1 to USD */
+  usdcPriceUsd: number;
 }
 
-const PriceContext = createContext<PriceContextValue>({ xlmPriceUsd: null });
+const PriceContext = createContext<PriceContextValue>({
+  xlmPriceUsd: null,
+  usdcPriceUsd: 1,
+});
 
 export function PriceProvider({ children }: { children: React.ReactNode }) {
   const [xlmPriceUsd, setXlmPriceUsd] = useState<number | null>(null);
@@ -27,7 +32,7 @@ export function PriceProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <PriceContext.Provider value={{ xlmPriceUsd }}>
+    <PriceContext.Provider value={{ xlmPriceUsd, usdcPriceUsd: 1 }}>
       {children}
     </PriceContext.Provider>
   );

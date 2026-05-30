@@ -7,6 +7,7 @@ import { useRouter } from "next/router";
 import { shortenAddress } from "@/utils/format";
 import clsx from "clsx";
 import { useTranslation } from "@/lib/i18n";
+import LanguageSwitcher from "@/components/LanguageSwitcher";
 import FaucetButton from "@/components/FaucetButton";
 
 interface NavbarProps {
@@ -22,13 +23,14 @@ const links = [
   { href: "/post-job",    labelKey: "nav.postJob" },
   { href: "/insights",    labelKey: "nav.insights" },
   { href: "/developer",   labelKey: "nav.developer" },
+  { href: "/dao",           labelKey: "nav.dao" },
 ];
 
 const STELLAR_NETWORK = process.env.NEXT_PUBLIC_STELLAR_NETWORK || "testnet";
 
 export default function Navbar({ publicKey, onConnect, onDisconnect }: NavbarProps) {
   const router = useRouter();
-  const { t, i18n } = useTranslation("common");
+  const { t } = useTranslation("common");
   const [hasNotification, setHasNotification] = useState(false);
   const [hasJobAlertBadge, setHasJobAlertBadge] = useState(false);
 
@@ -70,13 +72,6 @@ export default function Navbar({ publicKey, onConnect, onDisconnect }: NavbarPro
   const balance: string | null = null;
   const balanceLoading = false;
 
-  const switchLanguage = (lang: string) => {
-    i18n.changeLanguage(lang);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("preferredLocale", lang);
-    }
-  };
-
   return (
     <>
       {/* Skip to main content (#287) */}
@@ -84,7 +79,7 @@ export default function Navbar({ publicKey, onConnect, onDisconnect }: NavbarPro
         href="#main-content"
         className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[9999] focus:px-4 focus:py-2 focus:rounded-lg focus:bg-market-500 focus:text-white focus:font-bold focus:text-sm"
       >
-        Skip to main content
+        {t("nav.skipToContent")}
       </a>
     <nav className="sticky top-0 z-50 border-b border-[rgba(251,191,36,0.10)] bg-ink-900/85 backdrop-blur-xl">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
@@ -131,17 +126,8 @@ export default function Navbar({ publicKey, onConnect, onDisconnect }: NavbarPro
           ))}
         </div>
 
-        {/* Language Switcher */}
-        <div className="hidden md:flex items-center">
-          <select
-            value={i18n.language}
-            onChange={(e) => switchLanguage(e.target.value)}
-            className="bg-market-900/40 border border-amber-900/30 rounded px-2 py-1 text-xs text-amber-100 cursor-pointer"
-            aria-label={t("language.switch") as string}
-          >
-            <option value="en">{t("language.english")}</option>
-            <option value="es">{t("language.spanish")}</option>
-          </select>
+        <div className="flex items-center">
+          <LanguageSwitcher />
         </div>
 
         {/* Wallet */}
