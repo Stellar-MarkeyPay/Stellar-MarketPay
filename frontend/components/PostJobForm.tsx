@@ -184,9 +184,20 @@ export default function PostJobForm({
   const [txHash, setTxHash] = useState<string | null>(null);
   const [jobId, setJobId] = useState<string | null>(null);
   const [pendingEscrow, setPendingEscrow] = useState<PendingEscrow | null>(null);
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
 
   const isMockMode = process.env.NEXT_PUBLIC_USE_CONTRACT_MOCK === "true";
   const isInProgress = ["posting", "fee_modal", "signing"].includes(step);
+
+  const fieldErrors = {
+    title: !form.title.trim() ? "Title is required"
+      : form.title.trim().length < 10 ? "Title must be at least 10 characters"
+      : undefined,
+    description: !form.description.trim() ? "Description is required"
+      : form.description.trim().length < 30 ? "Description must be at least 30 characters"
+      : undefined,
+  };
+  const isFormValid = !fieldErrors.title && !fieldErrors.description;
 
   // ── form change ────────────────────────────────────────────────────────────
   function handleChange(
@@ -194,12 +205,16 @@ export default function PostJobForm({
   ) {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
+    setTouched((prev) => ({ ...prev, [name]: true }));
   }
 
   // ── submit ─────────────────────────────────────────────────────────────────
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (isInProgress) return;
+
+    setTouched({ title: true, description: true });
+    if (!isFormValid) return;
 
     setStep("posting");
     setErrorMsg(null);
@@ -290,6 +305,7 @@ export default function PostJobForm({
 
   // ── reset ──────────────────────────────────────────────────────────────────
   function handleReset() {
+    setTouched({});
     setStep("idle");
     setErrorMsg(null);
     setTxHash(null);
@@ -393,6 +409,9 @@ export default function PostJobForm({
               placeholder="e.g. Build a Soroban DEX interface"
               className="input-field"
             />
+            {touched.title && fieldErrors.title && (
+              <p className="text-red-400 text-xs mt-1">{fieldErrors.title}</p>
+            )}
           </div>
 
           {/* Description */}
@@ -409,6 +428,9 @@ export default function PostJobForm({
               placeholder="Describe the work, deliverables, and any context…"
               className="textarea-field"
             />
+            {touched.description && fieldErrors.description && (
+              <p className="text-red-400 text-xs mt-1">{fieldErrors.description}</p>
+            )}
           </div>
 
           {/* Budget + Currency */}
@@ -502,7 +524,7 @@ export default function PostJobForm({
 
           <button
             type="submit"
-            disabled={isInProgress}
+            disabled={isInProgress || !isFormValid}
             className="btn-primary w-full py-3 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {step === "posting" ? "Creating job…" :

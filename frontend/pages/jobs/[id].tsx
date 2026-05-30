@@ -55,7 +55,7 @@ export default function JobDetail({ publicKey, onConnect }: JobDetailProps) {
 
   const isClient = Boolean(publicKey && job?.clientAddress === publicKey);
   const isFreelancer = Boolean(publicKey && job?.freelancerAddress === publicKey);
-  const hasApplied = applications.some(
+  const hasApplied = (applications ?? []).some(
     (application) => application.freelancerAddress === publicKey,
   );
 

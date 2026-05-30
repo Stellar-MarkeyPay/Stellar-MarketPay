@@ -232,8 +232,8 @@ export default function TimeTracker({
   };
 
   // ── derived totals ───────────────────────────────────────────────────────
-  const totalMinutes = entries.reduce((s, e) => s + e.durationMinutes, 0);
-  const pendingInvoice = invoices.find((i) => i.status === "pending");
+  const totalMinutes = (entries || []).reduce((s, e) => s + e.durationMinutes, 0);
+  const pendingInvoice = (invoices || []).find((i) => i.status === "pending");
   const hasPendingInvoice = Boolean(pendingInvoice);
 
   // ── flash helper ─────────────────────────────────────────────────────────

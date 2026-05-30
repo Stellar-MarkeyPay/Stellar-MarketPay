@@ -41,12 +41,16 @@ async function mockApi(page: Page, jobs: unknown[] = [job]) {
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ success: true, token: "jwt-token" }) });
   });
 
-  await page.route("**/api/jobs?**", async (route) => {
-    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ success: true, data: jobs }) });
-  });
-
   await page.route("**/api/jobs/job-1", async (route) => {
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ success: true, data: job }) });
+  });
+
+  await page.route(/\/api\/jobs(\?|$)/, async (route) => {
+    if (route.request().method() === "GET") {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ success: true, data: jobs }) });
+    } else {
+      await route.continue();
+    }
   });
 
   await page.route("**/api/applications/job/job-1", async (route) => {
@@ -54,7 +58,11 @@ async function mockApi(page: Page, jobs: unknown[] = [job]) {
   });
 
   await page.route("**/api/applications", async (route) => {
-    await route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ success: true, data: { id: "app-1" } }) });
+    if (route.request().method() === "POST") {
+      await route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ success: true, data: { id: "app-1" } }) });
+    } else {
+      await route.continue();
+    }
   });
 }
 
@@ -87,7 +95,7 @@ test("jobs page shows empty state when no jobs", async ({ page }) => {
 });
 
 test("clicking a job card navigates to the job detail page", async ({ page }) => {
-  await mockFreighter(page, false);
+  await mockFreighter(page, true);
   await mockApi(page, [job]);
   await page.goto("/jobs");
 

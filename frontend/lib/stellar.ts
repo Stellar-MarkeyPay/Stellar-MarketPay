@@ -462,6 +462,9 @@ export async function buildReleaseEscrowTransaction(
   jobId: string,
   clientPublicKey: string
 ) {
+  if (USE_CONTRACT_MOCK) {
+    return { toXDR: () => "mock-prepared-xdr" };
+  }
   const server = sorobanServer;
   const account = await server.getAccount(clientPublicKey);
   const contract = new Contract(contractId);
@@ -522,6 +525,9 @@ export async function buildPartialReleaseTransaction(
 export async function submitSignedSorobanTransaction(
   signedXDR: string
 ): Promise<{ hash: string }> {
+  if (USE_CONTRACT_MOCK) {
+    return { hash: "mock-release-hash" };
+  }
   const hash = await signAndSubmitSorobanTx(signedXDR);
   return { hash };
 }
