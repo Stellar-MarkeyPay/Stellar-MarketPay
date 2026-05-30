@@ -507,6 +507,13 @@ export async function fetchClientSpendingAnalytics(publicKey: string) {
   return data.data;
 }
 
+export async function fetchClientReputation(publicKey: string): Promise<ClientReputation> {
+  const { data } = await api.get<{ success: boolean; data: ClientReputation }>(
+    `/api/profiles/${encodeURIComponent(publicKey)}/client-reputation`
+  );
+  return data.data;
+}
+
 export async function upsertPriceAlertPreference(
   publicKey: string,
   payload: {

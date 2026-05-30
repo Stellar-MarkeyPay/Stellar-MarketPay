@@ -21,10 +21,9 @@ const {
   getSkillEndorsements,
   endorseSkill,
   getClientSpendingAnalytics,
+  getClientReputation,
   getProfileStats,
   getResponseTime,
-  blockFreelancer,
-  unblockFreelancer,
 } = require("../services/profileService");
 const {
   upsertPriceAlertPreference,
@@ -156,6 +155,15 @@ router.post("/:publicKey/price-alerts", profileUpdateRateLimiter, async (req, re
 router.get("/:publicKey/spending", generalProfileRateLimiter, async (req, res, next) => {
   try {
     const data = await getClientSpendingAnalytics(req.params.publicKey);
+    res.json({ success: true, data });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get("/:publicKey/client-reputation", generalProfileRateLimiter, async (req, res, next) => {
+  try {
+    const data = await getClientReputation(req.params.publicKey);
     res.json({ success: true, data });
   } catch (e) {
     next(e);
