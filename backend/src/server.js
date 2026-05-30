@@ -44,6 +44,7 @@ const scopeRoutes     = require("./routes/scope");
 const notificationRoutes = require("./routes/notifications");
 const developerRoutes = require("./routes/developer");
 const publicRoutes    = require("./routes/public");
+const daoRoutes       = require("./routes/dao");
 const pool            = require("./db/pool");
 const { migrate } = require("./db/migrate");
 const IndexerService  = require("./services/indexerService");
@@ -295,6 +296,7 @@ app.use("/api/time-entries",  timeEntryRoutes);
 app.use("/api/referrals",     referralRoutes);
 app.use("/api/events",        eventsRoutes);
 app.use("/api/scope",         scopeRoutes);
+app.use("/api/dao",           daoRoutes);
 
 app.use((err, req, res, next) => {
   logError(req.logger || serviceLogger, err, {

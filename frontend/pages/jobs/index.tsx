@@ -12,7 +12,11 @@ import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { useEffect, useState, useRef, useCallback } from "react";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/lib/i18n";
+import JobFiltersPanel, {
+  ActiveFilterChips,
+  type JobFilterQuery,
+} from "@/components/JobFiltersPanel";
 import { getTimezoneOffset } from "date-fns-tz";
 import { getConnectedPublicKey } from "@/lib/wallet";
 import { useBookmarks } from "@/hooks/useBookmarks";
@@ -48,8 +52,7 @@ function removeAlert(cat: string): void {
 
 export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
   const router = useRouter();
-  const { i18n } = useTranslation("common");
-  const t = (key: string): string => i18n.t(key) as string;
+  const { t } = useTranslation("common");
   const [jobs, setJobs] = useState<Job[]>([]);
   const [recommended, setRecommended] = useState<(Job & { matchScore: number })[]>([]);
   const [recLoading, setRecLoading] = useState(false);
@@ -134,6 +137,29 @@ export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
   const pageFromQuery = Math.max(1, Number(router.query.page) || 1);
   const minBudget = (router.query.minBudget as string) || "";
   const maxBudget = (router.query.maxBudget as string) || "";
+  const filterQuery: JobFilterQuery = {
+    minBudget: minBudget || undefined,
+    maxBudget: maxBudget || undefined,
+    skills: (router.query.skills as string) || undefined,
+    minClientRating: (router.query.minClientRating as string) || undefined,
+    duration: (router.query.duration as string) || undefined,
+    postedSince: (router.query.postedSince as string) || undefined,
+    maxApplications: (router.query.maxApplications as string) || undefined,
+  };
+
+  const updateFilters = (
+    patch: Partial<JobFilterQuery>,
+    removeKeys?: string[],
+  ) => {
+    const next = { ...router.query, ...patch, page: undefined };
+    for (const key of removeKeys || []) {
+      delete next[key];
+    }
+    for (const [k, v] of Object.entries(patch)) {
+      if (v === undefined || v === "") delete next[k];
+    }
+    router.push({ pathname: "/jobs", query: next }, undefined, { shallow: true });
+  };
 
   // Detect user's timezone from browser
   useEffect(() => {
@@ -206,6 +232,13 @@ export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
             cursor,
             timezone: activeTimezone || undefined,
             viewerAddress: viewerAddress || undefined,
+            minBudget: minBudget || undefined,
+            maxBudget: maxBudget || undefined,
+            skills: filterQuery.skills,
+            minClientRating: filterQuery.minClientRating,
+            duration: filterQuery.duration,
+            postedSince: filterQuery.postedSince,
+            maxApplications: filterQuery.maxApplications,
           });
 
           const seenIds = new Set(allJobs.map((job) => job.id));
@@ -233,7 +266,23 @@ export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
     loadJobs();
 
     return () => { isCancelled = true; };
-  }, [category, status, pageFromQuery, router.isReady, manualTimezone, useGeolocation, userTimezone, viewerAddress]);
+  }, [
+    category,
+    status,
+    pageFromQuery,
+    router.isReady,
+    manualTimezone,
+    useGeolocation,
+    userTimezone,
+    viewerAddress,
+    minBudget,
+    maxBudget,
+    filterQuery.skills,
+    filterQuery.minClientRating,
+    filterQuery.duration,
+    filterQuery.postedSince,
+    filterQuery.maxApplications,
+  ]);
 
   // Fetch suggestions with debounce
   const fetchSuggestions = useCallback(async (query: string) => {
@@ -328,23 +377,10 @@ export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
     )
     : jobs;
 
-  const minN = minBudget.trim() ? parseFloat(minBudget) : NaN;
-  const maxN = maxBudget.trim() ? parseFloat(maxBudget) : NaN;
-  const budgetFiltered =
-    !Number.isNaN(minN) || !Number.isNaN(maxN)
-      ? searchFiltered.filter((j) => {
-          const b = parseFloat(j.budget);
-          if (Number.isNaN(b)) return false;
-          if (!Number.isNaN(minN) && b < minN) return false;
-          if (!Number.isNaN(maxN) && b > maxN) return false;
-          return true;
-        })
-      : searchFiltered;
-
   const activeTimezone = manualTimezone || (useGeolocation ? userTimezone : "");
   const filtered = activeTimezone
-    ? budgetFiltered.filter((j) => isTimezoneCompatible(j.timezone))
-    : budgetFiltered;
+    ? searchFiltered.filter((j) => isTimezoneCompatible(j.timezone))
+    : searchFiltered;
 
   const setFilter = (key: string, val: string) => {
     router.push(
@@ -370,6 +406,13 @@ export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
         cursor: nextCursor,
         timezone: activeTimezone || undefined,
         viewerAddress: viewerAddress || undefined,
+        minBudget: minBudget || undefined,
+        maxBudget: maxBudget || undefined,
+        skills: filterQuery.skills,
+        minClientRating: filterQuery.minClientRating,
+        duration: filterQuery.duration,
+        postedSince: filterQuery.postedSince,
+        maxApplications: filterQuery.maxApplications,
       });
 
       setJobs((prev) => {
@@ -412,7 +455,7 @@ export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
       {/* Recommended for you */}
       {publicKey && (recLoading || recommended.length > 0) && (
         <div className="mb-10">
-          <h2 className="font-display text-xl font-bold text-amber-100 mb-4">Recommended for you</h2>
+          <h2 className="font-display text-xl font-bold text-amber-100 mb-4">{t("jobs.recommended")}</h2>
           {recLoading ? (
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {Array.from({ length: 3 }).map((_, i) => <JobCardSkeleton key={`rec-skeleton-${i}`} />)}
@@ -475,7 +518,9 @@ export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
                           globalIdx === activeSuggestion ? "bg-market-500/20 text-market-300" : "text-amber-100 hover:bg-market-500/10"
                         )}
                       >
-                        {s.type === 'title' ? <BriefcaseMiniIcon /> : s.type === 'skill' ? <TagMiniIcon /> : <CategoryMiniIcon />}
+                        <span className="text-amber-800 w-4 text-center">
+                          {s.type === "job" ? "•" : s.type === "skill" ? "#" : "◎"}
+                        </span>
                         {s.value}
                       </div>
                     );
@@ -487,9 +532,24 @@ export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
         )}
       </div>
 
+      <JobFiltersPanel
+        query={filterQuery}
+        onQueryChange={updateFilters}
+        collapsible
+      />
+
+      <ActiveFilterChips query={filterQuery} onRemove={(keys) => updateFilters({}, keys)} />
+
       <div className="flex gap-6">
-        {/* Sidebar filters */}
         <aside className="hidden lg:block w-52 flex-shrink-0 space-y-6">
+          <div className="hidden lg:block border-b border-market-500/10 pb-4 mb-2">
+            <p className="label mb-3">{t("jobs.filters")}</p>
+            <JobFiltersPanel
+              query={filterQuery}
+              onQueryChange={updateFilters}
+              collapsible={false}
+            />
+          </div>
           {/* Status */}
           <div>
             <p className="label">{t("jobs.status.all")}</p>
@@ -716,17 +776,17 @@ export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
           ) : error ? (
             <StateMessage
               type="error"
-              title="Something went wrong"
-              description="Please try again."
-              ctaLabel="Retry"
+              title={t("jobs.errorTitle")}
+              description={t("jobs.tryAdjusting")}
+              ctaLabel={t("jobs.errorRetry")}
               onCta={() => window.location.reload()}
             />
           ) : filtered.length === 0 ? (
             <StateMessage
               type="empty"
-              title="No jobs match your filters"
-              description="Try adjusting your search or filters."
-              ctaLabel="Post a Job"
+              title={t("jobs.emptyTitle")}
+              description={t("jobs.emptyDescription")}
+              ctaLabel={t("nav.postJob")}
               onCta={() => router.push('/post-job')}
             />
           ) : (

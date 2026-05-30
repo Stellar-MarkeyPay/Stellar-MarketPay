@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useState, useRef, useEffect } from "react"; // Added for hover logic
 import {
   formatDeadline,
-  formatXLM,
+  formatMoney,
   getDeadlineState,
   getMonthlyEstimate,
   statusClass,
@@ -108,7 +108,8 @@ function CountdownTimer({ deadline }: { deadline: string }) {
 export default function JobCard({ job, isFocused = false, onFocus }: JobCardProps) {
   const { xlmPriceUsd } = usePriceContext();
   const { isSaved, toggleBookmark } = useBookmarks();
-  const usdEquivalent = formatUSDEquivalent(job.budget, xlmPriceUsd);
+  const currency = job.currency || "XLM";
+  const usdEquivalent = formatUSDEquivalent(job.budget, xlmPriceUsd, currency);
   const clientRepBadge = getClientReputationBadge(job.clientReputationScore);
 
   // ── ISSUE #78: Hover Card State & Logic ──────────────────────────────────────────
@@ -147,8 +148,9 @@ export default function JobCard({ job, isFocused = false, onFocus }: JobCardProp
   const showClosingSoonBadge = !showClosedBadge && deadlineState === "closing_soon";
 
   // Helper to get monthly estimate (keeping original logic intact)
-  const getMonthlyEstimate = (budget: string, price: number | null) => {
-    return "Estimated monthly: " + formatUSDEquivalent(budget, price);
+  const getMonthlyEstimate = (budget: string, price: number | null, cur: string) => {
+    const est = formatUSDEquivalent(budget, price, cur);
+    return est ? `Estimated monthly: ${est}` : null;
   };
 
   return (
@@ -216,7 +218,7 @@ export default function JobCard({ job, isFocused = false, onFocus }: JobCardProp
           <div className="group/tooltip relative">
             <p className="text-xs text-amber-800 mb-0.5">Budget</p>
             <p className="font-mono font-semibold text-market-400 text-sm cursor-help">
-              {formatXLM(job.budget)}
+              {formatMoney(job.budget, currency)}
             </p>
             {usdEquivalent && (
               <div className="absolute bottom-full left-0 mb-2 hidden group-hover/tooltip:block z-20">
@@ -225,7 +227,7 @@ export default function JobCard({ job, isFocused = false, onFocus }: JobCardProp
                     {usdEquivalent}
                   </p>
                   <p className="text-amber-800/80 mt-0.5">
-                    {getMonthlyEstimate(job.budget, xlmPriceUsd)}
+                    {getMonthlyEstimate(job.budget, xlmPriceUsd, currency)}
                   </p>
                 </div>
                 <div className="w-2 h-2 bg-ink-800 border-r border-b border-market-500/30 rotate-45 -mt-1 ml-3" />
