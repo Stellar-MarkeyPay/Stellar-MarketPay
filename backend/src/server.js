@@ -41,9 +41,6 @@ const publicRoutes    = require("./routes/public");
 const referralRoutes  = require("./routes/referrals");
 const eventsRoutes    = require("./routes/events");
 const invitationRoutes = require("./routes/invitations");
-const notificationRoutes = require("./routes/notifications");
-const developerRoutes = require("./routes/developer");
-const publicRoutes    = require("./routes/public");
 
 const pool            = require("./db/pool");
 const { migrate } = require("./db/migrate");

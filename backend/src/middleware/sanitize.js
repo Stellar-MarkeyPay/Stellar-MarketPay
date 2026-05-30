@@ -72,7 +72,12 @@ function sanitizeString(value, options = {}) {
  * @param {Object} options - Sanitization options
  * @returns {*} Sanitized object/array/primitive
  */
-function sanitizeObject(obj, options = {}) {
+function sanitizeObject(obj, options = {}, depth = 0) {
+  const MAX_DEPTH = 20;
+  if (depth > MAX_DEPTH) {
+    throw new Error("Input nesting depth exceeds limit");
+  }
+
   if (obj === null || obj === undefined) {
     return obj;
   }
@@ -82,7 +87,7 @@ function sanitizeObject(obj, options = {}) {
   }
 
   if (Array.isArray(obj)) {
-    return obj.map((item) => sanitizeObject(item, options));
+    return obj.map((item) => sanitizeObject(item, options, depth + 1));
   }
 
   if (typeof obj === "object") {
@@ -97,7 +102,7 @@ function sanitizeObject(obj, options = {}) {
         continue;
       }
 
-      sanitized[sanitizedKey] = sanitizeObject(value, options);
+      sanitized[sanitizedKey] = sanitizeObject(value, options, depth + 1);
     }
     return sanitized;
   }
