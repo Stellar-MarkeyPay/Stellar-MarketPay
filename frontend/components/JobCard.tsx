@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useState, useRef, useEffect } from "react"; // Added for hover logic
 import {
   formatDeadline,
-  formatXLM,
+  formatMoney,
   getDeadlineState,
   statusClass,
   statusLabel,
@@ -22,6 +22,29 @@ interface JobCardProps {
   job: Job;
   isFocused?: boolean;
   onFocus?: () => void;
+}
+
+function getClientReputationBadge(score?: number | null) {
+  if (score == null) return null;
+  if (score >= 4.5) {
+    return {
+      label: `Trusted client ${score.toFixed(1)}`,
+      className: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",
+      hint: "High on-time payment and completion history",
+    };
+  }
+  if (score < 3.0) {
+    return {
+      label: `Caution ${score.toFixed(1)}`,
+      className: "bg-amber-500/10 text-amber-300 border-amber-500/30",
+      hint: "Lower reliability based on dispute/payment history",
+    };
+  }
+  return {
+    label: `Client ${score.toFixed(1)}`,
+    className: "bg-market-500/10 text-market-300 border-market-500/30",
+    hint: "Score blends payment release, disputes, completion, and response time",
+  };
 }
 
 function CountdownTimer({ deadline }: { deadline: string }) {
@@ -124,8 +147,9 @@ export default function JobCard({ job, isFocused = false, onFocus }: JobCardProp
   const showClosingSoonBadge = !showClosedBadge && deadlineState === "closing_soon";
 
   // Helper to get monthly estimate (keeping original logic intact)
-  const getMonthlyEstimate = (budget: string, price: number | null) => {
-    return "Estimated monthly: " + formatUSDEquivalent(budget, price);
+  const getMonthlyEstimate = (budget: string, price: number | null, cur: string) => {
+    const est = formatUSDEquivalent(budget, price, cur);
+    return est ? `Estimated monthly: ${est}` : null;
   };
 
   return (
@@ -147,9 +171,21 @@ export default function JobCard({ job, isFocused = false, onFocus }: JobCardProp
           <h3 className="font-display font-semibold text-amber-100 text-base leading-snug group-hover:text-market-300 transition-colors line-clamp-2">
             {job.title}
           </h3>
-          <span className={statusClass(job.status) + " flex-shrink-0 text-xs"}>
-            {statusLabel(job.status)}
-          </span>
+          <div className="flex items-center gap-2">
+            {clientRepBadge && (
+              <span
+                className={`group/rep relative inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${clientRepBadge.className}`}
+              >
+                ★ {clientRepBadge.label}
+                <span className="pointer-events-none absolute bottom-full right-0 mb-1 hidden whitespace-nowrap rounded-md border border-market-500/20 bg-ink-900 px-2 py-1 text-[10px] text-amber-200 shadow-lg group-hover/rep:block">
+                  {clientRepBadge.hint}
+                </span>
+              </span>
+            )}
+            <span className={statusClass(job.status) + " flex-shrink-0 text-xs"}>
+              {statusLabel(job.status)}
+            </span>
+          </div>
         </div>
 
         {/* Description */}

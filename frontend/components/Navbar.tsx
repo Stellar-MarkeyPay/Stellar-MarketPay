@@ -7,6 +7,7 @@ import { useRouter } from "next/router";
 import { shortenAddress } from "@/utils/format";
 import clsx from "clsx";
 import { useTranslation } from "@/lib/i18n";
+import LanguageSwitcher from "@/components/LanguageSwitcher";
 import FaucetButton from "@/components/FaucetButton";
 import { usePriceContext } from "@/contexts/PriceContext";
 
@@ -23,13 +24,14 @@ const links = [
   { href: "/post-job",    labelKey: "nav.postJob" },
   { href: "/insights",    labelKey: "nav.insights" },
   { href: "/developer",   labelKey: "nav.developer" },
+  { href: "/dao",           labelKey: "nav.dao" },
 ];
 
 const STELLAR_NETWORK = process.env.NEXT_PUBLIC_STELLAR_NETWORK || "testnet";
 
 export default function Navbar({ publicKey, onConnect, onDisconnect }: NavbarProps) {
   const router = useRouter();
-  const { t, i18n } = useTranslation("common");
+  const { t } = useTranslation("common");
   const [hasNotification, setHasNotification] = useState(false);
   const [hasJobAlertBadge, setHasJobAlertBadge] = useState(false);
   const { currencyMode, setCurrencyMode, priceLoading } = usePriceContext();
@@ -102,13 +104,6 @@ export default function Navbar({ publicKey, onConnect, onDisconnect }: NavbarPro
   const balance: string | null = null;
   const balanceLoading = false;
 
-  const switchLanguage = (lang: string) => {
-    i18n.changeLanguage(lang);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("preferredLocale", lang);
-    }
-  };
-
   return (
     <>
       {/* Skip to main content (#287) */}
@@ -116,7 +111,7 @@ export default function Navbar({ publicKey, onConnect, onDisconnect }: NavbarPro
         href="#main-content"
         className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[9999] focus:px-4 focus:py-2 focus:rounded-lg focus:bg-market-500 focus:text-white focus:font-bold focus:text-sm"
       >
-        Skip to main content
+        {t("nav.skipToContent")}
       </a>
     <nav className="sticky top-0 z-50 border-b border-[rgba(251,191,36,0.10)] dark:border-[rgba(251,191,36,0.06)] bg-ink-900/85 dark:bg-[#050403]/90 backdrop-blur-xl">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">

@@ -237,7 +237,8 @@ export default function PostJobForm({
       const xdr = await buildCreateEscrowTx({
         clientPublicKey: publicKey,
         jobId: job.id,
-        budgetXlm: parseFloat(form.budget),
+        budget: parseFloat(form.budget),
+        currency: form.currency,
       });
       const tx = new Transaction(xdr, process.env.NEXT_PUBLIC_STELLAR_NETWORK === "mainnet"
         ? "Public Global Stellar Network ; September 2015"
@@ -355,7 +356,7 @@ export default function PostJobForm({
       <div className="card max-w-2xl mx-auto">
         <h1 className="font-display text-2xl font-bold text-amber-100 mb-1">Post a Job</h1>
         <p className="text-amber-800 text-sm mb-5">
-          Your XLM budget will be locked in a Soroban escrow contract.
+          Your {form.currency} budget will be locked in a Soroban escrow contract.
           {isMockMode && (
             <span className="ml-2 text-xs text-amber-600 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full">
               Mock mode — no real XLM charged
