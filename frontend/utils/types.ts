@@ -57,6 +57,24 @@ export interface Job {
   expiresAt?: string; // ISO date when job expires if not hired
   extendedCount?: number; // Number of times expiry has been extended
   extendedUntil?: string; // Final expiry after all extensions
+  clientReputationScore?: number | null;
+}
+
+export interface ClientReputation {
+  publicKey: string;
+  score: number;
+  paymentReleaseRate: number;
+  disputeRate: number;
+  completionRate: number;
+  avgTimeToReleaseHours: number;
+  responseTimeToApplicationsHours: number;
+  totals: {
+    totalJobs: number;
+    completedJobs: number;
+    disputedJobs: number;
+    totalReleased: number;
+    releasedOnTime: number;
+  };
 }
 
 export interface Application {

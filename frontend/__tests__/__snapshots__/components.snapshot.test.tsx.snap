@@ -48,11 +48,15 @@ exports[`component snapshots JobCard with bookmark 1`] = `
       >
         Build a Soroban escrow contract for marketplace payouts
       </h3>
-      <span
-        class="badge-open flex-shrink-0 text-xs"
+      <div
+        class="flex items-center gap-2"
       >
-        Open
-      </span>
+        <span
+          class="badge-open flex-shrink-0 text-xs"
+        >
+          Open
+        </span>
+      </div>
     </div>
     <p
       class="text-amber-800/80 text-sm leading-relaxed line-clamp-3 mb-4"
@@ -192,11 +196,15 @@ exports[`component snapshots JobCard without bookmark 1`] = `
       >
         Build a Soroban escrow contract for marketplace payouts
       </h3>
-      <span
-        class="badge-open flex-shrink-0 text-xs"
+      <div
+        class="flex items-center gap-2"
       >
-        Open
-      </span>
+        <span
+          class="badge-open flex-shrink-0 text-xs"
+        >
+          Open
+        </span>
+      </div>
     </div>
     <p
       class="text-amber-800/80 text-sm leading-relaxed line-clamp-3 mb-4"
