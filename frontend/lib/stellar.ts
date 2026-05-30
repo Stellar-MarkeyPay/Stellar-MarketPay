@@ -44,6 +44,7 @@ const CONTRACT_ID = USE_CONTRACT_MOCK
   : requireClientEnv("NEXT_PUBLIC_CONTRACT_ID");
 
 export const server = new Horizon.Server(HORIZON_URL, { allowHttp: false });
+export const sorobanServer = new SorobanRpc.Server(SOROBAN_RPC_URL, { allowHttp: false });
 
 // ---------------------------------------------------------------------------
 // Types
@@ -114,11 +115,8 @@ export async function buildCreateEscrowTx(
     );
   }
 
-  const server = new SorobanRpc.Server(SOROBAN_RPC_URL, {
-    allowHttp: false,
-  });
-
-  const account = await server.getAccount(clientPublicKey);
+  // Fetch the source account
+  const account = await sorobanServer.getAccount(clientPublicKey);
 
   const amountStroops = BigInt(Math.round(budgetXlm * 10_000_000));
 
@@ -162,11 +160,9 @@ export async function signAndSubmitEscrowTx(
     networkPassphrase: NETWORK_PASSPHRASE,
   });
 
-  const server = new SorobanRpc.Server(SOROBAN_RPC_URL, {
-    allowHttp: false,
-  });
-
-  const sendResponse = await server.sendTransaction(
+  // Submit the signed transaction
+  const sendResponse = await sorobanServer.sendTransaction(
+    // Re-parse from the signed XDR
     (() => {
       const { Transaction } = require("@stellar/stellar-sdk");
       return new Transaction(signedTransaction, NETWORK_PASSPHRASE);
@@ -189,7 +185,7 @@ export async function signAndSubmitEscrowTx(
     polls < MAX_POLLS
   ) {
     await new Promise((r) => setTimeout(r, 1500));
-    getResponse = await server.getTransaction(txHash);
+    getResponse = await sorobanServer.getTransaction(txHash);
     polls++;
   }
 
@@ -245,12 +241,8 @@ export async function buildPublishMessageTx(
     );
   }
 
-  const server = new SorobanRpc.Server(SOROBAN_RPC_URL, {
-    allowHttp: false,
-  });
-
   const { jobId, senderPublicKey, recipientPublicKey, ipfsCid } = params;
-  const account = await server.getAccount(senderPublicKey);
+  const account = await sorobanServer.getAccount(senderPublicKey);
 
   const contract = new Contract(CONTRACT_ID);
   const callArgs = [
@@ -268,7 +260,7 @@ export async function buildPublishMessageTx(
     .setTimeout(300)
     .build();
 
-  const simResponse = await server.simulateTransaction(tx);
+  const simResponse = await sorobanServer.simulateTransaction(tx);
 
   if (SorobanRpc.Api.isSimulationError(simResponse)) {
     throw new Error(`Soroban simulation failed: ${simResponse.error}`);
@@ -288,11 +280,7 @@ async function signAndSubmitToSoroban(
     networkPassphrase: NETWORK_PASSPHRASE,
   });
 
-  const server = new SorobanRpc.Server(SOROBAN_RPC_URL, {
-    allowHttp: false,
-  });
-
-  const sendResponse = await server.sendTransaction(
+  const sendResponse = await sorobanServer.sendTransaction(
     (() => {
       const { Transaction } = require("@stellar/stellar-sdk");
       return new Transaction(signedTransaction, NETWORK_PASSPHRASE);
@@ -306,7 +294,7 @@ async function signAndSubmitToSoroban(
 
   const txHash = sendResponse.hash;
 
-  let getResponse = await server.getTransaction(txHash);
+  let getResponse = await sorobanServer.getTransaction(txHash);
   const MAX_POLLS = 20;
   let polls = 0;
 
