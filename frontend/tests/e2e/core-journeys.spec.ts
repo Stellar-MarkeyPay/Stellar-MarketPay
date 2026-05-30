@@ -82,8 +82,8 @@ test("jobs page shows empty state when no jobs", async ({ page }) => {
   await mockApi(page, []);
   await page.goto("/jobs");
 
-  await expect(page.getByText("No jobs found")).toBeVisible();
-  await expect(page.getByRole("link", { name: /Post the first job/i })).toBeVisible();
+  await expect(page.getByText("No jobs match your filters")).toBeVisible();
+  await expect(page.getByRole("button", { name: /Post a Job/i })).toBeVisible();
 });
 
 test("clicking a job card navigates to the job detail page", async ({ page }) => {
@@ -103,8 +103,8 @@ test("PostJobForm shows validation errors when required fields are too short", a
   await page.goto("/post-job");
 
   await expect(page.getByRole("heading", { name: "Post a Job" })).toBeVisible();
-  await page.getByPlaceholder("e.g. Build a Soroban escrow contract for NFT marketplace").fill("short");
-  await page.getByPlaceholder("Describe the work in detail — requirements, deliverables, acceptance criteria...").fill("too short");
+  await page.getByPlaceholder("e.g. Build a Soroban DEX interface").fill("short");
+  await page.getByPlaceholder("Describe the work, deliverables, and any context…").fill("too short");
 
   await expect(page.getByText("Title must be at least 10 characters")).toBeVisible();
   await expect(page.getByText("Description must be at least 30 characters")).toBeVisible();
@@ -115,7 +115,7 @@ test("PostJobForm submit button is disabled when form is invalid", async ({ page
   await mockApi(page);
   await page.goto("/post-job");
 
-  const submit = page.getByRole("button", { name: /Post Job & Lock Budget in Escrow/i });
+  const submit = page.getByRole("button", { name: /Post Job & Lock/ });
   await expect(submit).toBeDisabled();
 });
 

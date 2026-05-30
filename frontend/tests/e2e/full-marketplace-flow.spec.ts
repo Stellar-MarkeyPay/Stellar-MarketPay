@@ -304,11 +304,11 @@ test("full marketplace flow with two wallets and contract mock", async ({ page }
   await mockFreighter(page, CLIENT_ADDRESS);
   await page.goto("/post-job");
 
-  await page.getByLabel("Job Title").fill("Build marketplace escrow integration tests");
-  await page.getByLabel("Description").fill(
+  await page.locator("input[name=title]").fill("Build marketplace escrow integration tests");
+  await page.locator("textarea[name=description]").fill(
     "Need an end to end Playwright flow covering posting, escrow funding, applications, progress updates, release, and ratings.",
   );
-  await page.getByLabel("Budget (XLM)").fill("250");
+  await page.locator("input[name=budget]").fill("250");
   await page.getByRole("button", { name: /Post Job & Lock 250 XLM Escrow/i }).click();
   await expect(page.getByText("Job Posted!")).toBeVisible({ timeout: 20_000 });
 
