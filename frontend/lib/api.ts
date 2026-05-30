@@ -678,20 +678,34 @@ export async function deleteDraft(draftId: string) {
 // ─── Skill Assessments ─────────────────────────────────────────────────────────
 
 export async function fetchAssessment(skill: string) {
-  const { data } = await api.get<{ success: boolean; data: AssessmentQuestion[] }>(
-    `/api/assessments/${skill}`
-  );
+  const { data } = await api.get<{
+    success: boolean;
+    data: {
+      label: string;
+      skill: string;
+      questions: AssessmentQuestion[];
+      durationSeconds: number;
+      canRetake: boolean;
+      retakeAvailableAt?: string;
+      lastAttempt?: { score: number; passed: boolean };
+    };
+  }>(`/api/assessments/${skill}`);
   return data.data;
 }
 
-export async function submitAssessment(payload: {
-  skill: string;
-  answers: Record<number, string>;
-}) {
-  const { data } = await api.post<{ success: boolean; data: SkillBadge }>(
-    "/api/assessments/submit",
-    payload
-  );
+export async function submitAssessment(
+  skill: string,
+  answers: Record<number, number>,
+) {
+  const { data } = await api.post<{
+    success: boolean;
+    data: {
+      score: number;
+      passed: boolean;
+      correct: number;
+      total: number;
+    };
+  }>("/api/assessments/submit", { skill, answers });
   return data.data;
 }
 

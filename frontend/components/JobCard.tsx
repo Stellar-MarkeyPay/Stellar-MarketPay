@@ -206,8 +206,8 @@ export default function JobCard({ job, isFocused = false, onFocus }: JobCardProp
                 toggleBookmark(job.id);
               }}
               className="p-1.5 rounded-md transition-all flex items-center justify-center hover:bg-amber-500/10 group/bookmark"
-              title={isSaved ? "Remove bookmark" : "Save job"}
-              aria-label={isSaved ? "Remove bookmark" : "Save job"}
+              title={isSaved(job.id) ? "Remove bookmark" : "Save job"}
+              aria-label={isSaved(job.id) ? "Remove bookmark" : "Save job"}
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"

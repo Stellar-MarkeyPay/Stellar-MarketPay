@@ -60,7 +60,7 @@ interface DashboardProps {
   onConnect: (pk: string) => void;
 }
 
-type Tab = "posted" | "applied" | "invitations" | "analytics" | "spending" | "send" | "edit_profile" | "templates" | "price_alerts" | "withdrawals";
+type Tab = "posted" | "applied" | "invitations" | "analytics" | "spending" | "send" | "edit_profile" | "templates" | "price_alerts" | "withdrawals" | "referrals";
 const REPOST_JOB_PREFILL_STORAGE_KEY = "marketpay_repost_job_prefill";
 
 async function fetchBalances(
@@ -826,39 +826,7 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
             ))}
           </div>
         )
-      ) : tab === "analytics" ? (
-        selectedJob ? <JobAnalytics job={selectedJob} onExtend={() => handleExtendJob(selectedJob.id)} /> : (
-          <div className="space-y-3">
-            {myJobs.map((job) => (
-              <button key={job.id} onClick={() => setSelectedJob(job)} className="btn-secondary text-sm px-3 py-2 mr-2 mb-2">{job.title}{extendingJob === job.id ? " (Extending...)" : ""}</button>
-            ))}
-          </div>
-        )
-      ) : tab === "spending" ? (
-        <ClientSpendingTab analytics={spendingAnalytics} loading={spendingLoading} xlmPriceUsd={xlmPriceUsd} />
-      ) : tab === "send" ? (
-        <SendPaymentForm fromPublicKey={publicKey} />
-      ) : tab === "templates" ? (
-        <div className="space-y-4">
-          <div className="card space-y-3">
-            <input value={templateName} onChange={(e) => setTemplateName(e.target.value)} className="input-field" placeholder="Template name" />
-            <textarea value={templateContent} onChange={(e) => setTemplateContent(e.target.value)} className="textarea-field" rows={5} placeholder="Template proposal content" />
-            <button className="btn-primary text-sm" onClick={async () => {
-              if (!templateName.trim() || !templateContent.trim()) return;
-              if (editingTemplateId) {
-                const updated = await updateProposalTemplate(editingTemplateId, { name: templateName, content: templateContent });
-                setTemplates((current) => current.map((item) => item.id === updated.id ? updated : item));
-                setEditingTemplateId(null);
-              } else {
-                const created = await createProposalTemplate({ name: templateName, content: templateContent });
-                setTemplates((current) => [created, ...current]);
-              }
-              setTemplateName("");
-              setTemplateContent("");
-            }}>{editingTemplateId ? "Update Template" : "Create Template"}</button>
-          </div>
-          </div>
-        ) : tab === "price_alerts" ? (
+      ) : tab === "price_alerts" ? (
           (!minPrice && !maxPrice && !emailEnabled) ? (
             <StateMessage
               type="empty"
