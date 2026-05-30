@@ -65,7 +65,7 @@ async function installPersistentApiMocks(page: Page, initialState: MarketplaceSt
           if (method === "GET") {
             responseData = { success: true, data: mockState.jobs };
           } else if (method === "POST") {
-            const b = JSON.parse(body);
+            const b = JSON.parse(body as string);
             const job = {
               id: `job-${mockState.jobs.length + 1}`,
               title: b.title,
@@ -101,7 +101,7 @@ async function installPersistentApiMocks(page: Page, initialState: MarketplaceSt
               job.status = "completed";
               mockState.balances[freelancerAddr] += parseFloat(job.budget);
             } else if (method === "PATCH") {
-              const b = JSON.parse(body);
+              const b = JSON.parse(body as string);
               if (b.escrowContractId) job.escrowContractId = b.escrowContractId;
               if (pathname.includes("/escrow")) mockState.balances[clientAddr] -= parseFloat(job.budget);
             }
@@ -114,7 +114,7 @@ async function installPersistentApiMocks(page: Page, initialState: MarketplaceSt
           responseData = { success: true, data: mockState.applications.filter((a: any) => a.jobId === jobId) };
         }
         else if (pathname === "/api/applications" && method === "POST") {
-          const b = JSON.parse(body);
+          const b = JSON.parse(body as string);
           const app = {
             id: `app-${mockState.applications.length + 1}`,
             jobId: b.jobId,
@@ -153,7 +153,7 @@ async function installPersistentApiMocks(page: Page, initialState: MarketplaceSt
             const jobId = urlObj.searchParams.get("jobId") || pathname.split("/").pop();
             responseData = { success: true, data: mockState.timeEntries.filter((e: any) => e.jobId === jobId) };
           } else if (method === "POST") {
-            const b = JSON.parse(body);
+            const b = JSON.parse(body as string);
             const entry = {
               id: `time-${mockState.timeEntries.length + 1}`,
               jobId: b.jobId,
@@ -168,7 +168,7 @@ async function installPersistentApiMocks(page: Page, initialState: MarketplaceSt
           }
         }
         else if (pathname === "/api/ratings" && method === "POST") {
-          const b = JSON.parse(body);
+          const b = JSON.parse(body as string);
           mockState.ratings.push({
             jobId: b.jobId,
             raterAddress: "unknown",
