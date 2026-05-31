@@ -50,7 +50,7 @@ const CATEGORIES = [
   "DevOps", "Data Analysis",
 ];
 
-function StatCard({ stat, index }: { stat: { value: number; suffix: string; label: string; duration: number; prefix: string }; index: number }) {
+function StatCard({ stat, index }: { stat: typeof STATS[0]; index: number }) {
   const { animatedValue, elementRef } = useCountUp(stat.value, {
     duration: stat.duration,
     suffix: stat.suffix,
@@ -247,6 +247,13 @@ export default function Home({ publicKey, onConnect, completedJobs }: HomeProps)
 }
 
 export const getStaticProps: GetStaticProps = async () => {
+  if (process.env.SKIP_API_CALLS === "true") {
+    return {
+      props: { completedJobs: [] },
+      revalidate: 60,
+    };
+  }
+
   let completedJobs: Job[] = [];
   try {
     completedJobs = await fetchRecentlyCompletedJobs(3);

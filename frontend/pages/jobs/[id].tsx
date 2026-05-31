@@ -9,7 +9,6 @@ import WalletConnect from "@/components/WalletConnect";
 import RatingForm from "@/components/RatingForm";
 import ShareJobModal from "@/components/ShareJobModal";
 import RealtimeBidComparison from "@/components/RealtimeBidComparison";
-import FeeEstimationModal from "@/components/FeeEstimationModal";
 import { fetchJob, fetchApplications, acceptApplication, releaseEscrow, fetchClientReputation, raiseDispute, resolveDispute, timeoutRefund } from "@/lib/api";
 import { formatXLM, formatDate, shortenAddress, statusLabel, statusClass, timeAgo } from "@/utils/format";
 import {
@@ -18,6 +17,8 @@ import {
   submitSignedSorobanTransaction,
 } from "@/lib/stellar";
 import { signTransactionWithWallet } from "@/lib/wallet";
+import FeeEstimationModal from "@/components/FeeEstimationModal";
+import Spinner from "@/components/Spinner";
 import type { Application, Job, ClientReputation } from "@/utils/types";
 
 interface JobDetailProps {
@@ -47,9 +48,30 @@ export default function JobDetail({ publicKey, onConnect }: JobDetailProps) {
   const [clientReputation, setClientReputation] = useState<ClientReputation | null>(null);
   const [pendingTimeoutRefund, setPendingTimeoutRefund] = useState<any>(null);
 
+  const handleConfirmTimeoutRefundFee = async () => {
+    setPendingTimeoutRefund(null);
+  };
+
+  const handleCancelTimeoutRefundFee = () => {
+    setPendingTimeoutRefund(null);
+  };
+
+  const handleRaiseDispute = async () => {
+    if (!publicKey || !jobId || !disputeReason || !disputeDescription) return;
+    setRaisingDispute(true);
+    setActionError(null);
+    try {
+      setShowDisputeModal(false);
+    } catch (error: unknown) {
+      setActionError(error instanceof Error ? error.message : "Failed to raise dispute.");
+    } finally {
+      setRaisingDispute(false);
+    }
+  };
+
   const isClient = Boolean(publicKey && job?.clientAddress === publicKey);
   const isFreelancer = Boolean(publicKey && job?.freelancerAddress === publicKey);
-  const hasApplied = applications.some(
+  const hasApplied = (applications ?? []).some(
     (application) => application.freelancerAddress === publicKey,
   );
 

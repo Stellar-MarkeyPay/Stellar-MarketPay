@@ -208,7 +208,8 @@ class IndexerService {
       "escrow_refunded":     "escrow_refunded",
       "escrow_timeout_refunded": "escrow_refunded",
       "escrow_disputed":     "dispute_opened",
-      "milestone_released":  "milestone_released"
+      "milestone_released":  "milestone_released",
+      "message_sent":        "message_sent"
     };
 
     const eventType = typeMap[eventTypeRaw];

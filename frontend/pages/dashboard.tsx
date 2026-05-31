@@ -21,6 +21,9 @@ import {
   fetchMyInvitations,
   declineInvitation,
   acceptInvitation,
+  bulkCancelJobs,
+  bulkExtendJobs,
+  bulkBoostJobs,
   fetchSavedSearches,
   updateSavedSearch,
   deleteSavedSearch,
@@ -45,12 +48,16 @@ import JobAnalytics from "@/components/JobAnalytics";
 import BulkJobActionBar from "@/components/BulkJobActionBar";
 import ExtendJobModal from "@/components/ExtendJobModal";
 import ClientSpendingTab from "@/components/ClientSpendingTab";
+import StateMessage from "@/components/StateMessage";
 import { usePriceContext } from "@/contexts/PriceContext";
 import ProfileCompletenessWidget from "@/components/ProfileCompletenessWidget";
 import { useOnboarding } from "@/hooks/useOnboarding";
 import ReferralDashboard from "@/components/ReferralDashboard";
 
 const LOW_BALANCE_THRESHOLD_XLM = 5;
+const IS_CONTRACT_MOCK_DEV_MODE =
+  process.env.NODE_ENV !== "production" &&
+  process.env.NEXT_PUBLIC_USE_CONTRACT_MOCK === "true";
 const CATEGORY_ICONS: Record<string, string> = {
   web: "Web",
   mobile: "Mobile",
@@ -126,13 +133,13 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
   const { xlmPriceUsd } = usePriceContext();
   const { progress, checklistItems } = useOnboarding(publicKey);
 
-  // ── Saved searches state (Issue #284) ──────────────────────────────────────
-  const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([]);
-  const [savedSearchesLoading, setSavedSearchesLoading] = useState(false);
-
   // ── Bulk selection state ──────────────────────────────────────────────────
   const [selectedJobIds, setSelectedJobIds] = useState<Set<string>>(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
+
+  // ── Saved searches state (Issue #284) ──────────────────────────────────────
+  const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([]);
+  const [savedSearchesLoading, setSavedSearchesLoading] = useState(false);
 
   const toggleJobSelection = (jobId: string) => {
     setSelectedJobIds((prev) => {
@@ -418,7 +425,22 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
             >
               Withdraw to Bank
             </button>
+            {IS_CONTRACT_MOCK_DEV_MODE && (
+              <button
+                onClick={handleResetContractMock}
+                className="btn-secondary text-xs py-1.5 px-3 border-red-400/30 text-red-300 hover:bg-red-400/10"
+                title="Mock-only: clears locally persisted escrow test data"
+              >
+                Reset Mock
+              </button>
+            )}
           </div>
+          {IS_CONTRACT_MOCK_DEV_MODE && (
+            <p className="mt-2 text-xs text-amber-700">
+              Mock-only contract escrow state is persisted in this browser for
+              local development and can be cleared with Reset Mock.
+            </p>
+          )}
         </div>
 
         {usdcBalance !== null && (
@@ -958,8 +980,8 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
                     </div>
                     <p className="text-xs text-amber-800">
                       Saved {new Date(s.created_at).toLocaleDateString()} ·
-                      In-app: {s.notify_in_app ? "✓" : "✕"} ·
-                      Email: {s.notify_email ? "✓" : "✕"}
+                      In-app: {s.notify_in_app ? "\u2713" : "\u2715"} ·
+                      Email: {s.notify_email ? "\u2713" : "\u2715"}
                     </p>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
@@ -982,9 +1004,8 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
                           ? "bg-market-500/15 text-market-300 border-market-500/30"
                           : "bg-ink-800 text-amber-700 border-market-500/10"
                       }`}
-                      title="Toggle in-app notifications"
                     >
-                      🔔 In-app
+                      In-app
                     </button>
                     <button
                       onClick={async () => {
@@ -997,9 +1018,8 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
                         }
                       }}
                       className="text-xs px-3 py-2 rounded-lg border border-red-500/20 text-red-400 hover:bg-red-500/10 min-h-[44px] transition-colors"
-                      title="Delete saved search"
                     >
-                      ✕ Remove
+                      Remove
                     </button>
                   </div>
                 </div>

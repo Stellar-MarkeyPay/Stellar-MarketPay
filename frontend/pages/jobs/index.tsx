@@ -156,6 +156,12 @@ export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
     }
   };
 
+  const category = (router.query.category as string) || "";
+  const status = (router.query.status as string) || "open";
+  const minBudget = (router.query.minBudget as string) || "";
+  const maxBudget = (router.query.maxBudget as string) || "";
+  let activeTimezone = "";
+
   const hasActiveFilters = Boolean(
     search.trim() || category || (status && status !== "open") || minBudget || maxBudget || activeTimezone
   );
@@ -216,7 +222,7 @@ export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
     patch: Partial<JobFilterQuery>,
     removeKeys?: string[],
   ) => {
-    const next: Record<string, any> = { ...router.query, ...patch, page: undefined };
+    const next: Record<string, string | undefined> = { ...router.query, ...patch, page: undefined };
     for (const key of removeKeys || []) {
       delete next[key];
     }
@@ -286,6 +292,8 @@ export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
         let loadedNextCursor: string | null = null;
         let pagesLoaded = 0;
         let allJobs: Job[] = [];
+
+        activeTimezone = manualTimezone || (useGeolocation ? userTimezone : "");
 
         for (let page = 1; page <= pageFromQuery; page += 1) {
           const result = await fetchJobs({
@@ -440,6 +448,7 @@ export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
     )
     : jobs;
 
+  activeTimezone = manualTimezone || (useGeolocation ? userTimezone : "");
   const filtered = activeTimezone
     ? searchFiltered.filter((j) => isTimezoneCompatible(j.timezone))
     : searchFiltered;
@@ -459,6 +468,7 @@ export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
     setError(null);
 
     try {
+      activeTimezone = manualTimezone || (useGeolocation ? userTimezone : "");
 
       const result = await fetchJobs({
         category: category || undefined,
@@ -1034,6 +1044,31 @@ function BellIcon({ className, filled = false }: { className?: string; filled?: 
   return (
     <svg className={className} viewBox="0 0 24 24" fill={filled ? "currentColor" : "none"} stroke="currentColor" strokeWidth={2}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+    </svg>
+  );
+}
+
+function BriefcaseMiniIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 20 20" fill="currentColor" width={20} height={20}>
+      <path fillRule="evenodd" d="M6 3.5A1.5 1.5 0 017.5 2h5A1.5 1.5 0 0114 3.5v1.5h2.5A1.5 1.5 0 0118 6.5v10a1.5 1.5 0 01-1.5 1.5h-13A1.5 1.5 0 012 16.5v-10A1.5 1.5 0 013.5 5H6V3.5zM8 7a1 1 0 00-1 1v2a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z" clipRule="evenodd" />
+    </svg>
+  );
+}
+
+function TagMiniIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 20 20" fill="currentColor" width={20} height={20}>
+      <path fillRule="evenodd" d="M5.5 3A2.5 2.5 0 003 5.5v2.879a2.5 2.5 0 00.732 1.767l6.5 6.5a2.5 2.5 0 003.536 0l2.878-2.878a2.5 2.5 0 000-3.536l-6.5-6.5A2.5 2.5 0 008.38 3H5.5zM6 7a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+    </svg>
+  );
+}
+
+function CategoryMiniIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 20 20" fill="currentColor" width={20} height={20}>
+      <path fillRule="evenodd" d="M2 6a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1H8a3 3 0 00-3 3v1.5a1.5 1.5 0 01-3 0V6z" clipRule="evenodd" />
+      <path d="M6 12a2 2 0 012-2h8a2 2 0 012 2v2a2 2 0 01-2 2H8a2 2 0 01-2-2v-2z" />
     </svg>
   );
 }

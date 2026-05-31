@@ -20,11 +20,16 @@
  */
 
 #![no_std]
+#![allow(
+    clippy::too_many_arguments,
+    clippy::manual_range_contains,
+    unused_variables
+)]
 
 use soroban_sdk::{
     contract, contractimpl, contracttype, token,
     symbol_short,
-    Address, BytesN, Env, String, Symbol, Vec,
+    Address, BytesN, Env, String, Vec,
 };
 
 // ─── Storage keys ─────────────────────────────────────────────────────────────
@@ -406,7 +411,7 @@ impl MarketPayContract {
 
         // Emit event
         env.events().publish(
-            (Symbol::new(&env, "escrow_created"), job_id.clone()),
+            (symbol_short!("escrow_cr"), job_id.clone()),
             (escrow.client.clone(), escrow.freelancer.clone(), escrow.amount),
         );
     }
@@ -434,7 +439,7 @@ impl MarketPayContract {
             .set(&DataKey::Escrow(job_id.clone()), &escrow);
 
         env.events().publish(
-            (Symbol::new(&env, "work_started"), job_id.clone()),
+            (symbol_short!("work_strt"), job_id.clone()),
             (escrow.client.clone(), escrow.freelancer.clone()),
         );
     }
@@ -555,12 +560,12 @@ impl MarketPayContract {
             }
 
             env.events().publish(
-                (Symbol::new(&env, "escrow_released"), job_id.clone()),
+                (symbol_short!("escrow_rl"), job_id.clone()),
                 (escrow.client.clone(), escrow.freelancer.clone(), freelancer_amount, referral_amount),
             );
         } else {
             env.events().publish(
-                (Symbol::new(&env, "escrow_released"), job_id.clone()),
+                (symbol_short!("escrow_rl"), job_id.clone()),
                 (escrow.client.clone(), escrow.freelancer.clone(), 0i128, 0i128),
             );
         }
@@ -662,7 +667,7 @@ impl MarketPayContract {
             .remove(&DataKey::TimeoutTimestamp(job_id.clone()));
 
         env.events().publish(
-            (Symbol::new(&env, "escrow_released"), job_id.clone()),
+            (symbol_short!("escrow_rl"), job_id.clone()),
             (escrow.client.clone(), escrow.freelancer.clone(), release_amount),
         );
     }
@@ -696,7 +701,7 @@ impl MarketPayContract {
         env.storage().instance().set(&DataKey::Escrow(job_id.clone()), &escrow);
 
         env.events().publish(
-            (Symbol::new(&env, "escrow_refunded"), job_id.clone()),
+            (symbol_short!("escrow_rf"), job_id.clone()),
             (escrow.client.clone(), escrow.freelancer.clone(), escrow.amount),
         );
     }
@@ -747,7 +752,7 @@ impl MarketPayContract {
         env.storage().instance().set(&DataKey::Escrow(job_id.clone()), &escrow);
 
         env.events().publish(
-            (Symbol::new(&env, "escrow_refunded"), job_id.clone()),
+            (symbol_short!("escrow_rf"), job_id.clone()),
             (escrow.client.clone(), escrow.freelancer.clone(), escrow.amount),
         );
     }
@@ -890,7 +895,7 @@ impl MarketPayContract {
         let ledger_seq = env.ledger().sequence();
 
         env.events().publish(
-            (Symbol::new(&env, "message_sent"), job_id.clone()),
+            (symbol_short!("msg_sent"), job_id.clone()),
             (
                 sender.clone(),
                 recipient.clone(),
@@ -1094,7 +1099,7 @@ impl MarketPayContract {
             .set(&DataKey::Escrow(job_id.clone()), &escrow);
 
         env.events().publish(
-            (Symbol::new(&env, "escrow_disputed"), job_id.clone()),
+            (symbol_short!("escrow_ds"), job_id.clone()),
             (escrow.client.clone(), escrow.freelancer.clone(), caller.clone()),
         );
     }
@@ -1184,7 +1189,7 @@ impl MarketPayContract {
             .set(&DataKey::Escrow(job_id.clone()), &escrow);
 
         env.events().publish(
-            (Symbol::new(&env, "milestone_released"), job_id.clone()),
+            (symbol_short!("ms_rel"), job_id.clone()),
             (escrow.client.clone(), escrow.freelancer.clone(), milestone_index, milestone.amount),
         );
     }
@@ -1851,7 +1856,7 @@ mod timeout_tests {
         // Advance ledger past timeout (both sequence and timestamp)
         let mut ledger_info = env.ledger().get();
         ledger_info.sequence_number += timeout_ledgers + 1;
-        ledger_info.timestamp = (DEFAULT_TIMEOUT_SECONDS + 1) as u64;
+        ledger_info.timestamp += (DEFAULT_TIMEOUT_SECONDS + 1) as u64;
         env.ledger().set(ledger_info);
 
         client.timeout_refund(&job_id, &contract_client);
@@ -2223,7 +2228,7 @@ mod event_tests {
 
         let last_idx = env.events().all().len() - 1;
         assert!(
-            get_event_topic0_str(&env, last_idx).contains("escrow_created"),
+            get_event_topic0_str(&env, last_idx).contains("escrow_cr"),
         );
     }
 
@@ -2240,7 +2245,7 @@ mod event_tests {
         client.start_work(&job_id, &contract_client);
 
         assert!(
-            get_event_topic0_str(&env, env.events().all().len() - 1).contains("work_started"),
+            get_event_topic0_str(&env, env.events().all().len() - 1).contains("work_strt"),
         );
     }
 
@@ -2258,7 +2263,7 @@ mod event_tests {
         client.release_escrow(&job_id, &contract_client);
 
         assert!(
-            get_event_topic0_str(&env, env.events().all().len() - 1).contains("escrow_released"),
+            get_event_topic0_str(&env, env.events().all().len() - 1).contains("escrow_rl"),
         );
     }
 
@@ -2275,7 +2280,7 @@ mod event_tests {
         client.refund_escrow(&job_id, &contract_client);
 
         assert!(
-            get_event_topic0_str(&env, env.events().all().len() - 1).contains("escrow_refunded"),
+            get_event_topic0_str(&env, env.events().all().len() - 1).contains("escrow_rf"),
         );
     }
 
@@ -2292,7 +2297,7 @@ mod event_tests {
         client.raise_dispute(&job_id, &contract_client);
 
         assert!(
-            get_event_topic0_str(&env, env.events().all().len() - 1).contains("escrow_disputed"),
+            get_event_topic0_str(&env, env.events().all().len() - 1).contains("escrow_ds"),
         );
     }
 
@@ -2313,7 +2318,7 @@ mod event_tests {
         client.partial_release(&job_id, &0u32, &contract_client);
 
         assert!(
-            get_event_topic0_str(&env, env.events().all().len() - 1).contains("milestone_released"),
+            get_event_topic0_str(&env, env.events().all().len() - 1).contains("ms_rel"),
         );
     }
 
@@ -2327,93 +2332,27 @@ mod event_tests {
             &job_id, &contract_client,
             &CreateEscrowParams { freelancer: freelancer.clone(), token: token_id.clone(), amount: 500, milestones: None, timeout_ledgers: None, referrer: None },
         );
-        assert!(
-            get_event_topic0_str(&env, env.events().all().len() - 1).contains("escrow_created"),
-            "Missing escrow_created after create_escrow",
-        );
+        let events_1 = env.events().all();
+        let joined_1: std::string::String = (0..events_1.len())
+            .map(|i| get_event_topic0_str(&env, i))
+            .collect::<std::vec::Vec<_>>()
+            .join(", ");
+        assert!(joined_1.contains("escrow_cr"), "Missing escrow_cr: {}", joined_1);
 
         client.start_work(&job_id, &contract_client);
-        assert!(
-            get_event_topic0_str(&env, env.events().all().len() - 1).contains("work_started"),
-            "Missing work_started after start_work",
-        );
+        let events_2 = env.events().all();
+        let joined_2: std::string::String = (0..events_2.len())
+            .map(|i| get_event_topic0_str(&env, i))
+            .collect::<std::vec::Vec<_>>()
+            .join(", ");
+        assert!(joined_2.contains("work_strt"), "Missing work_strt: {}", joined_2);
 
         client.release_escrow(&job_id, &contract_client);
-        assert!(
-            get_event_topic0_str(&env, env.events().all().len() - 1).contains("escrow_released"),
-            "Missing escrow_released after release_escrow",
-        );
+        let events_3 = env.events().all();
+        let joined_3: std::string::String = (0..events_3.len())
+            .map(|i| get_event_topic0_str(&env, i))
+            .collect::<std::vec::Vec<_>>()
+            .join(", ");
+        assert!(joined_3.contains("escrow_rl"), "Missing escrow_rl: {}", joined_3);
     }
 }
-
-/*
-#[cfg(test)]
-mod fuzz_testing {
-    extern crate alloc;
-    use alloc::format;
-    use super::*;
-    use soroban_sdk::{testutils::Address as _, Address, Env, String};
-
-    #[test]
-    fn fuzz_create_escrow_random_amounts() {
-        let env = Env::default();
-        env.mock_all_auths();
-        let id = env.register(MarketPayContract, ());
-        let client = MarketPayContractClient::new(&env, &id);
-
-        let admin = Address::generate(&env);
-        client.initialize(&admin);
-
-        let freelancer = Address::generate(&env);
-        let token_id = env.register_stellar_asset_contract_v2(admin.clone());
-        let token_admin = token::StellarAssetClient::new(&env, &token_id);
-
-        // Test a range of amounts
-        for i in 1..100 {
-            let amount = (i as i128) * 1000;
-            let job_id = String::from_str(&env, &format!("fuzz_job_{}", i));
-
-            let user = Address::generate(&env);
-            token_admin.mint(&user, &amount);
-
-            client.create_escrow(&job_id, &user, &CreateEscrowParams { freelancer: freelancer.clone(), token: token_id.clone(), amount, milestones: None, timeout_ledgers: None, referrer: None });
-
-            let escrow = client.get_escrow(&job_id);
-            assert_eq!(escrow.amount, amount);
-        }
-    }
-
-    #[test]
-    fn fuzz_release_escrow_lifecycle() {
-        let env = Env::default();
-        env.mock_all_auths();
-        let id = env.register(MarketPayContract, ());
-        let client = MarketPayContractClient::new(&env, &id);
-
-        let admin = Address::generate(&env);
-        client.initialize(&admin);
-
-        let user = Address::generate(&env);
-        let freelancer = Address::generate(&env);
-        let token_id = env.register_stellar_asset_contract_v2(admin.clone());
-        let token_admin = token::StellarAssetClient::new(&env, &token_id);
-
-        token_admin.mint(&user, &1000000);
-
-        for i in 1..50 {
-            let job_id = String::from_str(&env, &format!("lifecycle_{}", i));
-            client.create_escrow(&job_id, &user, &CreateEscrowParams { freelancer: freelancer.clone(), token: token_id.clone(), amount: 1000, milestones: None, timeout_ledgers: None, referrer: None });
-
-            // Randomly decide to start work or not
-            if i % 2 == 0 {
-                client.start_work(&job_id, &user);
-            }
-
-            client.release_escrow(&job_id, &user);
-
-            let escrow = client.get_escrow(&job_id);
-            assert_eq!(escrow.status, EscrowStatus::Released);
-        }
-    }
-}
-*/

@@ -109,7 +109,7 @@ export default function ApplicationForm({ job, publicKey, prefillData, onSuccess
               className="input-field appearance-none cursor-pointer"
             >
               <option value="">Select a template...</option>
-              {templates.map((template) => (
+              {(templates ?? []).map((template) => (
                 <option key={template.id} value={template.id}>
                   {template.name}
                 </option>
@@ -119,8 +119,9 @@ export default function ApplicationForm({ job, publicKey, prefillData, onSuccess
 
           {/* Cover letter */}
           <div>
-            <label className="label">Cover Letter</label>
+            <label className="label" htmlFor="cover-letter">Cover Letter</label>
             <textarea
+              id="cover-letter"
               value={proposal} onChange={(e) => setProposal(e.target.value)}
               rows={6}
               placeholder="Describe your relevant experience, your approach to this project, and why you're the best fit..."

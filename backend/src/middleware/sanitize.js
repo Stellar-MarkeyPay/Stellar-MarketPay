@@ -27,9 +27,9 @@ const XSS_OPTIONS = {
 
 /**
  * Sanitize a single string value by:
- * 1. Stripping HTML tags and dangerous content
- * 2. Checking for SQL injection patterns
- * 3. Normalizing Unicode exploits
+ * 1. Decoding entities and normalizing Unicode exploits
+ * 2. Stripping HTML tags and dangerous content
+ * 3. Checking for SQL injection patterns
  *
  * @param {string} value - The string to sanitize
  * @param {Object} options - Sanitization options
@@ -40,21 +40,25 @@ const XSS_OPTIONS = {
 function sanitizeString(value, options = {}) {
   if (typeof value !== "string") return value;
 
-  // Strip HTML using xss library
-  let sanitized = xss(value, XSS_OPTIONS);
+  // Decode entities before filtering so encoded HTML such as
+  // &lt;img onerror=...&gt; is treated the same as raw HTML. Normalize before
+  // and after filtering to catch fullwidth angle brackets and similar tricks.
+  let sanitized = validator.unescape(value).normalize("NFKC");
 
-  // Additional escape for any remaining HTML entities
-  sanitized = validator.escape(sanitized);
+  // Strip HTML using xss library. A second pass after entity decoding handles
+  // values that become tag-like only after the first filter serializes them.
+  sanitized = xss(sanitized, XSS_OPTIONS);
+  sanitized = validator.unescape(sanitized).normalize("NFKC");
+  sanitized = xss(sanitized, XSS_OPTIONS);
 
-  // Normalize Unicode to prevent Unicode-based exploits
-  sanitized = sanitized.normalize("NFKC");
-
-  // Unescape to restore normal text (validator.escape is too aggressive)
-  sanitized = validator.unescape(sanitized);
+  // Defense in depth: this middleware is configured as plain-text only, so no
+  // angle brackets should remain even when strict SQL checks are disabled.
+  sanitized = sanitized.replace(/[<>]/g, "");
 
   // Check for SQL injection patterns in strict mode
   if (options.strict) {
     for (const pattern of SQL_PATTERNS) {
+      pattern.lastIndex = 0;
       if (pattern.test(sanitized)) {
         // Log suspicious input but don't block (could be legitimate content)
         console.warn("[sanitize] Suspicious SQL pattern detected:", sanitized.substring(0, 100));
@@ -73,7 +77,11 @@ function sanitizeString(value, options = {}) {
  * @param {WeakSet} visited - Tracks visited objects/arrays to prevent circular references
  * @returns {*} Sanitized object/array/primitive
  */
-function sanitizeObject(obj, options = {}, visited = new WeakSet()) {
+function sanitizeObject(obj, options = {}, depth = 0, visited = new WeakSet()) {
+  const MAX_DEPTH = 20;
+  if (depth > MAX_DEPTH) {
+    throw new Error("Input nesting depth exceeds limit");
+  }
   if (obj === null || obj === undefined) {
     return obj;
   }
@@ -87,7 +95,7 @@ function sanitizeObject(obj, options = {}, visited = new WeakSet()) {
       return [];
     }
     visited.add(obj);
-    return obj.map((item) => sanitizeObject(item, options, visited));
+    return obj.map((item) => sanitizeObject(item, options, depth + 1, visited));
   }
 
   if (typeof obj === "object") {
@@ -107,7 +115,7 @@ function sanitizeObject(obj, options = {}, visited = new WeakSet()) {
         continue;
       }
 
-      sanitized[sanitizedKey] = sanitizeObject(value, options, visited);
+      sanitized[sanitizedKey] = sanitizeObject(value, options, depth + 1, visited);
     }
     return sanitized;
   }
@@ -123,7 +131,8 @@ function sanitizeObject(obj, options = {}, visited = new WeakSet()) {
  * @param {boolean} options.body - Sanitize req.body (default: true)
  * @param {boolean} options.query - Sanitize req.query (default: true)
  * @param {boolean} options.params - Sanitize req.params (default: true)
- * @param {boolean} options.strict - Enable strict SQL pattern checking (default: false)
+ * @param {boolean} options.strict - Enable strict SQL pattern checking (default: false).
+ *   HTML is always stripped regardless of this option.
  * @returns {Function} Express middleware function
  */
 function sanitizeMiddleware(options = {}) {
