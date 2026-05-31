@@ -382,23 +382,25 @@ export default function PostJobForm({
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Title */}
           <div>
-            <label className="label">Job Title</label>
+            <label htmlFor="job-title" className="label">Job Title</label>
             <input
+              id="job-title"
               name="title"
               value={form.title}
               onChange={handleChange}
               required
               minLength={10}
               disabled={isInProgress}
-              placeholder="e.g. Build a Soroban DEX interface"
+              placeholder="e.g. Build a Soroban escrow contract for NFT marketplace"
               className="input-field"
             />
           </div>
 
           {/* Description */}
           <div>
-            <label className="label">Description</label>
+            <label htmlFor="job-description" className="label">Description</label>
             <textarea
+              id="job-description"
               name="description"
               value={form.description}
               onChange={handleChange}
@@ -406,7 +408,7 @@ export default function PostJobForm({
               minLength={30}
               rows={4}
               disabled={isInProgress}
-              placeholder="Describe the work, deliverables, and any context…"
+              placeholder="Describe the work in detail — requirements, deliverables, acceptance criteria..."
               className="textarea-field"
             />
           </div>
@@ -513,7 +515,7 @@ export default function PostJobForm({
             {step === "posting" ? "Creating job…" :
              step === "fee_modal" ? "Estimating fees…" :
              step === "signing" ? "Waiting for signature…" :
-             `Post Job & Lock ${form.budget} ${form.currency} Escrow`}
+             `Post Job & Lock Budget in Escrow`}
           </button>
 
           {isInProgress && (
