@@ -785,12 +785,9 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
                     {template.content}
                   </p>
                 </div>
-                <p className="font-mono font-semibold text-market-400">{formatXLM(app.bidAmount)}</p>
-              </Link>
-            ))}
+              )))}
           </div>
-        )
-      ) : tab === "invitations" ? (
+        ) : tab === "invitations" ? (
         myInvitations.length === 0 ? (
           <div className="card text-center py-16">
             <p className="font-display text-xl text-amber-100 mb-2">No invitations yet</p>
@@ -874,6 +871,7 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
               setTemplateContent("");
             }}>{editingTemplateId ? "Update Template" : "Create Template"}</button>
           </div>
+        </div>
         ) : tab === "price_alerts" ? (
           (!minPrice && !maxPrice && !emailEnabled) ? (
             <StateMessage

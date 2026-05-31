@@ -241,7 +241,7 @@ export default function JobDetail({ publicKey, onConnect }: JobDetailProps) {
                 ))}
               </div>
             </div>
-          </section>
+          )}
 
           {clientReputation && (
             <div className="mt-6 rounded-xl border border-market-500/20 bg-ink-900/40 p-4">
