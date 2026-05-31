@@ -17,6 +17,7 @@ import {
 import type { Job } from "@/utils/types";
 import { usePriceContext } from "@/contexts/PriceContext";
 import { useBookmarks } from "@/hooks/useBookmarks";
+import JobStatusTimeline from "@/components/JobStatusTimeline";
 
 interface JobCardProps {
   job: Job;
@@ -110,6 +111,7 @@ export default function JobCard({ job, isFocused = false, onFocus }: JobCardProp
   const { isSaved, toggleBookmark } = useBookmarks();
   const usdEquivalent = formatUSDEquivalent(job.budget, xlmPriceUsd);
   const price = formatPrice(job.budget, xlmPriceUsd, currencyMode);
+  const clientRepBadge = getClientReputationBadge(job.clientReputationScore);
 
   // ── ISSUE #78: Hover Card State & Logic ──────────────────────────────────────────
   const [showPreview, setShowPreview] = useState(false);
@@ -299,6 +301,8 @@ export default function JobCard({ job, isFocused = false, onFocus }: JobCardProp
             </span>
           )}
         </div>
+
+        <JobStatusTimeline job={job} compact />
 
         {/* ── ISSUE #78: Floating Hover Preview Card ── */}
         {showPreview && (

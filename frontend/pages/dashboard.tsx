@@ -39,6 +39,7 @@ import { useToast } from "@/components/Toast";
 import clsx from "clsx";
 import JobAnalytics from "@/components/JobAnalytics";
 import BulkJobActionBar from "@/components/BulkJobActionBar";
+import JobStatusTimeline from "@/components/JobStatusTimeline";
 import ExtendJobModal from "@/components/ExtendJobModal";
 import ClientSpendingTab from "@/components/ClientSpendingTab";
 import { usePriceContext } from "@/contexts/PriceContext";
@@ -564,7 +565,7 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
               {myJobs.map((job) => (
                 <div
                   key={job.id}
-                  className="card-hover flex items-center justify-between gap-4"
+                  className="card-hover flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
                 >
                   <Link
                     href={`/jobs/${job.id}`}
@@ -586,6 +587,7 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
                       {job.applicantCount !== 1 ? "s" : ""} ·{" "}
                       {timeAgo(job.createdAt)}
                     </p>
+                    <JobStatusTimeline job={job} compact />
                   </Link>
                   <div className="text-right flex-shrink-0">
                     <p className="font-mono font-semibold text-market-400">

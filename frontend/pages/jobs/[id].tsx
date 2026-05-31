@@ -9,8 +9,9 @@ import WalletConnect from "@/components/WalletConnect";
 import RatingForm from "@/components/RatingForm";
 import ShareJobModal from "@/components/ShareJobModal";
 import RealtimeBidComparison from "@/components/RealtimeBidComparison";
+import JobStatusTimeline from "@/components/JobStatusTimeline";
 import { fetchJob, fetchApplications, acceptApplication, releaseEscrow, fetchClientReputation } from "@/lib/api";
-import { formatXLM, formatDate, shortenAddress, statusLabel, statusClass } from "@/utils/format";
+import { formatXLM, formatDate, shortenAddress, statusLabel, statusClass, timeAgo } from "@/utils/format";
 import {
   accountUrl,
   buildReleaseEscrowTransaction,
@@ -198,6 +199,8 @@ export default function JobDetail({ publicKey, onConnect }: JobDetailProps) {
                 <span>{applications.length} application{applications.length === 1 ? "" : "s"}</span>
                 {job.deadline && <span>Deadline: {formatDate(job.deadline)}</span>}
               </div>
+
+              <JobStatusTimeline job={job} />
             </div>
 
             <div className="flex-shrink-0 sm:text-right">

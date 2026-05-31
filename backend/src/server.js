@@ -10,7 +10,9 @@ const http = require("http");
 const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
+const compression = require("compression");
 const rateLimit = require("express-rate-limit");
+const { getClientIp } = require("./utils/clientIp");
 const { WebSocketServer } = require("ws");
 const nodemailer = require("nodemailer");
 const promClient = require("prom-client");
@@ -48,6 +50,7 @@ const PriceAlertService = require("./services/priceAlertService");
 
 const serviceLogger = createServiceLogger('server');
 const app  = express();
+app.set("trust proxy", 1);
 const PORT = process.env.PORT || 4000;
 const server = http.createServer(app);
 const WS_OPEN = 1;
@@ -215,6 +218,8 @@ app.use(helmet({
 // Request logging middleware
 app.use(requestLoggerMiddleware);
 
+app.use(compression());
+
 app.use(express.json({ limit: "20kb" }));
 app.use(sanitizeMiddleware({ strict: false }));
 
@@ -259,7 +264,13 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 150, standardHeaders: true, legacyHeaders: false }));
+app.use(rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 150,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => getClientIp(req),
+}));
 
 app.get("/metrics", async (req, res, next) => {
   try {
