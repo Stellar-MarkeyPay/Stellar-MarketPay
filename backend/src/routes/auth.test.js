@@ -109,7 +109,7 @@ describe("SEP-10 Authentication Flow", () => {
       expect(res.body.success).toBe(true);
       expect(res.body).toHaveProperty("token");
 
-      const decoded = jwt.verify(res.body.token, process.env.JWT_SECRET || "test-jwt-secret-with-enough-length-for-ci");
+      const decoded = jwt.verify(res.body.token, process.env.JWT_SECRET);
       expect(decoded.publicKey).toBe(TEST_KEYPAIR.publicKey());
     });
 
@@ -147,7 +147,7 @@ describe("SEP-10 Authentication Flow", () => {
         .send({ transaction: SIGNED_XDR });
 
       expect(res.status).toBe(200);
-      const decoded = jwt.verify(res.body.token, process.env.JWT_SECRET || "test-jwt-secret-with-enough-length-for-ci");
+      const decoded = jwt.verify(res.body.token, process.env.JWT_SECRET);
       expect(decoded.publicKey).toBe(WRONG_KEYPAIR.publicKey());
     });
   });

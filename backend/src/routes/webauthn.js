@@ -21,7 +21,7 @@ const router   = express.Router();
 const pool     = require("../db/pool");
 const jwt      = require("jsonwebtoken");
 const { createRateLimiter } = require("../middleware/rateLimiter");
-const { verifyJWT }         = require("../middleware/auth");
+const { verifyJWT, JWT_SECRET } = require("../middleware/auth");
 
 const {
   generateRegistrationOptions,
@@ -211,8 +211,7 @@ router.post("/login-verify", webauthnRateLimiter, async (req, res, next) => {
       [verification.authenticationInfo.newCounter, credentialId]
     );
 
-    const secret = process.env.JWT_SECRET || "dev-secret";
-    const token  = jwt.sign({ publicKey }, secret, { expiresIn: "7d" });
+    const token  = jwt.sign({ publicKey }, JWT_SECRET, { expiresIn: "7d" });
 
     res.json({ success: true, token });
   } catch (e) { next(e); }
