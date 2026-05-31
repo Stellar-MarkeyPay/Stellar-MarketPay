@@ -40,7 +40,7 @@
                 {
                   "i128": {
                     "hi": 0,
-                    "lo": 500
+                    "lo": 1000
                   }
                 }
               ]
@@ -60,7 +60,7 @@
               "function_name": "create_escrow",
               "args": [
                 {
-                  "string": "upgrade_job_1"
+                  "string": "evt-job-2"
                 },
                 {
                   "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
@@ -145,9 +145,28 @@
         }
       ]
     ],
-    [],
-    [],
-    []
+    [
+      [
+        "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M",
+        {
+          "function": {
+            "contract_fn": {
+              "contract_address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+              "function_name": "start_work",
+              "args": [
+                {
+                  "string": "evt-job-2"
+                },
+                {
+                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                }
+              ]
+            }
+          },
+          "sub_invocations": []
+        }
+      ]
+    ]
   ],
   "ledger": {
     "protocol_version": 22,
@@ -274,7 +293,7 @@
                               "symbol": "Escrow"
                             },
                             {
-                              "string": "upgrade_job_1"
+                              "string": "evt-job-2"
                             }
                           ]
                         },
@@ -320,7 +339,7 @@
                                 "symbol": "job_id"
                               },
                               "val": {
-                                "string": "upgrade_job_1"
+                                "string": "evt-job-2"
                               }
                             },
                             {
@@ -344,7 +363,7 @@
                               "val": {
                                 "vec": [
                                   {
-                                    "symbol": "Locked"
+                                    "symbol": "InProgress"
                                   }
                                 ]
                               }
@@ -387,7 +406,7 @@
                               "symbol": "TimeoutTimestamp"
                             },
                             {
-                              "string": "upgrade_job_1"
+                              "string": "evt-job-2"
                             }
                           ]
                         },
@@ -404,7 +423,7 @@
                           ]
                         },
                         "val": {
-                          "u32": 2
+                          "u32": 1
                         }
                       }
                     ]
@@ -472,6 +491,39 @@
                 "key": {
                   "ledger_key_nonce": {
                     "nonce": 1033654523790656264
+                  }
+                },
+                "durability": "temporary",
+                "val": "void"
+              }
+            },
+            "ext": "v0"
+          },
+          6311999
+        ]
+      ],
+      [
+        {
+          "contract_data": {
+            "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M",
+            "key": {
+              "ledger_key_nonce": {
+                "nonce": 4837995959683129791
+              }
+            },
+            "durability": "temporary"
+          }
+        },
+        [
+          {
+            "last_modified_ledger_seq": 0,
+            "data": {
+              "contract_data": {
+                "ext": "v0",
+                "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M",
+                "key": {
+                  "ledger_key_nonce": {
+                    "nonce": 4837995959683129791
                   }
                 },
                 "durability": "temporary",
@@ -600,7 +652,7 @@
                       "val": {
                         "i128": {
                           "hi": 0,
-                          "lo": 0
+                          "lo": 500
                         }
                       }
                     },
@@ -764,5 +816,36 @@
       ]
     ]
   },
-  "events": []
+  "events": [
+    {
+      "event": {
+        "ext": "v0",
+        "contract_id": "0000000000000000000000000000000000000000000000000000000000000001",
+        "type_": "contract",
+        "body": {
+          "v0": {
+            "topics": [
+              {
+                "symbol": "work_started"
+              },
+              {
+                "string": "evt-job-2"
+              }
+            ],
+            "data": {
+              "vec": [
+                {
+                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                },
+                {
+                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAITA4"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "failed_call": false
+    }
+  ]
 }

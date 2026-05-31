@@ -37,6 +37,7 @@ const DEFAULT_TIMEOUT_LEDGERS: u32 = 120_960;
 // ─── Data structures ──────────────────────────────────────────────────────────
 #[contracttype]
 #[derive(Clone, Debug)]
+#[contracttype]
 pub struct CreateEscrowParams {
     pub freelancer: Address,
     pub token: Address,
@@ -212,7 +213,6 @@ pub struct Proposal {
 #[contract]
 pub struct MarketPayContract;
 
-#[allow(clippy::too_many_arguments)]
 #[contractimpl]
 impl MarketPayContract {
     // ─── Initialization ──────────────────────────────────────────────────────
@@ -294,7 +294,6 @@ impl MarketPayContract {
         )
     }
 
-    #[allow(clippy::too_many_arguments)]
     fn create_escrow_internal(
         env: Env,
         job_id: String,
@@ -572,8 +571,8 @@ impl MarketPayContract {
         env: Env,
         job_id: String,
         client: Address,
-        _target_token: Address,
-        _min_amount_out: i128,
+        target_token: Address,
+        min_amount_out: i128,
     ) {
         client.require_auth();
 
@@ -876,7 +875,7 @@ impl MarketPayContract {
         sender.require_auth();
 
         // Basic validation
-        if ipfs_cid.is_empty() {
+        if ipfs_cid.len() == 0 {
             panic!("IPFS CID cannot be empty");
         }
 
@@ -1455,7 +1454,7 @@ impl MarketPayContract {
 
     pub fn submit_client_rating(env: Env, job_id: String, client: Address, score: u32) {
         client.require_auth();
-        if !(1..=5).contains(&score) {
+        if score < 1 || score > 5 {
             panic!("Score must be between 1 and 5");
         }
 
@@ -1509,7 +1508,7 @@ impl MarketPayContract {
 
     pub fn submit_freelancer_rating(env: Env, job_id: String, freelancer: Address, score: u32) {
         freelancer.require_auth();
-        if !(1..=5).contains(&score) {
+        if score < 1 || score > 5 {
             panic!("Score must be between 1 and 5");
         }
 
@@ -1823,8 +1822,7 @@ mod timeout_tests {
 
         let contract_client_addr = Address::generate(env);
         let freelancer = Address::generate(env);
-        let token_contract = env.register_stellar_asset_contract_v2(admin.clone());
-        let token_id = token_contract.address();
+        let token_id = env.register_stellar_asset_contract(admin.clone());
         let token_admin = token::StellarAssetClient::new(env, &token_id);
         token_admin.mint(&contract_client_addr, &1000);
 
@@ -1848,10 +1846,9 @@ mod timeout_tests {
             env.ledger().sequence() + timeout_ledgers
         );
 
-        // Advance ledger past timeout (both sequence and timestamp)
+        // Advance ledger past timeout
         let mut ledger_info = env.ledger().get();
         ledger_info.sequence_number += timeout_ledgers + 1;
-        ledger_info.timestamp = (DEFAULT_TIMEOUT_SECONDS + 1) as u64;
         env.ledger().set(ledger_info);
 
         client.timeout_refund(&job_id, &contract_client);
@@ -2008,8 +2005,7 @@ mod regression_tests {
         let client = Address::generate(&env);
         let freelancer = Address::generate(&env);
 
-        let token_contract = env.register_stellar_asset_contract_v2(admin.clone());
-        let token_id = token_contract.address();
+        let token_id = env.register_stellar_asset_contract(admin.clone());
         let token_client = token::Client::new(&env, &token_id);
         let token_admin = token::StellarAssetClient::new(&env, &token_id);
         token_admin.mint(&client, &1000);
@@ -2038,8 +2034,7 @@ mod regression_tests {
         let client = Address::generate(&env);
         let freelancer = Address::generate(&env);
 
-        let token_contract = env.register_stellar_asset_contract_v2(admin.clone());
-        let token_id = token_contract.address();
+        let token_id = env.register_stellar_asset_contract(admin.clone());
         let token_admin = token::StellarAssetClient::new(&env, &token_id);
         token_admin.mint(&client, &1000);
 
@@ -2065,8 +2060,7 @@ mod regression_tests {
         let client = Address::generate(&env);
         let freelancer = Address::generate(&env);
 
-        let token_contract = env.register_stellar_asset_contract_v2(admin.clone());
-        let token_id = token_contract.address();
+        let token_id = env.register_stellar_asset_contract(admin.clone());
         let token_client = token::Client::new(&env, &token_id);
         let token_admin = token::StellarAssetClient::new(&env, &token_id);
         token_admin.mint(&client, &1000);
@@ -2137,8 +2131,7 @@ mod upgrade_tests {
 
         let depositor = Address::generate(&env);
         let freelancer = Address::generate(&env);
-        let token_contract = env.register_stellar_asset_contract_v2(admin.clone());
-        let token_id = token_contract.address();
+        let token_id = env.register_stellar_asset_contract(admin.clone());
         let token_admin = token::StellarAssetClient::new(&env, &token_id);
         token_admin.mint(&depositor, &500);
 
@@ -2183,7 +2176,7 @@ mod event_tests {
     use super::*;
     use soroban_sdk::testutils::Address as _;
     use soroban_sdk::testutils::Events;
-    use soroban_sdk::{Address, Env, IntoVal, String, Vec};
+    use soroban_sdk::{Address, Env, String, Vec};
 
     fn setup(env: &Env) -> (MarketPayContractClient, Address, Address, Address) {
         env.mock_all_auths();
@@ -2194,8 +2187,7 @@ mod event_tests {
 
         let contract_client = Address::generate(env);
         let freelancer = Address::generate(env);
-        let token_contract = env.register_stellar_asset_contract_v2(admin.clone());
-        let token_id = token_contract.address();
+        let token_id = env.register_stellar_asset_contract(admin.clone());
         let token_admin = token::StellarAssetClient::new(env, &token_id);
         token_admin.mint(&contract_client, &1000);
 
@@ -2206,8 +2198,7 @@ mod event_tests {
         let events = env.events().all();
         let event = events.get(idx).unwrap();
         let topic0 = event.1.get(0).unwrap();
-        let sym: Symbol = topic0.into_val(env);
-        std::string::ToString::to_string(&sym)
+        std::format!("{:?}", topic0)
     }
 
     #[test]
@@ -2217,8 +2208,8 @@ mod event_tests {
         let job_id = String::from_str(&env, "evt-job-1");
 
         client.create_escrow(
-            &job_id, &contract_client,
-            &CreateEscrowParams { freelancer: freelancer.clone(), token: token_id.clone(), amount: 500, milestones: None, timeout_ledgers: None, referrer: None },
+            &job_id, &contract_client, &freelancer, &token_id, &500,
+            &None, &None, &None,
         );
 
         let last_idx = env.events().all().len() - 1;
@@ -2233,8 +2224,8 @@ mod event_tests {
         let (client, contract_client, freelancer, token_id) = setup(&env);
         let job_id = String::from_str(&env, "evt-job-2");
         client.create_escrow(
-            &job_id, &contract_client,
-            &CreateEscrowParams { freelancer: freelancer.clone(), token: token_id.clone(), amount: 500, milestones: None, timeout_ledgers: None, referrer: None },
+            &job_id, &contract_client, &freelancer, &token_id, &500,
+            &None, &None, &None,
         );
 
         client.start_work(&job_id, &contract_client);
@@ -2250,8 +2241,8 @@ mod event_tests {
         let (client, contract_client, freelancer, token_id) = setup(&env);
         let job_id = String::from_str(&env, "evt-job-3");
         client.create_escrow(
-            &job_id, &contract_client,
-            &CreateEscrowParams { freelancer: freelancer.clone(), token: token_id.clone(), amount: 500, milestones: None, timeout_ledgers: None, referrer: None },
+            &job_id, &contract_client, &freelancer, &token_id, &500,
+            &None, &None, &None,
         );
         client.start_work(&job_id, &contract_client);
 
@@ -2268,8 +2259,8 @@ mod event_tests {
         let (client, contract_client, freelancer, token_id) = setup(&env);
         let job_id = String::from_str(&env, "evt-job-4");
         client.create_escrow(
-            &job_id, &contract_client,
-            &CreateEscrowParams { freelancer: freelancer.clone(), token: token_id.clone(), amount: 500, milestones: None, timeout_ledgers: None, referrer: None },
+            &job_id, &contract_client, &freelancer, &token_id, &500,
+            &None, &None, &None,
         );
 
         client.refund_escrow(&job_id, &contract_client);
@@ -2285,8 +2276,8 @@ mod event_tests {
         let (client, contract_client, freelancer, token_id) = setup(&env);
         let job_id = String::from_str(&env, "evt-job-5");
         client.create_escrow(
-            &job_id, &contract_client,
-            &CreateEscrowParams { freelancer: freelancer.clone(), token: token_id.clone(), amount: 500, milestones: None, timeout_ledgers: None, referrer: None },
+            &job_id, &contract_client, &freelancer, &token_id, &500,
+            &None, &None, &None,
         );
 
         client.raise_dispute(&job_id, &contract_client);
@@ -2305,8 +2296,8 @@ mod event_tests {
         milestones.push_back(400);
         milestones.push_back(600);
         client.create_escrow(
-            &job_id, &contract_client,
-            &CreateEscrowParams { freelancer: freelancer.clone(), token: token_id.clone(), amount: 1000, milestones: Some(milestones), timeout_ledgers: None, referrer: None },
+            &job_id, &contract_client, &freelancer, &token_id, &1000,
+            &Some(milestones), &None, &None,
         );
         client.start_work(&job_id, &contract_client);
 
@@ -2324,25 +2315,22 @@ mod event_tests {
         let job_id = String::from_str(&env, "evt-job-7");
 
         client.create_escrow(
-            &job_id, &contract_client,
-            &CreateEscrowParams { freelancer: freelancer.clone(), token: token_id.clone(), amount: 500, milestones: None, timeout_ledgers: None, referrer: None },
+            &job_id, &contract_client, &freelancer, &token_id, &500,
+            &None, &None, &None,
         );
-        assert!(
-            get_event_topic0_str(&env, env.events().all().len() - 1).contains("escrow_created"),
-            "Missing escrow_created after create_escrow",
-        );
-
         client.start_work(&job_id, &contract_client);
-        assert!(
-            get_event_topic0_str(&env, env.events().all().len() - 1).contains("work_started"),
-            "Missing work_started after start_work",
-        );
-
         client.release_escrow(&job_id, &contract_client);
-        assert!(
-            get_event_topic0_str(&env, env.events().all().len() - 1).contains("escrow_released"),
-            "Missing escrow_released after release_escrow",
-        );
+
+        // Verify each stage emitted events with correct symbols
+        let events = env.events().all();
+        let symbols: std::vec::Vec<std::string::String> = (0..events.len())
+            .map(|i| get_event_topic0_str(&env, i))
+            .collect();
+        let joined = symbols.join(", ");
+
+        assert!(joined.contains("escrow_created"), "Missing escrow_created: {}", joined);
+        assert!(joined.contains("work_started"), "Missing work_started: {}", joined);
+        assert!(joined.contains("escrow_released"), "Missing escrow_released: {}", joined);
     }
 }
 
@@ -2365,7 +2353,7 @@ mod fuzz_testing {
         client.initialize(&admin);
 
         let freelancer = Address::generate(&env);
-        let token_id = env.register_stellar_asset_contract_v2(admin.clone());
+        let token_id = env.register_stellar_asset_contract(admin.clone());
         let token_admin = token::StellarAssetClient::new(&env, &token_id);
 
         // Test a range of amounts
@@ -2395,7 +2383,7 @@ mod fuzz_testing {
 
         let user = Address::generate(&env);
         let freelancer = Address::generate(&env);
-        let token_id = env.register_stellar_asset_contract_v2(admin.clone());
+        let token_id = env.register_stellar_asset_contract(admin.clone());
         let token_admin = token::StellarAssetClient::new(&env, &token_id);
 
         token_admin.mint(&user, &1000000);
