@@ -9,8 +9,9 @@ import WalletConnect from "@/components/WalletConnect";
 import RatingForm from "@/components/RatingForm";
 import ShareJobModal from "@/components/ShareJobModal";
 import RealtimeBidComparison from "@/components/RealtimeBidComparison";
-import { fetchJob, fetchApplications, acceptApplication, releaseEscrow, fetchClientReputation } from "@/lib/api";
-import { formatXLM, formatDate, shortenAddress, statusLabel, statusClass } from "@/utils/format";
+import FeeEstimationModal from "@/components/FeeEstimationModal";
+import { fetchJob, fetchApplications, acceptApplication, releaseEscrow, fetchClientReputation, raiseDispute, resolveDispute, timeoutRefund } from "@/lib/api";
+import { formatXLM, formatDate, shortenAddress, statusLabel, statusClass, timeAgo } from "@/utils/format";
 import {
   accountUrl,
   buildReleaseEscrowTransaction,
@@ -44,6 +45,7 @@ export default function JobDetail({ publicKey, onConnect }: JobDetailProps) {
   const [raisingDispute, setRaisingDispute] = useState(false);
   const [resolvingDispute, setResolvingDispute] = useState(false);
   const [clientReputation, setClientReputation] = useState<ClientReputation | null>(null);
+  const [pendingTimeoutRefund, setPendingTimeoutRefund] = useState<any>(null);
 
   const isClient = Boolean(publicKey && job?.clientAddress === publicKey);
   const isFreelancer = Boolean(publicKey && job?.freelancerAddress === publicKey);
@@ -66,7 +68,7 @@ export default function JobDetail({ publicKey, onConnect }: JobDetailProps) {
       }
     }
 
-    Promise.all([fetchJob(id as string), fetchApplications(id as string)])
+    Promise.all([fetchJob(jobId as string), fetchApplications(jobId as string)])
       .then(async ([loadedJob, loadedApplications]) => {
         setJob(loadedJob);
         setApplications(loadedApplications);
@@ -141,6 +143,35 @@ export default function JobDetail({ publicKey, onConnect }: JobDetailProps) {
     } finally {
       setReleasingEscrow(false);
     }
+  };
+
+  const handleRaiseDispute = async () => {
+    if (!publicKey || !jobId) return;
+    setRaisingDispute(true);
+    try {
+      await raiseDispute(jobId, { reason: disputeReason, description: disputeDescription });
+      setShowDisputeModal(false);
+      setDisputeReason("");
+      setDisputeDescription("");
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : "Failed to raise dispute.");
+    } finally {
+      setRaisingDispute(false);
+    }
+  };
+
+  const handleConfirmTimeoutRefundFee = async () => {
+    if (!publicKey || !jobId) return;
+    setPendingTimeoutRefund(null);
+    try {
+      await timeoutRefund(jobId, publicKey);
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : "Timeout refund failed.");
+    }
+  };
+
+  const handleCancelTimeoutRefundFee = () => {
+    setPendingTimeoutRefund(null);
   };
 
   if (loading) {
@@ -441,7 +472,7 @@ export default function JobDetail({ publicKey, onConnect }: JobDetailProps) {
                 className="flex-1 btn-primary py-2.5 min-h-[44px] flex items-center justify-center gap-2"
                 disabled={raisingDispute || !disputeReason || !disputeDescription}
               >
-                {raisingDispute ? <Spinner /> : "Raise Dispute"}
+                {raisingDispute ? <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin inline-block" /> : "Raise Dispute"}
               </button>
             </div>
             {actionError && <p className="mt-3 text-red-400 text-sm text-center">{actionError}</p>}

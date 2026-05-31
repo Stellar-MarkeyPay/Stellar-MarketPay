@@ -150,7 +150,7 @@ function hasFormContent(form: JobFormData): boolean {
       form.description.trim() ||
       form.skills.trim() ||
       form.deadline ||
-      form.budgetXlm !== 50
+      form.budget !== "50"
   );
 }
 

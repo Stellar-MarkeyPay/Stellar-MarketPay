@@ -18,7 +18,7 @@ export type FreelancerTier =
   | "Expert"
   | "Top Talent";
 export type AvailabilityStatus = "available" | "busy" | "unavailable";
-export type PortfolioItemType = "link" | "image" | "pdf";
+export type PortfolioItemType = "link" | "image" | "pdf" | "github" | "live" | "stellar_tx" | "file";
 
 export interface PortfolioItem {
   title: string;
@@ -88,6 +88,7 @@ export interface Application {
   status: "pending" | "accepted" | "rejected";
   screeningAnswers?: Record<string, string>; // Question -> Answer mapping
   createdAt: string;
+  estimatedDuration?: string;
 }
 
 export interface UserProfile {
@@ -109,6 +110,8 @@ export interface UserProfile {
   isKycVerified?: boolean;
   createdAt: string;
   updatedAt?: string;
+  referralCount?: number;
+  reputationPoints?: number;
 }
 
 export interface Rating {
@@ -275,12 +278,48 @@ export interface TimeInvoice {
   status: "pending" | "approved" | "rejected";
   totalMinutes: number;
   amountXlm: string;
+  hourlyRateXlm: string;
+  totalAmountXlm: string;
   createdAt: string;
 }
 
 export interface BulkActionResponse {
   success: boolean;
   message?: string;
+  succeeded: number;
+  failed: number;
   processedCount: number;
   failedCount: number;
+  results: { id: string; success: boolean; error?: string; boostedUntil?: string }[];
+}
+
+export interface JobAnalytics {
+  jobId: string;
+  title: string;
+  applicantCount: number;
+  averageBid: string;
+  minBid: string;
+  maxBid: string;
+  views?: number;
+  applications: Array<{
+    freelancerAddress: string;
+    bidAmount: string;
+    createdAt: string;
+  }>;
+  applicationsPerDay: Array<{ day: string; count: number }>;
+  averageBidAmount: Array<{ currency: string; avgBid: number; count: number }>;
+  skillDistribution: Record<string, number>;
+  daysToHire: number | null;
+  applicationStatusCounts: Record<string, number>;
+}
+
+export interface JobInvitation {
+  id: string;
+  jobId: string;
+  clientAddress: string;
+  clientName?: string;
+  jobTitle: string;
+  jobBudget: string;
+  jobCurrency: Currency;
+  createdAt: string;
 }

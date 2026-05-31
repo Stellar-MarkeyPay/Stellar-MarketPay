@@ -7,6 +7,9 @@ import {
   nativeToScVal,
   xdr,
   Horizon,
+  Operation,
+  Asset,
+  Memo,
 } from "@stellar/stellar-sdk";
 import * as SorobanRpc from "@stellar/stellar-sdk/rpc";
 import { optionalClientEnv, requireClientEnv } from "./env";
@@ -21,7 +24,7 @@ if (NETWORK_NAME !== "testnet" && NETWORK_NAME !== "mainnet") {
   throw new Error("NEXT_PUBLIC_STELLAR_NETWORK must be either testnet or mainnet.");
 }
 
-const NETWORK_PASSPHRASE = NETWORK_NAME === "mainnet" ? Networks.PUBLIC : Networks.TESTNET;
+export const NETWORK_PASSPHRASE = NETWORK_NAME === "mainnet" ? Networks.PUBLIC : Networks.TESTNET;
 const HORIZON_URL = optionalClientEnv(
   "NEXT_PUBLIC_HORIZON_URL",
   NETWORK_NAME === "mainnet"
@@ -157,7 +160,7 @@ export async function buildCreateEscrowTx(
     .build();
 
   // Simulate to populate the soroban data / auth entries
-  const simResponse = await server.simulateTransaction(tx);
+  const simResponse = await sorobanServer.simulateTransaction(tx);
 
   if (SorobanRpc.Api.isSimulationError(simResponse)) {
     throw new Error(`Soroban simulation failed: ${simResponse.error}`);
@@ -185,10 +188,11 @@ export async function signAndSubmitEscrowTx(
   const { signTransaction } = await getFreighter();
 
   // Ask the user to sign
-  const { signedTransaction } = await signTransaction(preparedXdr, {
+  const signResult = await signTransaction(preparedXdr, {
     network: "TESTNET",
     networkPassphrase: NETWORK_PASSPHRASE,
   });
+  const signedTransaction = typeof signResult === "string" ? signResult : (signResult as any).signedTransaction;
 
   // Submit the signed transaction
   const sendResponse = await sorobanServer.sendTransaction(
@@ -207,7 +211,7 @@ export async function signAndSubmitEscrowTx(
   const txHash = sendResponse.hash;
 
   // Poll for confirmation
-  let getResponse = await server.getTransaction(txHash);
+  let getResponse = await sorobanServer.getTransaction(txHash);
   const MAX_POLLS = 20;
   let polls = 0;
 
@@ -229,7 +233,6 @@ export async function signAndSubmitEscrowTx(
   return { txHash };
 }
 
-// ---------------------------------------------------------------------------
 // Convenience: build → sign → submit in one call
 // ---------------------------------------------------------------------------
 
@@ -255,56 +258,8 @@ export async function createEscrowOnChain(
   return signAndSubmitEscrowTx(preparedXdr);
 }
 
-export async function buildReleaseEscrowTransaction(
-  _escrowContractId: string,
-  jobId: string,
-  clientPublicKey: string,
-): Promise<{ toXDR: () => string }> {
-  if (USE_CONTRACT_MOCK) {
-    const { mockReleaseEscrow } = await import("./contractMock");
-    await mockReleaseEscrow({ jobId, client: clientPublicKey });
-    return { toXDR: () => "MOCK_UNSIGNED_XDR" };
-  }
-
-  throw new Error(
-    "Release escrow requires NEXT_PUBLIC_USE_CONTRACT_MOCK=true or a deployed contract integration.",
-  );
-}
-
-export async function submitSignedSorobanTransaction(
-  _signedXDR: string,
-): Promise<{ hash: string }> {
-  if (USE_CONTRACT_MOCK) {
-    return { hash: `mock-${Date.now().toString(16)}` };
-  }
-
-  throw new Error(
-    "Soroban submission requires NEXT_PUBLIC_USE_CONTRACT_MOCK=true or RPC configuration.",
-  );
-}
-
 export { getUsdcContractId, USDC_CONTRACT_BY_NETWORK } from "./config/tokens";
 export const USDC_SAC_ADDRESS = getUsdcContractId();
-
-export async function getEscrowState(_jobId: string) {
-  return null;
-}
-
-export function subscribeToContractEvents(
-  _jobId: string,
-  _handler: (event: unknown) => void,
-) {
-  return () => {};
-}
-
-export async function buildPartialReleaseTransaction(
-  _contractId: string,
-  _jobId: string,
-  _clientPublicKey: string,
-  _index: number,
-) {
-  throw new Error("Partial release is not available in mock mode.");
-}
 
 // ---------------------------------------------------------------------------
 // On-chain Message Notarization
@@ -368,10 +323,11 @@ async function signAndSubmitToSoroban(
 ): Promise<string> {
   const { signTransaction } = await getFreighter();
 
-  const { signedTransaction } = await signTransaction(preparedXdr, {
+  const signResult = await signTransaction(preparedXdr, {
     network: "TESTNET",
     networkPassphrase: NETWORK_PASSPHRASE,
   });
+  const signedTransaction = typeof signResult === "string" ? signResult : (signResult as any).signedTransaction;
 
   const sendResponse = await sorobanServer.sendTransaction(
     (() => {
@@ -396,7 +352,7 @@ async function signAndSubmitToSoroban(
     polls < MAX_POLLS
   ) {
     await new Promise((r) => setTimeout(r, 1500));
-    getResponse = await server.getTransaction(txHash);
+    getResponse = await sorobanServer.getTransaction(txHash);
     polls++;
   }
 
@@ -409,10 +365,6 @@ async function signAndSubmitToSoroban(
   return txHash;
 }
 
-/**
- * Convenience: build → sign → submit publish_message in one call.
- * Returns the transaction hash.
- */
 export async function publishMessageOnChain(
   params: MessageTxParams,
 ): Promise<string> {
@@ -509,10 +461,11 @@ export async function buildBoostJobTx(params: BoostParams): Promise<string> {
 export async function signAndSubmitSorobanTx(xdrString: string): Promise<string> {
   const { signTransaction } = await getFreighter();
 
-  const { signedTransaction } = await signTransaction(xdrString, {
+  const signResult = await signTransaction(xdrString, {
     network: "TESTNET",
     networkPassphrase: NETWORK_PASSPHRASE,
   });
+  const signedTransaction = typeof signResult === "string" ? signResult : (signResult as any).signedTransaction;
 
   const server = sorobanServer;
   const { Transaction } = await import("@stellar/stellar-sdk");
@@ -648,12 +601,78 @@ export async function signTransactionWithWallet(
 ): Promise<{ signedXDR: string | null; error: string | null }> {
   try {
     const { signTransaction } = await getFreighter();
-    const { signedTransaction } = await signTransaction(xdrString, {
+    const signResult = await signTransaction(xdrString, {
       network: "TESTNET",
       networkPassphrase: NETWORK_PASSPHRASE,
     });
+    const signedTransaction = typeof signResult === "string" ? signResult : (signResult as any).signedTransaction;
     return { signedXDR: signedTransaction, error: null };
   } catch (e) {
     return { signedXDR: null, error: e instanceof Error ? e.message : "Signing failed" };
   }
+}
+
+export function isValidStellarAddress(address: string): boolean {
+  return /^G[A-Z0-9]{55}$/.test(address);
+}
+
+export function explorerUrl(hash: string): string {
+  return `https://stellar.expert/explorer/testnet/tx/${hash}`;
+}
+
+export interface BuildPaymentParams {
+  fromPublicKey: string;
+  toPublicKey: string;
+  amount: string;
+  memo?: string;
+  asset?: string;
+}
+
+export async function buildPaymentTransaction(params: BuildPaymentParams) {
+  const { fromPublicKey, toPublicKey, amount, memo, asset } = params;
+  const account = await sorobanServer.getAccount(fromPublicKey);
+  const tx = new TransactionBuilder(account, {
+    fee: BASE_FEE,
+    networkPassphrase: NETWORK_PASSPHRASE,
+  })
+    .addOperation(
+      asset && asset !== "XLM"
+        ? Operation.payment({ destination: toPublicKey, asset: new Asset(asset, CONTRACT_ID), amount })
+        : Operation.payment({ destination: toPublicKey, asset: Asset.native(), amount })
+    );
+  if (memo) {
+    tx.addMemo(Memo.text(memo));
+  }
+  return tx.setTimeout(300).build();
+}
+
+export async function submitTransaction(signedXDR: string) {
+  const { Transaction } = await import("@stellar/stellar-sdk");
+  const tx = new Transaction(signedXDR, NETWORK_PASSPHRASE);
+  return sorobanServer.sendTransaction(tx);
+}
+
+export async function fetchMarketPayTransactions(
+  publicKey: string,
+  limit?: number,
+  cursor?: string
+): Promise<FetchTransactionsResponse> {
+  const url = `${HORIZON_URL}/accounts/${publicKey}/transactions${cursor ? `?cursor=${cursor}` : ""}${limit ? `${cursor ? "&" : "?"}limit=${limit}` : ""}`;
+  const res = await fetch(url);
+  if (!res.ok) return { transactions: [], hasMore: false };
+  const data = await res.json();
+  return {
+    transactions: (data._embedded?.records || []).map((r: any) => ({
+      id: r.id,
+      hash: r.transaction_hash,
+      ledger: r.ledger,
+      created_at: r.created_at,
+      from: "",
+      to: "",
+      amount: "",
+      asset: "XLM",
+      successful: r.successful,
+    })),
+    hasMore: !!data._links?.next,
+  };
 }

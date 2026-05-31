@@ -15,6 +15,12 @@ import type {
   TokenInfo,
   TokenBalance,
   ClientReputation,
+  TimeEntry,
+  TimeInvoice,
+  Message,
+  ReferralStats,
+  AssessmentQuestion,
+  BulkActionResponse,
 } from "@/utils/types";
 
 const api = axios.create({
@@ -731,12 +737,28 @@ export async function verifyAdmin2FA(token: string, setup = false) {
   return { token: data.token, backupCodes: data.data?.backupCodes, message: data.data?.message };
 }
 
-// ─── Job Recommendations (Issue #221) ───────────────────────────────────
+// ─── Bulk Job Actions ───────────────────────────────────────────────────────
 
-export async function fetchRecommendedJobs(limit = 10) {
-  const { data } = await api.get<{ success: boolean; data: Job[] }>(
-    "/api/jobs/recommended",
-    { params: { limit } },
+export async function bulkCancelJobs(jobIds: string[]): Promise<BulkActionResponse> {
+  const { data } = await api.post<{ success: boolean; data: BulkActionResponse }>(
+    "/api/jobs/bulk/cancel",
+    { jobIds },
+  );
+  return data.data;
+}
+
+export async function bulkExtendJobs(jobIds: string[], days: number): Promise<BulkActionResponse> {
+  const { data } = await api.post<{ success: boolean; data: BulkActionResponse }>(
+    "/api/jobs/bulk/extend",
+    { jobIds, days },
+  );
+  return data.data;
+}
+
+export async function bulkBoostJobs(jobIds: string[], txHash: string): Promise<BulkActionResponse> {
+  const { data } = await api.post<{ success: boolean; data: BulkActionResponse }>(
+    "/api/jobs/bulk/boost",
+    { jobIds, txHash },
   );
   return data.data;
 }
@@ -1245,6 +1267,31 @@ export async function fetchUserCertificates(
     success: boolean;
     data: CertificateData[];
   }>(`/api/certificates/user/${encodeURIComponent(publicKey)}`);
+  return data.data;
+}
+
+// ─── Skill Assessments ──────────────────────────────────────────
+
+export async function fetchAssessment(skill: string) {
+  const { data } = await api.get<{
+    success: boolean;
+    data: {
+      canRetake: boolean;
+      retakeAvailableAt?: string;
+      lastAttempt?: { score: number; passed: boolean };
+      label: string;
+      questions: AssessmentQuestion[];
+      durationSeconds: number;
+    };
+  }>(`/api/assessments/${encodeURIComponent(skill)}`);
+  return data.data;
+}
+
+export async function submitAssessment(skill: string, answers: Record<number, number>) {
+  const { data } = await api.post<{
+    success: boolean;
+    data: { score: number; passed: boolean; correct: number; total: number };
+  }>(`/api/assessments/${encodeURIComponent(skill)}/submit`, { answers });
   return data.data;
 }
 
