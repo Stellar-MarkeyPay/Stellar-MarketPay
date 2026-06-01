@@ -83,12 +83,12 @@ export interface Application {
   freelancerAddress: string;
   freelancerTier?: FreelancerTier;
   proposal: string;
-  bidAmount: string; // Amount as string
-  currency: Currency; // XLM or USDC
+  bidAmount: string;
+  currency: Currency;
   status: "pending" | "accepted" | "rejected";
-  screeningAnswers?: Record<string, string>; // Question -> Answer mapping
-  createdAt: string;
+  screeningAnswers?: Record<string, string>;
   estimatedDuration?: string;
+  createdAt: string;
 }
 
 export interface UserProfile {
@@ -104,8 +104,9 @@ export interface UserProfile {
   totalEarnedXLM: string;
   rating?: number;
   tier?: FreelancerTier;
-  /** Number of ratings received (when returned by profile API). */
   ratingCount?: number;
+  referralCount?: number;
+  reputationPoints?: number;
   didHash?: string;
   isKycVerified?: boolean;
   createdAt: string;
@@ -283,15 +284,7 @@ export interface TimeInvoice {
   createdAt: string;
 }
 
-export interface BulkActionResponse {
-  success: boolean;
-  message?: string;
-  succeeded: number;
-  failed: number;
-  processedCount: number;
-  failedCount: number;
-  results: { id: string; success: boolean; error?: string; boostedUntil?: string }[];
-}
+// ─── Analytics ───────────────────────────────────────────────────────────────
 
 export interface JobAnalytics {
   jobId: string;
@@ -313,13 +306,29 @@ export interface JobAnalytics {
   applicationStatusCounts: Record<string, number>;
 }
 
+// ─── Bulk Actions ────────────────────────────────────────────────────────────
+
+export interface BulkActionResponse {
+  success: boolean;
+  message?: string;
+  succeeded: number;
+  failed: number;
+  processedCount: number;
+  failedCount: number;
+  results: { id: string; success: boolean; error?: string; boostedUntil?: string }[];
+}
+
+// ─── Job Invitations ─────────────────────────────────────────────────────────
+
 export interface JobInvitation {
   id: string;
   jobId: string;
   clientAddress: string;
   clientName?: string;
+  freelancerAddress: string;
   jobTitle: string;
   jobBudget: string;
   jobCurrency: Currency;
+  status: "pending" | "accepted" | "declined";
   createdAt: string;
 }

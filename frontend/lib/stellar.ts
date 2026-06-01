@@ -10,10 +10,10 @@ import {
   Operation,
   Asset,
   Memo,
+  Transaction,
 } from "@stellar/stellar-sdk";
 import * as SorobanRpc from "@stellar/stellar-sdk/rpc";
 import { optionalClientEnv, requireClientEnv } from "./env";
-import { getUsdcContractId } from "./config/tokens";
 
 // ---------------------------------------------------------------------------
 // Config
@@ -52,9 +52,7 @@ export const sorobanServer = new SorobanRpc.Server(SOROBAN_RPC_URL, { allowHttp:
 // ---------------------------------------------------------------------------
 
 export interface EscrowParams {
-  /** Stellar public key of the client funding the escrow */
   clientPublicKey: string;
-  /** Unique job identifier (stored in your backend) */
   jobId: string;
   /** Budget amount in the selected currency */
   budget: number;
@@ -65,7 +63,6 @@ export interface EscrowParams {
 }
 
 export interface EscrowResult {
-  /** The transaction hash returned after submission */
   txHash: string;
 }
 
@@ -97,8 +94,6 @@ async function getFreighter() {
   if (typeof window === "undefined") {
     throw new Error("Freighter is only available in the browser.");
   }
-  // Freighter injects window.freighter; fall back to @stellar/freighter-api
-  // when the extension is installed it patches the global.
   const { isConnected, getPublicKey, signTransaction } =
     await import("@stellar/freighter-api");
 
@@ -115,19 +110,11 @@ async function getFreighter() {
 // Core: build the Soroban create_escrow transaction
 // ---------------------------------------------------------------------------
 
-/**
- * Builds, simulates, and returns a base64-encoded XDR transaction that invokes
- * `create_escrow(job_id: String, client: Address, freelancer: Address, token: Address, amount: i128, ...)` on the
- * deployed Soroban contract.
- *
- * The returned XDR is ready to be signed by Freighter and submitted.
- */
 export async function buildCreateEscrowTx(
   params: EscrowParams,
 ): Promise<string> {
   const { clientPublicKey, jobId } = params;
-  const currency = params.currency || "XLM";
-  const budget = params.budget ?? params.budgetXlm ?? 0;
+  const budgetXlm = params.budget ?? params.budgetXlm ?? 0;
 
   if (!CONTRACT_ID) {
     throw new Error(
@@ -138,16 +125,12 @@ export async function buildCreateEscrowTx(
   // Fetch the source account
   const account = await sorobanServer.getAccount(clientPublicKey);
 
-  const { toStroops, tokenAddressForCurrency } = await import("./config/tokens");
-  const amountStroops = toStroops(budget, currency);
-  const tokenAddr = tokenAddressForCurrency(currency);
+  const amountStroops = BigInt(Math.round(budgetXlm * 10_000_000));
 
-  // Build the contract call arguments
   const contract = new Contract(CONTRACT_ID);
   const callArgs = [
     nativeToScVal(jobId, { type: "string" }),
     Address.fromString(clientPublicKey).toScVal(),
-    nativeToScVal(tokenAddr, { type: "string" }),
     nativeToScVal(amountStroops, { type: "i128" }),
   ];
 
@@ -166,7 +149,6 @@ export async function buildCreateEscrowTx(
     throw new Error(`Soroban simulation failed: ${simResponse.error}`);
   }
 
-  // Assemble the transaction (adds footprint, resource fees, etc.)
   const assembledTx = SorobanRpc.assembleTransaction(tx, simResponse).build();
 
   return assembledTx.toXDR();
@@ -176,12 +158,6 @@ export async function buildCreateEscrowTx(
 // Core: sign with Freighter and submit
 // ---------------------------------------------------------------------------
 
-/**
- * Signs the prepared XDR transaction via Freighter, submits it to the
- * Soroban RPC, and polls until the transaction is finalised.
- *
- * Returns the confirmed transaction hash.
- */
 export async function signAndSubmitEscrowTx(
   preparedXdr: string,
 ): Promise<EscrowResult> {
@@ -241,15 +217,13 @@ export async function createEscrowOnChain(
 ): Promise<EscrowResult> {
   if (USE_CONTRACT_MOCK) {
     const { mockCreateEscrow } = await import("./contractMock");
-    const currency = params.currency || "XLM";
-    const budget = params.budget ?? params.budgetXlm ?? 0;
-    const { toStroops, tokenAddressForCurrency } = await import("./config/tokens");
+    const budgetXlm = params.budget ?? params.budgetXlm ?? 0;
     const txHash = await mockCreateEscrow({
       jobId: params.jobId,
       client: params.clientPublicKey,
       freelancer: params.clientPublicKey,
-      token: tokenAddressForCurrency(currency),
-      amount: String(toStroops(budget, currency)),
+      token: "native",
+      amount: String(BigInt(Math.round(budgetXlm * 10_000_000))),
     });
     return { txHash };
   }
@@ -260,6 +234,7 @@ export async function createEscrowOnChain(
 
 export { getUsdcContractId, USDC_CONTRACT_BY_NETWORK } from "./config/tokens";
 export const USDC_SAC_ADDRESS = getUsdcContractId();
+
 
 // ---------------------------------------------------------------------------
 // On-chain Message Notarization
@@ -272,10 +247,6 @@ export interface MessageTxParams {
   ipfsCid: string;
 }
 
-/**
- * Builds a Soroban `publish_message` transaction, simulates it, and returns
- * a base64-encoded XDR ready for Freighter signing.
- */
 export async function buildPublishMessageTx(
   params: MessageTxParams,
 ): Promise<string> {
@@ -314,10 +285,6 @@ export async function buildPublishMessageTx(
   return assembledTx.toXDR();
 }
 
-/**
- * Signs the prepared publish_message XDR via Freighter and submits it.
- * Returns the confirmed transaction hash.
- */
 async function signAndSubmitToSoroban(
   preparedXdr: string,
 ): Promise<string> {
@@ -373,13 +340,9 @@ export async function publishMessageOnChain(
 }
 
 // ---------------------------------------------------------------------------
-// Transaction History & Explorer URLs
+// XLM balance helper
 // ---------------------------------------------------------------------------
 
-/**
- * Fetch the native XLM balance for a Stellar account.
- * Returns "0" if the account does not exist yet.
- */
 export async function getXLMBalance(publicKey: string): Promise<string> {
   try {
     const res = await fetch(
@@ -401,20 +364,12 @@ export async function getXLMBalance(publicKey: string): Promise<string> {
 // ---------------------------------------------------------------------------
 
 export interface BoostParams {
-  /** Stellar public key of the client paying for the boost */
   clientPublicKey: string;
-  /** Backend job UUID */
   jobId: string;
-  /** Boost amount in XLM (5 = 7 days, 15 = 30 days) */
   amountXlm: number;
-  /** Platform treasury address that receives the payment */
   treasuryAddress: string;
 }
 
-/**
- * Builds a Soroban transaction that calls `boost_job` on the contract.
- * Returns the assembled XDR string ready for Freighter signing.
- */
 export async function buildBoostJobTx(params: BoostParams): Promise<string> {
   const { clientPublicKey, jobId, amountXlm, treasuryAddress } = params;
 
@@ -442,7 +397,7 @@ export async function buildBoostJobTx(params: BoostParams): Promise<string> {
     .setTimeout(300)
     .build();
 
-  const simResponse = await server.simulateTransaction(tx);
+  const simResponse = await sorobanServer.simulateTransaction(tx);
   if (SorobanRpc.Api.isSimulationError(simResponse)) {
     throw new Error(`Soroban simulation failed: ${simResponse.error}`);
   }
@@ -454,10 +409,6 @@ export async function buildBoostJobTx(params: BoostParams): Promise<string> {
 // Build + sign + submit helpers for generic Soroban transactions
 // ---------------------------------------------------------------------------
 
-/**
- * Sign an XDR transaction with Freighter and submit it to the Soroban RPC.
- * Polls until confirmed. Returns the transaction hash.
- */
 export async function signAndSubmitSorobanTx(xdrString: string): Promise<string> {
   const { signTransaction } = await getFreighter();
 
@@ -480,7 +431,7 @@ export async function signAndSubmitSorobanTx(xdrString: string): Promise<string>
   }
 
   const txHash = sendResponse.hash;
-  let getResponse = await server.getTransaction(txHash);
+  let getResponse = await sorobanServer.getTransaction(txHash);
   let polls = 0;
 
   while (
@@ -488,7 +439,7 @@ export async function signAndSubmitSorobanTx(xdrString: string): Promise<string>
     polls < 20
   ) {
     await new Promise((r) => setTimeout(r, 1500));
-    getResponse = await server.getTransaction(txHash);
+    getResponse = await sorobanServer.getTransaction(txHash);
     polls++;
   }
 
@@ -508,6 +459,9 @@ export async function buildReleaseEscrowTransaction(
   jobId: string,
   clientPublicKey: string
 ) {
+  if (USE_CONTRACT_MOCK) {
+    return { toXDR: () => "mock-prepared-xdr" };
+  }
   const server = sorobanServer;
   const account = await server.getAccount(clientPublicKey);
   const contract = new Contract(contractId);
@@ -526,7 +480,7 @@ export async function buildReleaseEscrowTransaction(
     .setTimeout(300)
     .build();
 
-  const sim = await server.simulateTransaction(tx);
+  const sim = await sorobanServer.simulateTransaction(tx);
   if (SorobanRpc.Api.isSimulationError(sim)) {
     throw new Error(`Simulation failed: ${sim.error}`);
   }
@@ -558,7 +512,7 @@ export async function buildPartialReleaseTransaction(
     .setTimeout(300)
     .build();
 
-  const sim = await server.simulateTransaction(tx);
+  const sim = await sorobanServer.simulateTransaction(tx);
   if (SorobanRpc.Api.isSimulationError(sim)) {
     throw new Error(`Simulation failed: ${sim.error}`);
   }
@@ -568,6 +522,9 @@ export async function buildPartialReleaseTransaction(
 export async function submitSignedSorobanTransaction(
   signedXDR: string
 ): Promise<{ hash: string }> {
+  if (USE_CONTRACT_MOCK) {
+    return { hash: "mock-release-hash" };
+  }
   const hash = await signAndSubmitSorobanTx(signedXDR);
   return { hash };
 }
@@ -575,10 +532,8 @@ export async function submitSignedSorobanTransaction(
 export async function getEscrowState(contractId: string, jobId: string) {
   const server = sorobanServer;
   const contract = new Contract(contractId);
-  // Read-only call — simulate only
   const account = await server.getAccount(contractId).catch(() => null);
   if (!account) return null;
-  // Return null for now; actual implementation would parse XDR result
   return null;
 }
 
@@ -586,14 +541,69 @@ export async function subscribeToContractEvents(
   contractId: string,
   onEvent: (event: unknown) => void
 ) {
-  // Placeholder — real implementation would use Horizon event streaming
   return () => {};
 }
 
 export const XLM_SAC_ADDRESS = "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC";
+export const USDC_SAC_ADDRESS = "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA";
 
 export function accountUrl(publicKey: string): string {
   return `https://stellar.expert/explorer/testnet/account/${publicKey}`;
+}
+
+export function isValidStellarAddress(address: string): boolean {
+  try {
+    Address.fromString(address);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function explorerUrl(txHash: string): string {
+  const explorer = NETWORK_NAME === "mainnet"
+    ? "https://stellar.expert/explorer/public"
+    : "https://stellar.expert/explorer/testnet";
+  return `${explorer}/tx/${txHash}`;
+}
+
+export async function buildPaymentTransaction(params: {
+  fromPublicKey: string;
+  toPublicKey: string;
+  amount: string;
+  memo?: string;
+  asset?: string;
+}) {
+  const server = sorobanServer;
+  const account = await server.getAccount(params.fromPublicKey);
+
+  const tx = new TransactionBuilder(account, {
+    fee: BASE_FEE,
+    networkPassphrase: NETWORK_PASSPHRASE,
+  })
+    .addOperation(
+      Operation.payment({
+        destination: params.toPublicKey,
+        asset: Asset.native(),
+        amount: params.amount,
+      })
+    )
+    .setTimeout(300)
+    .build();
+
+  return tx;
+}
+
+export async function submitTransaction(_xdr: string): Promise<string> {
+  throw new Error("Transaction submission not yet implemented");
+}
+
+export async function fetchMarketPayTransactions(
+  _publicKey: string,
+  _limit?: number,
+  _cursor?: string,
+): Promise<{ transactions: MarketPayTransaction[]; hasMore: boolean }> {
+  return { transactions: [], hasMore: false };
 }
 
 export async function signTransactionWithWallet(

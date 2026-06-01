@@ -1,4 +1,4 @@
--- V4__onchain_message_fields.up.sql
+-- V6__onchain_message_fields.up.sql
 -- Adds IPFS CID and Soroban tx hash columns to the messages table
 -- for on-chain message notarization via IPFS + Soroban events.
 

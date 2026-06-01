@@ -16,7 +16,7 @@ const nodemailer = require("nodemailer");
 const promClient = require("prom-client");
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpecs = require('./config/swagger');
-const { logger, requestLoggerMiddleware, logError, createServiceLogger } = require('./utils/logger');
+const { requestLoggerMiddleware, logError, createServiceLogger } = require('./utils/logger');
 const { sanitizeMiddleware } = require('./middleware/sanitize');
 const { requireChoice } = require("./config/env");
 
@@ -40,7 +40,8 @@ const developerRoutes = require("./routes/developer");
 const publicRoutes    = require("./routes/public");
 const referralRoutes  = require("./routes/referrals");
 const eventsRoutes    = require("./routes/events");
-const savedSearchRoutes = require("./routes/savedSearches");
+const invitationRoutes = require("./routes/invitations");
+
 const pool            = require("./db/pool");
 const { migrate } = require("./db/migrate");
 const IndexerService  = require("./services/indexerService");
@@ -291,9 +292,11 @@ app.use("/api/public",        publicRoutes);
 app.use("/api/time-entries",  timeEntryRoutes);
 app.use("/api/referrals",     referralRoutes);
 app.use("/api/events",        eventsRoutes);
-app.use("/api/saved-searches", savedSearchRoutes);
+app.use("/api/invitations",   invitationRoutes);
 
 app.use((err, req, res, next) => {
+  void next;
+
   logError(req.logger || serviceLogger, err, {
     method: req.method,
     path: req.path,

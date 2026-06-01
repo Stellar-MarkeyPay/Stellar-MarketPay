@@ -33,7 +33,7 @@ export function StellarAccountProvider({ children }: { children: React.ReactNode
 
     const promise = (async () => {
       try {
-        const account = await server.accounts().accountId(publicKey).call();
+        const account = await server.loadAccount(publicKey);
         cacheRef.current.set(publicKey, { account, timestamp: Date.now() });
         return account;
       } finally {

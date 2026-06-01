@@ -336,7 +336,7 @@ export default function JobAnalyticsPanel({ job, onExtend }: JobAnalyticsProps) 
               </div>
             ) : (
               <div className="flex items-center justify-center">
-                <StatusBreakdown data={analytics?.applicationStatusCounts || {}} />
+                <StatusBreakdown data={analytics?.applicationStatusCounts ?? { pending: 0, accepted: 0, rejected: 0 }} />
               </div>
             )}
           </div>

@@ -15,6 +15,7 @@ import {
   fetchAuthChallenge,
   verifyAuthChallenge,
   setJwtToken,
+  logout,
   registerReferral,
 } from "@/lib/api";
 import "@/styles/globals.css";
@@ -168,8 +169,8 @@ function App({ Component, pageProps }: AppProps) {
 
   return (
     <>
-      <ToastProvider>
-        <PriceProvider>
+      <PriceProvider>
+        <ToastProvider>
           <Head>
             <title>
               Stellar MarketPay — Decentralised Freelance Marketplace
@@ -202,7 +203,10 @@ function App({ Component, pageProps }: AppProps) {
             <Navbar
               publicKey={publicKey}
               onConnect={handleConnect}
-              onDisconnect={() => setPublicKey(null)}
+              onDisconnect={async () => {
+                await logout();
+                setPublicKey(null);
+              }}
             />
             <main id="main-content" className="flex-1">
               <Component
@@ -227,8 +231,8 @@ function App({ Component, pageProps }: AppProps) {
               onClose={handleCloseShortcutsModal}
             />
           </div>
-        </PriceProvider>
-      </ToastProvider>
+        </ToastProvider>
+      </PriceProvider>
     </>
   );
 }

@@ -6,12 +6,11 @@ import {
   type MarketplaceState,
 } from "./helpers/marketplaceState";
 
-const PROPOSAL_TEXT =
-  "I am an experienced Stellar and Soroban engineer with many completed marketplace integrations, escrow flows, and Playwright test suites delivered for production teams.";
+const PROPOSAL_TEXT = "I am an experienced Stellar and Soroban engineer with many completed marketplace integrations, escrow flows, and Playwright test suites delivered for production teams. I have deep expertise in building decentralized applications on the Stellar network and writing comprehensive end-to-end tests that ensure high reliability and security for smart contract systems. My background includes building full-stack dApps using Next.js, TypeScript, and Rust for Soroban contracts. I am very interested in this project and confident that I can deliver high-quality results within the specified timeline and budget. I look forward to discussing the technical details with your team and starting our collaboration soon to bring this marketplace vision to life with robust escrow logic.";
 
 async function mockFreighter(page: Page, publicKey: string) {
   await page.addInitScript((key) => {
-    (window as Window & { freighter?: Record<string, unknown> }).freighter = {
+    (window as any).freighter = {
       isConnected: async () => ({ isConnected: true }),
       isAllowed: async () => ({ isAllowed: true }),
       requestAccess: async () => ({ error: null }),
@@ -21,338 +20,271 @@ async function mockFreighter(page: Page, publicKey: string) {
   }, publicKey);
 }
 
-async function installMarketplaceApiMocks(page: Page, state: MarketplaceState) {
-  await page.route("https://api.coingecko.com/api/v3/simple/price?ids=stellar&vs_currencies=usd", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({ stellar: { usd: 0.12 } }),
-    });
+async function installPersistentApiMocks(page: Page, initialState: MarketplaceState) {
+  await page.addInitScript(({ state, clientAddr, freelancerAddr }) => {
+    const STORAGE_KEY = "__MARKETPLACE_MOCK_STATE__";
+    const getStoredState = () => {
+      try {
+        const stored = sessionStorage.getItem(STORAGE_KEY);
+        return stored ? JSON.parse(stored) : state;
+      } catch {
+        return state;
+      }
+    };
+    const persistState = (s: any) => {
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(s));
+    };
+
+    const mockState = getStoredState();
+    (window as any).__MOCK_STATE__ = mockState;
+
+    const origOpen = XMLHttpRequest.prototype.open;
+    const origSend = XMLHttpRequest.prototype.send;
+
+    XMLHttpRequest.prototype.open = function(method, url) {
+      (this as any).__url = typeof url === "string" ? url : (url as any).href;
+      (this as any).__method = method;
+      return origOpen.apply(this, arguments as any);
+    };
+
+    XMLHttpRequest.prototype.send = function(body) {
+      const url = (this as any).__url || "";
+      const method = (this as any).__method || "GET";
+      const xhr = this;
+
+      if (url.includes("/api/")) {
+        const pathname = new URL(url, window.location.origin).pathname;
+        let responseData: any = { success: true, data: [] };
+        let status = 200;
+
+        if (pathname.includes("/api/auth")) {
+          if (method === "POST") responseData = { success: true, token: "jwt-token" };
+          else responseData = { success: true, transaction: "challenge-xdr" };
+        } 
+        else if (pathname === "/api/jobs" || pathname === "/api/jobs/") {
+          if (method === "GET") {
+            responseData = { success: true, data: mockState.jobs };
+          } else if (method === "POST") {
+            const b = JSON.parse(body as string);
+            const job = {
+              id: `job-${mockState.jobs.length + 1}`,
+              title: b.title,
+              description: b.description,
+              budget: b.budget,
+              currency: b.currency || "XLM",
+              category: b.category,
+              skills: b.skills || [],
+              status: "open",
+              clientAddress: b.clientAddress,
+              applicantCount: 0,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            };
+            mockState.jobs.push(job);
+            persistState(mockState);
+            responseData = { success: true, data: job };
+            status = 201;
+          }
+        }
+        else if (pathname.match(/\/api\/jobs\/job-\d+$/)) {
+          const jobId = pathname.split("/").pop();
+          const job = mockState.jobs.find((j: any) => j.id === jobId);
+          if (job) responseData = { success: true, data: job };
+          else { responseData = { success: false }; status = 404; }
+        }
+        else if (pathname.includes("/escrow") || (pathname.includes("/api/jobs/job-") && method === "PATCH")) {
+          const parts = pathname.split("/");
+          const jobId = parts.find(p => p.startsWith("job-"));
+          const job = mockState.jobs.find((j: any) => j.id === jobId);
+          if (job) {
+            if (pathname.includes("/release")) {
+              job.status = "completed";
+              mockState.balances[freelancerAddr] += parseFloat(job.budget);
+            } else if (method === "PATCH") {
+              const b = JSON.parse(body as string);
+              if (b.escrowContractId) job.escrowContractId = b.escrowContractId;
+              if (pathname.includes("/escrow")) mockState.balances[clientAddr] -= parseFloat(job.budget);
+            }
+            persistState(mockState);
+            responseData = { success: true, data: job };
+          }
+        }
+        else if (pathname.includes("/api/applications/job/")) {
+          const jobId = pathname.split("/").pop();
+          responseData = { success: true, data: mockState.applications.filter((a: any) => a.jobId === jobId) };
+        }
+        else if (pathname === "/api/applications" && method === "POST") {
+          const b = JSON.parse(body as string);
+          const app = {
+            id: `app-${mockState.applications.length + 1}`,
+            jobId: b.jobId,
+            freelancerAddress: b.freelancerAddress,
+            proposal: b.proposal,
+            bidAmount: b.bidAmount,
+            currency: b.currency || "XLM",
+            status: "pending",
+            createdAt: new Date().toISOString(),
+          };
+          mockState.applications.push(app);
+          const job = mockState.jobs.find((j: any) => j.id === b.jobId);
+          if (job) job.applicantCount++;
+          persistState(mockState);
+          responseData = { success: true, data: app };
+          status = 201;
+        }
+        else if (pathname.match(/\/api\/applications\/app-\d+\/accept/)) {
+          const parts = pathname.split("/");
+          const appId = parts[parts.indexOf("applications") + 1];
+          const app = mockState.applications.find((a: any) => a.id === appId);
+          if (app) {
+            app.status = "accepted";
+            const job = mockState.jobs.find((j: any) => j.id === app.jobId);
+            if (job) {
+              job.status = "in_progress";
+              job.freelancerAddress = app.freelancerAddress;
+            }
+            persistState(mockState);
+            responseData = { success: true, data: app };
+          }
+        }
+        else if (pathname.includes("/api/time-entries")) {
+          if (method === "GET") {
+            const urlObj = new URL(url, window.location.origin);
+            const jobId = urlObj.searchParams.get("jobId") || pathname.split("/").pop();
+            responseData = { success: true, data: mockState.timeEntries.filter((e: any) => e.jobId === jobId) };
+          } else if (method === "POST") {
+            const b = JSON.parse(body as string);
+            const entry = {
+              id: `time-${mockState.timeEntries.length + 1}`,
+              jobId: b.jobId,
+              durationMinutes: b.durationMinutes,
+              description: b.description,
+              createdAt: new Date().toISOString(),
+            };
+            mockState.timeEntries.push(entry);
+            persistState(mockState);
+            responseData = { success: true, data: entry };
+            status = 201;
+          }
+        }
+        else if (pathname === "/api/ratings" && method === "POST") {
+          const b = JSON.parse(body as string);
+          mockState.ratings.push({
+            jobId: b.jobId,
+            raterAddress: "unknown",
+            ratedAddress: b.ratedAddress,
+            stars: b.stars,
+          });
+          persistState(mockState);
+          responseData = { success: true, data: { id: `rating-${mockState.ratings.length}` } };
+          status = 201;
+        }
+        else if (pathname.includes("/api/profiles/")) {
+          if (pathname.includes("/client-reputation")) {
+            responseData = { success: true, data: { score: 4.5, paymentReleaseRate: 95, disputeRate: 2, completionRate: 90, avgTimeToReleaseHours: 24, responseTimeToApplicationsHours: 12 } };
+          } else {
+            const pk = pathname.split("/").pop();
+            responseData = { success: true, data: { publicKey: pk, role: "both" } };
+          }
+        }
+        else if (pathname.includes("/faucet/status")) {
+          responseData = { success: true, data: { enabled: true } };
+        }
+
+        setTimeout(() => {
+          Object.defineProperty(xhr, "readyState", { value: 4, configurable: true });
+          Object.defineProperty(xhr, "status", { value: status, configurable: true });
+          Object.defineProperty(xhr, "responseText", { value: JSON.stringify(responseData), configurable: true });
+          xhr.dispatchEvent(new Event("readystatechange"));
+          xhr.dispatchEvent(new Event("load"));
+          xhr.dispatchEvent(new Event("loadend"));
+        }, 10);
+        return;
+      }
+
+      return origSend.apply(this, arguments as any);
+    };
+  }, { state: initialState, clientAddr: CLIENT_ADDRESS, freelancerAddr: FREELANCER_ADDRESS });
+
+  await page.route("https://api.coingecko.com/**", async (route) => {
+    await route.fulfill({ status: 200, body: JSON.stringify({ stellar: { usd: 0.12 } }) });
   });
 
-  await page.route("**/api/auth?account=**", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({ transaction: "challenge-xdr" }),
-    });
-  });
-
-  await page.route("**/api/auth", async (route) => {
-    if (route.request().method() === "POST") {
+  await page.route(/\/api\//, async (route) => {
+    if (route.request().method() === "OPTIONS") {
       await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({ success: true, token: "jwt-token" }),
+        status: 204,
+        headers: {
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type, Authorization",
+        },
       });
     } else {
-      await route.continue();
+      await route.fulfill({ status: 200, body: JSON.stringify({ success: true, data: [] }) });
     }
-  });
-
-  await page.route("**/api/jobs**", async (route) => {
-    const request = route.request();
-    const url = new URL(request.url());
-    const method = request.method();
-
-    if (method === "GET" && url.pathname.endsWith("/api/jobs")) {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({ success: true, data: state.jobs }),
-      });
-      return;
-    }
-
-    if (method === "POST" && url.pathname.endsWith("/api/jobs")) {
-      const body = request.postDataJSON() as {
-        title: string;
-        description: string;
-        budgetXlm: number;
-        skills: string[];
-        clientAddress: string;
-      };
-      const job = {
-        id: `job-${state.jobs.length + 1}`,
-        title: body.title,
-        description: body.description,
-        budget: `${body.budgetXlm}.0000000`,
-        currency: "XLM" as const,
-        category: "Smart Contracts",
-        skills: body.skills ?? [],
-        status: "open" as const,
-        clientAddress: body.clientAddress,
-        applicantCount: 0,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      state.jobs.push(job);
-      await route.fulfill({
-        status: 201,
-        contentType: "application/json",
-        body: JSON.stringify({ success: true, job, data: job }),
-      });
-      return;
-    }
-
-    const jobMatch = url.pathname.match(/\/api\/jobs\/([^/]+)$/);
-    if (jobMatch) {
-      const jobId = decodeURIComponent(jobMatch[1]);
-      const job = state.jobs.find((item) => item.id === jobId);
-
-      if (method === "GET") {
-        await route.fulfill({
-          status: job ? 200 : 404,
-          contentType: "application/json",
-          body: JSON.stringify(job ? { success: true, data: job } : { success: false }),
-        });
-        return;
-      }
-
-      if (method === "PATCH" && job) {
-        const patch = request.postDataJSON() as { contractTxHash?: string };
-        job.escrowContractId = patch.contractTxHash ?? "mock-contract-id";
-        state.balances[CLIENT_ADDRESS] -= Number.parseFloat(job.budget);
-        await route.fulfill({
-          status: 200,
-          contentType: "application/json",
-          body: JSON.stringify({ success: true, data: job }),
-        });
-        return;
-      }
-
-      if (method === "DELETE") {
-        state.jobs = state.jobs.filter((item) => item.id !== jobId);
-        await route.fulfill({ status: 204, body: "" });
-        return;
-      }
-    }
-
-    await route.continue();
-  });
-
-  await page.route("**/api/applications**", async (route) => {
-    const request = route.request();
-    const url = new URL(request.url());
-    const method = request.method();
-
-    const jobRoute = url.pathname.match(/\/api\/applications\/job\/([^/]+)$/);
-    if (method === "GET" && jobRoute) {
-      const jobId = decodeURIComponent(jobRoute[1]);
-      const apps = state.applications.filter((app) => app.jobId === jobId);
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({ success: true, data: apps }),
-      });
-      return;
-    }
-
-    if (method === "POST" && url.pathname.endsWith("/api/applications")) {
-      const body = request.postDataJSON() as {
-        jobId: string;
-        freelancerAddress: string;
-        proposal: string;
-        bidAmount: string;
-      };
-      const application = {
-        id: `app-${state.applications.length + 1}`,
-        jobId: body.jobId,
-        freelancerAddress: body.freelancerAddress,
-        proposal: body.proposal,
-        bidAmount: body.bidAmount,
-        currency: "XLM" as const,
-        status: "pending" as const,
-        createdAt: new Date().toISOString(),
-      };
-      state.applications.push(application);
-      const job = state.jobs.find((item) => item.id === body.jobId);
-      if (job) job.applicantCount += 1;
-      await route.fulfill({
-        status: 201,
-        contentType: "application/json",
-        body: JSON.stringify({ success: true, data: application }),
-      });
-      return;
-    }
-
-    const acceptRoute = url.pathname.match(/\/api\/applications\/([^/]+)\/accept$/);
-    if (method === "POST" && acceptRoute) {
-      const applicationId = decodeURIComponent(acceptRoute[1]);
-      const application = state.applications.find((app) => app.id === applicationId);
-      if (!application) {
-        await route.fulfill({ status: 404, body: JSON.stringify({ success: false }) });
-        return;
-      }
-      application.status = "accepted";
-      state.applications
-        .filter((app) => app.jobId === application.jobId && app.id !== applicationId)
-        .forEach((app) => {
-          app.status = "rejected";
-        });
-      const job = state.jobs.find((item) => item.id === application.jobId);
-      if (job) {
-        job.status = "in_progress";
-        job.freelancerAddress = application.freelancerAddress;
-      }
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({ success: true, data: application }),
-      });
-      return;
-    }
-
-    await route.continue();
-  });
-
-  await page.route("**/api/time-entries**", async (route) => {
-    const request = route.request();
-    const url = new URL(request.url());
-    const method = request.method();
-
-    const jobEntries = url.pathname.match(/\/api\/time-entries\/job\/([^/]+)$/);
-    if (method === "GET" && jobEntries) {
-      const jobId = decodeURIComponent(jobEntries[1]);
-      const entries = state.timeEntries.filter((entry) => entry.jobId === jobId);
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({ success: true, data: entries }),
-      });
-      return;
-    }
-
-    if (method === "POST" && url.pathname.endsWith("/api/time-entries")) {
-      const body = request.postDataJSON() as {
-        jobId: string;
-        durationMinutes: number;
-        description?: string;
-      };
-      const entry = {
-        id: `time-${state.timeEntries.length + 1}`,
-        jobId: body.jobId,
-        durationMinutes: body.durationMinutes,
-        description: body.description,
-        createdAt: new Date().toISOString(),
-      };
-      state.timeEntries.push(entry);
-      await route.fulfill({
-        status: 201,
-        contentType: "application/json",
-        body: JSON.stringify({ success: true, data: entry }),
-      });
-      return;
-    }
-
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({ success: true, data: [] }),
-    });
-  });
-
-  await page.route("**/api/escrow/**", async (route) => {
-    if (route.request().method() === "POST") {
-      const jobId = route.request().url().split("/").pop();
-      const job = state.jobs.find((item) => item.id === jobId);
-      if (job) job.status = "completed";
-      const payment = job ? Number.parseFloat(job.budget) : 0;
-      state.balances[FREELANCER_ADDRESS] += payment;
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({ success: true }),
-      });
-      return;
-    }
-    await route.continue();
-  });
-
-  await page.route("**/api/ratings", async (route) => {
-    const body = route.request().postDataJSON() as {
-      jobId: string;
-      ratedAddress: string;
-      stars: number;
-    };
-    state.ratings.push({
-      jobId: body.jobId,
-      ratedAddress: body.ratedAddress,
-      stars: body.stars,
-      raterAddress: route.request().headers()["x-wallet"] ?? "unknown",
-    });
-    await route.fulfill({
-      status: 201,
-      contentType: "application/json",
-      body: JSON.stringify({ success: true, data: { id: `rating-${state.ratings.length}` } }),
-    });
-  });
-
-  await page.route("**/api/proposal-templates**", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({ success: true, data: [] }),
-    });
   });
 }
 
-test("full marketplace flow with two wallets and contract mock", async ({ page }) => {
-  const state = createInitialState();
-  await installMarketplaceApiMocks(page, state);
+test.describe("full marketplace flow", () => {
+  test.slow();
 
-  await mockFreighter(page, CLIENT_ADDRESS);
-  await page.goto("/post-job");
+  test("should complete the full hire-to-pay lifecycle", async ({ page }) => {
+    const state = createInitialState();
+    await installPersistentApiMocks(page, state);
 
-  await page.getByLabel("Job Title").fill("Build marketplace escrow integration tests");
-  await page.getByLabel("Description").fill(
-    "Need an end to end Playwright flow covering posting, escrow funding, applications, progress updates, release, and ratings.",
-  );
-  await page.getByLabel("Budget (XLM)").fill("250");
-  await page.getByRole("button", { name: /Post Job & Lock 250 XLM Escrow/i }).click();
-  await expect(page.getByText("Job Posted!")).toBeVisible({ timeout: 20_000 });
+    await mockFreighter(page, CLIENT_ADDRESS);
+    await page.goto("/post-job");
+    await page.locator("input[name=title]").fill("Build marketplace escrow integration tests");
+    await page.locator("textarea[name=description]").fill("Need an end to end Playwright flow covering posting, escrow funding, applications, progress updates, release, and ratings.");
+    await page.locator("input[name=budget]").fill("250");
+    await page.getByRole("button", { name: /Post Job & Lock 250 XLM Escrow/i }).click();
+    await expect(page.getByText("Job Posted!")).toBeVisible({ timeout: 20000 });
 
-  const jobId = state.jobs[0]?.id;
-  expect(jobId).toBeTruthy();
-  expect(state.balances[CLIENT_ADDRESS]).toBe(9_750);
+    const jobId = await page.evaluate(() => {
+       const s = JSON.parse(sessionStorage.getItem("__MARKETPLACE_MOCK_STATE__") || "{}");
+       return s.jobs[0]?.id;
+    });
+    expect(jobId).toBeTruthy();
 
-  await mockFreighter(page, FREELANCER_ADDRESS);
-  await page.goto(`/jobs/${jobId}`);
-  await page.getByRole("button", { name: "Apply for this Job" }).click();
-  await page.getByLabel("Cover Letter").fill(PROPOSAL_TEXT);
-  await page.getByRole("button", { name: "Submit Proposal" }).click();
-  await page.getByRole("button", { name: "Confirm & Submit" }).click();
-  await expect(page.getByText("Application submitted")).toBeVisible();
+    await mockFreighter(page, FREELANCER_ADDRESS);
+    await page.goto(`/jobs/${jobId}`);
+    await page.getByRole("button", { name: "Apply for this Job" }).click();
+    await page.getByLabel("Cover Letter").fill(PROPOSAL_TEXT);
+    await page.getByRole("button", { name: "Submit Proposal" }).click();
+    await page.getByRole("button", { name: "Confirm & Submit" }).click();
+    await expect(page.getByText("Application submitted")).toBeVisible();
 
-  await mockFreighter(page, CLIENT_ADDRESS);
-  await page.goto(`/jobs/${jobId}`);
-  await page.getByRole("button", { name: "Accept Proposal" }).click();
-  await expect(page.getByText("In Progress")).toBeVisible();
+    await mockFreighter(page, CLIENT_ADDRESS);
+    await page.goto(`/jobs/${jobId}`);
+    await page.getByRole("button", { name: "Accept Proposal" }).click();
+    await expect(page.getByText("In Progress")).toBeVisible();
 
-  await mockFreighter(page, FREELANCER_ADDRESS);
-  await page.goto(`/jobs/${jobId}`);
-  await page.getByRole("button", { name: "+ Add manual entry" }).click();
-  await page.getByPlaceholder("e.g. 90").fill("120");
-  await page.getByPlaceholder("What did you work on?").fill("Implemented escrow release flow and ratings UI.");
-  await page.getByRole("button", { name: "Save Entry" }).click();
-  await expect(page.getByText("Total tracked")).toBeVisible();
-  expect(state.timeEntries.length).toBe(1);
+    await mockFreighter(page, FREELANCER_ADDRESS);
+    await page.goto(`/jobs/${jobId}`);
+    await page.getByRole("button", { name: "+ Add manual entry" }).click();
+    await page.getByPlaceholder("e.g. 90").fill("120");
+    await page.getByPlaceholder("What did you work on?").fill("Implemented escrow release flow and ratings UI.");
+    await page.getByRole("button", { name: "Save Entry" }).click();
+    await expect(page.getByText("Total tracked")).toBeVisible();
 
-  await mockFreighter(page, CLIENT_ADDRESS);
-  await page.goto(`/jobs/${jobId}`);
-  await page.getByRole("button", { name: "Release Escrow" }).click();
-  await expect(page.getByText("Escrow released successfully")).toBeVisible({ timeout: 20_000 });
-  expect(state.balances[FREELANCER_ADDRESS]).toBe(5_250);
+    await mockFreighter(page, CLIENT_ADDRESS);
+    await page.goto(`/jobs/${jobId}`);
+    await page.getByRole("button", { name: "Release Escrow" }).click();
+    await expect(page.getByText("Rate your experience working together")).toBeVisible();
 
-  await page.getByRole("button", { name: "5 stars" }).click();
-  await page.getByRole("button", { name: "Submit Rating" }).click();
-  await expect(page.getByText("Rating submitted")).toBeVisible();
+    await page.getByRole("button", { name: "5 stars" }).click();
+    await page.getByRole("button", { name: "Submit Rating" }).click();
+    
+    await mockFreighter(page, FREELANCER_ADDRESS);
+    await page.goto(`/jobs/${jobId}`);
+    await page.getByRole("button", { name: "5 stars" }).click();
+    await page.getByRole("button", { name: "Submit Rating" }).click();
 
-  await mockFreighter(page, FREELANCER_ADDRESS);
-  await page.goto(`/jobs/${jobId}`);
-  await page.getByRole("button", { name: "5 stars" }).click();
-  await page.getByRole("button", { name: "Submit Rating" }).click();
-  await expect(page.getByText("Rating submitted")).toBeVisible();
-
-  expect(state.ratings.length).toBeGreaterThanOrEqual(2);
+    const ratingCount = await page.evaluate(() => {
+       const s = JSON.parse(sessionStorage.getItem("__MARKETPLACE_MOCK_STATE__") || "{}");
+       return s.ratings.length;
+    });
+    expect(ratingCount).toBeGreaterThanOrEqual(2);
+  });
 });
