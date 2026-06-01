@@ -37,6 +37,7 @@ interface JobFormData {
   deadline: string;
   visibility: "public" | "private" | "invite_only";
   budgetXlm?: number;
+  milestones: { description: string; amount: string }[];
 }
 
 type Step = "idle" | "posting" | "fee_modal" | "signing" | "complete" | "error";
@@ -151,8 +152,12 @@ function hasFormContent(form: JobFormData): boolean {
       form.description.trim() ||
       form.skills.trim() ||
       form.deadline ||
-      form.budgetXlm !== 50
+      form.budget !== "50"
   );
+}
+
+function milestoneTotal(milestones: JobFormData["milestones"]): number {
+  return milestones.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
 }
 
 interface PostJobFormProps {
@@ -177,6 +182,7 @@ export default function PostJobForm({
     skills: "",
     deadline: "",
     visibility: "public",
+    milestones: [{ description: "Final delivery", amount: "50" }],
   });
 
   const [step, setStep] = useState<Step>("idle");
@@ -189,6 +195,9 @@ export default function PostJobForm({
   const isMockMode = process.env.NEXT_PUBLIC_USE_CONTRACT_MOCK === "true";
   const isInProgress = ["posting", "fee_modal", "signing"].includes(step);
 
+  const milestoneSum = milestoneTotal(form.milestones);
+  const budgetValue = parseFloat(form.budget) || 0;
+
   const fieldErrors = {
     title: !form.title.trim() ? "Title is required"
       : form.title.trim().length < 10 ? "Title must be at least 10 characters"
@@ -196,8 +205,13 @@ export default function PostJobForm({
     description: !form.description.trim() ? "Description is required"
       : form.description.trim().length < 30 ? "Description must be at least 30 characters"
       : undefined,
+    milestones: form.milestones.length > 10 ? "Use 10 milestones or fewer"
+      : form.milestones.some((m) => !m.description.trim()) ? "Every milestone needs a description"
+      : form.milestones.some((m) => !parseFloat(m.amount) || parseFloat(m.amount) <= 0) ? "Every milestone needs a positive amount"
+      : Math.abs(milestoneSum - budgetValue) > 0.000001 ? "Milestones must add up to the job budget"
+      : undefined,
   };
-  const isFormValid = !fieldErrors.title && !fieldErrors.description;
+  const isFormValid = !fieldErrors.title && !fieldErrors.description && !fieldErrors.milestones;
 
   // ── form change ────────────────────────────────────────────────────────────
   function handleChange(
@@ -208,12 +222,47 @@ export default function PostJobForm({
     setTouched((prev) => ({ ...prev, [name]: true }));
   }
 
+
+  function updateMilestone(index: number, field: "description" | "amount", value: string) {
+    setForm((prev) => ({
+      ...prev,
+      milestones: prev.milestones.map((milestone, currentIndex) =>
+        currentIndex === index ? { ...milestone, [field]: value } : milestone,
+      ),
+    }));
+    setTouched((prev) => ({ ...prev, milestones: true }));
+  }
+
+  function addMilestone() {
+    setForm((prev) => ({
+      ...prev,
+      milestones: [...prev.milestones, { description: "", amount: "" }].slice(0, 10),
+    }));
+  }
+
+  function removeMilestone(index: number) {
+    setForm((prev) => ({
+      ...prev,
+      milestones: prev.milestones.filter((_, currentIndex) => currentIndex !== index),
+    }));
+  }
+
+  function moveMilestone(index: number, direction: -1 | 1) {
+    setForm((prev) => {
+      const next = [...prev.milestones];
+      const target = index + direction;
+      if (target < 0 || target >= next.length) return prev;
+      [next[index], next[target]] = [next[target], next[index]];
+      return { ...prev, milestones: next };
+    });
+  }
+
   // ── submit ─────────────────────────────────────────────────────────────────
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (isInProgress) return;
 
-    setTouched({ title: true, description: true });
+    setTouched({ title: true, description: true, milestones: true });
     if (!isFormValid) return;
 
     setStep("posting");
@@ -232,6 +281,10 @@ export default function PostJobForm({
         deadline: form.deadline || undefined,
         clientAddress: publicKey,
         visibility: form.visibility,
+        milestones: form.milestones.map((milestone) => ({
+          description: milestone.description.trim(),
+          amount: parseFloat(milestone.amount).toFixed(7),
+        })),
       });
       createdJobId = job.id;
       setJobId(job.id);
@@ -320,6 +373,7 @@ export default function PostJobForm({
       skills: "",
       deadline: "",
       visibility: "public",
+      milestones: [{ description: "Final delivery", amount: "50" }],
     });
   }
 
@@ -399,15 +453,16 @@ export default function PostJobForm({
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Title */}
           <div>
-            <label className="label">Job Title</label>
+            <label htmlFor="job-title" className="label">Job Title</label>
             <input
+              id="job-title"
               name="title"
               value={form.title}
               onChange={handleChange}
               required
               minLength={10}
               disabled={isInProgress}
-              placeholder="e.g. Build a Soroban DEX interface"
+              placeholder="e.g. Build a Soroban escrow contract for NFT marketplace"
               className="input-field"
             />
             {touched.title && fieldErrors.title && (
@@ -417,8 +472,9 @@ export default function PostJobForm({
 
           {/* Description */}
           <div>
-            <label className="label">Description</label>
+            <label htmlFor="job-description" className="label">Description</label>
             <textarea
+              id="job-description"
               name="description"
               value={form.description}
               onChange={handleChange}
@@ -426,7 +482,7 @@ export default function PostJobForm({
               minLength={30}
               rows={4}
               disabled={isInProgress}
-              placeholder="Describe the work, deliverables, and any context…"
+              placeholder="Describe the work in detail — requirements, deliverables, acceptance criteria..."
               className="textarea-field"
             />
             {touched.description && fieldErrors.description && (
@@ -462,6 +518,33 @@ export default function PostJobForm({
                 <option value="XLM">XLM</option>
                 <option value="USDC">USDC</option>
               </select>
+            </div>
+          </div>
+
+
+          {/* Milestones */}
+          <div className="rounded-xl border border-market-500/15 bg-ink-900/40 p-4 space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <label className="label mb-1">Milestones</label>
+                <p className="text-xs text-amber-800">Add up to 10 deliverables. Total must equal the budget.</p>
+              </div>
+              <button type="button" onClick={addMilestone} disabled={isInProgress || form.milestones.length >= 10} className="btn-secondary text-xs px-3 py-1.5 disabled:opacity-50">+ Add</button>
+            </div>
+            {form.milestones.map((milestone, index) => (
+              <div key={index} className="grid grid-cols-12 gap-2 items-center">
+                <input value={milestone.description} onChange={(e) => updateMilestone(index, "description", e.target.value)} disabled={isInProgress} placeholder={`Milestone ${index + 1} description`} className="input-field col-span-12 sm:col-span-6" />
+                <input value={milestone.amount} onChange={(e) => updateMilestone(index, "amount", e.target.value)} disabled={isInProgress} type="number" min="0.0000001" step="0.0000001" placeholder="Amount" className="input-field col-span-6 sm:col-span-3" />
+                <div className="col-span-6 sm:col-span-3 flex gap-1 justify-end">
+                  <button type="button" onClick={() => moveMilestone(index, -1)} disabled={index === 0 || isInProgress} className="btn-secondary text-xs px-2 py-2 disabled:opacity-40">↑</button>
+                  <button type="button" onClick={() => moveMilestone(index, 1)} disabled={index === form.milestones.length - 1 || isInProgress} className="btn-secondary text-xs px-2 py-2 disabled:opacity-40">↓</button>
+                  <button type="button" onClick={() => removeMilestone(index)} disabled={form.milestones.length === 1 || isInProgress} className="btn-secondary text-xs px-2 py-2 disabled:opacity-40">Remove</button>
+                </div>
+              </div>
+            ))}
+            <div className="flex justify-between text-xs">
+              <span className={fieldErrors.milestones ? "text-red-400" : "text-amber-700"}>{fieldErrors.milestones || `${form.milestones.length}/10 milestones configured`}</span>
+              <span className={Math.abs(milestoneSum - budgetValue) > 0.000001 ? "text-red-400" : "text-market-400"}>Total: {milestoneSum.toFixed(2)} / {budgetValue.toFixed(2)} {form.currency}</span>
             </div>
           </div>
 

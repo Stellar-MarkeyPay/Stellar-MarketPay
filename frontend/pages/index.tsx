@@ -50,7 +50,7 @@ const CATEGORIES = [
   "DevOps", "Data Analysis",
 ];
 
-function StatCard({ stat, index }: { stat: typeof STATS[0]; index: number }) {
+function StatCard({ stat, index }: { stat: { value: number; suffix: string; label: string; duration: number; prefix: string }; index: number }) {
   const { animatedValue, elementRef } = useCountUp(stat.value, {
     duration: stat.duration,
     suffix: stat.suffix,

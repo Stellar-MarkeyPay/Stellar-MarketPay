@@ -138,6 +138,8 @@ export default function JobCard({ job, isFocused = false, onFocus }: JobCardProp
   }, []);
   // ──────────────────────────────────────────────────────────────────────────────────
 
+  const clientRepBadge = getClientReputationBadge(job.clientReputationScore);
+
   const hasValidDeadline = Boolean(job.deadline && formatDeadline(job.deadline));
   const formattedDeadline = job.deadline ? formatDeadline(job.deadline) : "";
   const deadlineState = getDeadlineState(job.deadline);
@@ -145,7 +147,6 @@ export default function JobCard({ job, isFocused = false, onFocus }: JobCardProp
     job.status === "cancelled" || job.status === "completed";
   const showClosedBadge = isStatusClosed || deadlineState === "closed";
   const showClosingSoonBadge = !showClosedBadge && deadlineState === "closing_soon";
-  const clientRepBadge = getClientReputationBadge(job.clientReputationScore);
 
   // Helper to get monthly estimate (keeping original logic intact)
   const getMonthlyEstimate = (budget: string, price: number | null, cur: string) => {
@@ -154,8 +155,6 @@ export default function JobCard({ job, isFocused = false, onFocus }: JobCardProp
   };
 
   return (
-    <Link href={`/jobs/${job.id}`}>
-      {/* ── ISSUE #78: Added relative positioning and hover handlers ── */}
       <div
         className={[
           "card-hover group animate-fade-in relative cursor-pointer outline-none",
@@ -169,9 +168,11 @@ export default function JobCard({ job, isFocused = false, onFocus }: JobCardProp
       >
         {/* Header row */}
         <div className="flex items-start justify-between gap-3 mb-3">
-          <h3 className="font-display font-semibold text-amber-100 text-base leading-snug group-hover:text-market-300 transition-colors line-clamp-2">
-            {job.title}
-          </h3>
+          <Link href={`/jobs/${job.id}`}>
+            <h3 className="font-display font-semibold text-amber-100 text-base leading-snug group-hover:text-market-300 transition-colors line-clamp-2">
+                {job.title}
+            </h3>
+          </Link>
           <div className="flex items-center gap-2">
             {clientRepBadge && (
               <span
@@ -331,7 +332,6 @@ export default function JobCard({ job, isFocused = false, onFocus }: JobCardProp
         )}
         {/* ───────────────────────────────────────────── */}
       </div>
-    </Link>
   );
 }
 

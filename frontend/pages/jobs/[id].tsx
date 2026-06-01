@@ -9,7 +9,8 @@ import WalletConnect from "@/components/WalletConnect";
 import RatingForm from "@/components/RatingForm";
 import ShareJobModal from "@/components/ShareJobModal";
 import RealtimeBidComparison from "@/components/RealtimeBidComparison";
-import { fetchJob, fetchApplications, acceptApplication, releaseEscrow, fetchClientReputation } from "@/lib/api";
+import FeeEstimationModal from "@/components/FeeEstimationModal";
+import { fetchJob, fetchApplications, acceptApplication, releaseEscrow, fetchClientReputation, raiseDispute, resolveDispute, timeoutRefund } from "@/lib/api";
 import { formatXLM, formatDate, shortenAddress, statusLabel, statusClass, timeAgo } from "@/utils/format";
 import {
   accountUrl,
@@ -17,7 +18,6 @@ import {
   submitSignedSorobanTransaction,
 } from "@/lib/stellar";
 import { signTransactionWithWallet } from "@/lib/wallet";
-import FeeEstimationModal from "@/components/FeeEstimationModal";
 import Spinner from "@/components/Spinner";
 import type { Application, Job, ClientReputation } from "@/utils/types";
 
@@ -38,6 +38,7 @@ export default function JobDetail({ publicKey, onConnect }: JobDetailProps) {
   const [ratingSubmitted, setRatingSubmitted] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [releasingEscrow, setReleasingEscrow] = useState(false);
+  const [activeMilestoneIndex, setActiveMilestoneIndex] = useState<number | null>(null);
   const [releaseSuccess, setReleaseSuccess] = useState(false);
   const [prefillData, setPrefillData] = useState<any>(null);
   const [showDisputeModal, setShowDisputeModal] = useState(false);
@@ -47,27 +48,6 @@ export default function JobDetail({ publicKey, onConnect }: JobDetailProps) {
   const [resolvingDispute, setResolvingDispute] = useState(false);
   const [clientReputation, setClientReputation] = useState<ClientReputation | null>(null);
   const [pendingTimeoutRefund, setPendingTimeoutRefund] = useState<any>(null);
-
-  const handleConfirmTimeoutRefundFee = async () => {
-    setPendingTimeoutRefund(null);
-  };
-
-  const handleCancelTimeoutRefundFee = () => {
-    setPendingTimeoutRefund(null);
-  };
-
-  const handleRaiseDispute = async () => {
-    if (!publicKey || !jobId || !disputeReason || !disputeDescription) return;
-    setRaisingDispute(true);
-    setActionError(null);
-    try {
-      setShowDisputeModal(false);
-    } catch (error: unknown) {
-      setActionError(error instanceof Error ? error.message : "Failed to raise dispute.");
-    } finally {
-      setRaisingDispute(false);
-    }
-  };
 
   const isClient = Boolean(publicKey && job?.clientAddress === publicKey);
   const isFreelancer = Boolean(publicKey && job?.freelancerAddress === publicKey);
@@ -126,6 +106,35 @@ export default function JobDetail({ publicKey, onConnect }: JobDetailProps) {
     }
   };
 
+  const handleReleaseMilestone = async (milestoneIndex: number) => {
+    if (!publicKey || !job) return;
+    setActiveMilestoneIndex(milestoneIndex);
+    setActionError(null);
+    try {
+      await releaseMilestone(job.id, publicKey, milestoneIndex, `offchain-${Date.now()}`);
+      setJob(await fetchJob(job.id));
+      setReleaseSuccess(true);
+    } catch (error: unknown) {
+      setActionError(error instanceof Error ? error.message : "Could not release milestone.");
+    } finally {
+      setActiveMilestoneIndex(null);
+    }
+  };
+
+  const handleDisputeMilestone = async (milestoneIndex: number) => {
+    if (!publicKey || !job) return;
+    setActiveMilestoneIndex(milestoneIndex);
+    setActionError(null);
+    try {
+      await disputeMilestone(job.id, publicKey, milestoneIndex);
+      setJob(await fetchJob(job.id));
+    } catch (error: unknown) {
+      setActionError(error instanceof Error ? error.message : "Could not dispute milestone.");
+    } finally {
+      setActiveMilestoneIndex(null);
+    }
+  };
+
   const handleReleaseEscrow = async () => {
     if (!publicKey || !job) return;
 
@@ -165,6 +174,35 @@ export default function JobDetail({ publicKey, onConnect }: JobDetailProps) {
     } finally {
       setReleasingEscrow(false);
     }
+  };
+
+  const handleRaiseDispute = async () => {
+    if (!publicKey || !jobId) return;
+    setRaisingDispute(true);
+    try {
+      await raiseDispute(jobId, { reason: disputeReason, description: disputeDescription });
+      setShowDisputeModal(false);
+      setDisputeReason("");
+      setDisputeDescription("");
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : "Failed to raise dispute.");
+    } finally {
+      setRaisingDispute(false);
+    }
+  };
+
+  const handleConfirmTimeoutRefundFee = async () => {
+    if (!publicKey || !jobId) return;
+    setPendingTimeoutRefund(null);
+    try {
+      await timeoutRefund(jobId, publicKey);
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : "Timeout refund failed.");
+    }
+  };
+
+  const handleCancelTimeoutRefundFee = () => {
+    setPendingTimeoutRefund(null);
   };
 
   if (loading) {
@@ -285,6 +323,24 @@ export default function JobDetail({ publicKey, onConnect }: JobDetailProps) {
             </div>
           )}
 
+          {clientReputation && (
+            <div className="mt-6 rounded-xl border border-market-500/20 bg-ink-900/40 p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-display text-base font-semibold text-amber-100">Client Reputation</h3>
+                <span className="inline-flex items-center rounded-full border border-market-500/30 bg-market-500/10 px-2.5 py-1 text-xs font-semibold text-market-300">
+                  ★ {clientReputation.score.toFixed(1)} / 5.0
+                </span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-amber-700">
+                <p>Payment release rate: {clientReputation.paymentReleaseRate}%</p>
+                <p>Dispute rate: {clientReputation.disputeRate}%</p>
+                <p>Completion rate: {clientReputation.completionRate}%</p>
+                <p>Avg payment release time: {clientReputation.avgTimeToReleaseHours}h</p>
+                <p>Response time to applications: {clientReputation.responseTimeToApplicationsHours}h</p>
+              </div>
+            </div>
+          )}
+
           {actionError && (
             <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
               {actionError}
@@ -364,7 +420,7 @@ export default function JobDetail({ publicKey, onConnect }: JobDetailProps) {
           </>
         )}
 
-        {isClient && job.status === "in_progress" && (
+        {isClient && job.status === "in_progress" && (!job.milestones || job.milestones.length === 0) && (
           <div className="card mb-6">
             <h2 className="font-display text-xl font-bold text-amber-100 mb-3">Escrow</h2>
             <button
@@ -465,7 +521,7 @@ export default function JobDetail({ publicKey, onConnect }: JobDetailProps) {
                 className="flex-1 btn-primary py-2.5 min-h-[44px] flex items-center justify-center gap-2"
                 disabled={raisingDispute || !disputeReason || !disputeDescription}
               >
-                {raisingDispute ? <Spinner /> : "Raise Dispute"}
+                {raisingDispute ? <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin inline-block" /> : "Raise Dispute"}
               </button>
             </div>
             {actionError && <p className="mt-3 text-red-400 text-sm text-center">{actionError}</p>}

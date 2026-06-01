@@ -39,12 +39,12 @@ import WithdrawToBankModal, {
   type WithdrawHistoryEntry,
 } from "@/components/WithdrawToBankModal";
 import { useToast } from "@/components/Toast";
+import StateMessage from "@/components/StateMessage";
 import clsx from "clsx";
 import JobAnalytics from "@/components/JobAnalytics";
 import BulkJobActionBar from "@/components/BulkJobActionBar";
 import ExtendJobModal from "@/components/ExtendJobModal";
 import ClientSpendingTab from "@/components/ClientSpendingTab";
-import StateMessage from "@/components/StateMessage";
 import { usePriceContext } from "@/contexts/PriceContext";
 import ProfileCompletenessWidget from "@/components/ProfileCompletenessWidget";
 import { useOnboarding } from "@/hooks/useOnboarding";
@@ -129,13 +129,21 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
   const { xlmPriceUsd } = usePriceContext();
   const { progress, checklistItems } = useOnboarding(publicKey);
 
-  // ── Bulk selection state ──────────────────────────────────────────────────
-  const [selectedJobIds, setSelectedJobIds] = useState<Set<string>>(new Set());
-  const [bulkLoading, setBulkLoading] = useState(false);
-
   // ── Saved searches state (Issue #284) ──────────────────────────────────────
   const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([]);
   const [savedSearchesLoading, setSavedSearchesLoading] = useState(false);
+
+  const handleResetContractMock = async () => {
+    if (!IS_CONTRACT_MOCK_DEV_MODE) return;
+
+    const { clearMockData } = await import("@/lib/contractMock");
+    clearMockData();
+    success("Mock contract data reset");
+  };
+
+  // ── Bulk selection state ──────────────────────────────────────────────────
+  const [selectedJobIds, setSelectedJobIds] = useState<Set<string>>(new Set());
+  const [bulkLoading, setBulkLoading] = useState(false);
 
   const toggleJobSelection = (jobId: string) => {
     setSelectedJobIds((prev) => {
@@ -265,6 +273,13 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
   const handleJobExtended = (updated: Job) => {
     setMyJobs((prev) => prev.map((j) => (j.id === updated.id ? updated : j)));
   };
+
+  async function handleResetContractMock() {
+    if (!IS_CONTRACT_MOCK_DEV_MODE) return;
+    const { clearMockData } = await import("@/lib/contractMock");
+    clearMockData();
+    success("Mock escrow state reset.");
+  }
 
   useEffect(() => {
     if (!publicKey) return;
@@ -809,8 +824,7 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
                 </div>
               )))}
           </div>
-        )
-      : tab === "invitations" ? (
+        ) : tab === "invitations" ? (
         myInvitations.length === 0 ? (
           <div className="card text-center py-16">
             <p className="font-display text-xl text-amber-100 mb-2">No invitations yet</p>

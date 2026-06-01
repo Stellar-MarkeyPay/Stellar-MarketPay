@@ -9,10 +9,12 @@ import {
   Horizon,
   Operation,
   Asset,
+  Memo,
   Transaction,
 } from "@stellar/stellar-sdk";
 import * as SorobanRpc from "@stellar/stellar-sdk/rpc";
 import { optionalClientEnv, requireClientEnv } from "./env";
+import { getUsdcContractId } from "./config/tokens";
 
 // ---------------------------------------------------------------------------
 // Config
@@ -141,6 +143,7 @@ export async function buildCreateEscrowTx(
     .setTimeout(300)
     .build();
 
+  // Simulate to populate the soroban data / auth entries
   const simResponse = await sorobanServer.simulateTransaction(tx);
 
   if (SorobanRpc.Api.isSimulationError(simResponse)) {
@@ -161,10 +164,12 @@ export async function signAndSubmitEscrowTx(
 ): Promise<EscrowResult> {
   const { signTransaction } = await getFreighter();
 
-  const signedTransaction = await signTransaction(preparedXdr, {
+  // Ask the user to sign
+  const signResult = await signTransaction(preparedXdr, {
     network: "TESTNET",
     networkPassphrase: NETWORK_PASSPHRASE,
   });
+  const signedTransaction = typeof signResult === "string" ? signResult : (signResult as any).signedTransaction;
 
   // Submit the signed transaction
   const sendResponse = await sorobanServer.sendTransaction(
@@ -182,6 +187,7 @@ export async function signAndSubmitEscrowTx(
 
   const txHash = sendResponse.hash;
 
+  // Poll for confirmation
   let getResponse = await sorobanServer.getTransaction(txHash);
   const MAX_POLLS = 20;
   let polls = 0;
@@ -204,7 +210,6 @@ export async function signAndSubmitEscrowTx(
   return { txHash };
 }
 
-// ---------------------------------------------------------------------------
 // Convenience: build → sign → submit in one call
 // ---------------------------------------------------------------------------
 
@@ -227,6 +232,9 @@ export async function createEscrowOnChain(
   const preparedXdr = await buildCreateEscrowTx(params);
   return signAndSubmitEscrowTx(preparedXdr);
 }
+
+export { getUsdcContractId, USDC_CONTRACT_BY_NETWORK } from "./config/tokens";
+
 
 // ---------------------------------------------------------------------------
 // On-chain Message Notarization
@@ -282,10 +290,11 @@ async function signAndSubmitToSoroban(
 ): Promise<string> {
   const { signTransaction } = await getFreighter();
 
-  const signedTransaction = await signTransaction(preparedXdr, {
+  const signResult = await signTransaction(preparedXdr, {
     network: "TESTNET",
     networkPassphrase: NETWORK_PASSPHRASE,
   });
+  const signedTransaction = typeof signResult === "string" ? signResult : (signResult as any).signedTransaction;
 
   const sendResponse = await sorobanServer.sendTransaction(
     (() => {
@@ -403,10 +412,11 @@ export async function buildBoostJobTx(params: BoostParams): Promise<string> {
 export async function signAndSubmitSorobanTx(xdrString: string): Promise<string> {
   const { signTransaction } = await getFreighter();
 
-  const signedTransaction = await signTransaction(xdrString, {
+  const signResult = await signTransaction(xdrString, {
     network: "TESTNET",
     networkPassphrase: NETWORK_PASSPHRASE,
   });
+  const signedTransaction = typeof signResult === "string" ? signResult : (signResult as any).signedTransaction;
 
   const server = sorobanServer;
   const { Transaction } = await import("@stellar/stellar-sdk");
@@ -535,7 +545,7 @@ export async function subscribeToContractEvents(
 }
 
 export const XLM_SAC_ADDRESS = "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC";
-export const USDC_SAC_ADDRESS = "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA";
+export const USDC_SAC_ADDRESS = getUsdcContractId();
 
 export function accountUrl(publicKey: string): string {
   return `https://stellar.expert/explorer/testnet/account/${publicKey}`;
@@ -557,56 +567,75 @@ export function explorerUrl(txHash: string): string {
   return `${explorer}/tx/${txHash}`;
 }
 
-export async function buildPaymentTransaction(params: {
-  fromPublicKey: string;
-  toPublicKey: string;
-  amount: string;
-  memo?: string;
-  asset?: string;
-}) {
-  const server = sorobanServer;
-  const account = await server.getAccount(params.fromPublicKey);
-
-  const tx = new TransactionBuilder(account, {
-    fee: BASE_FEE,
-    networkPassphrase: NETWORK_PASSPHRASE,
-  })
-    .addOperation(
-      Operation.payment({
-        destination: params.toPublicKey,
-        asset: Asset.native(),
-        amount: params.amount,
-      })
-    )
-    .setTimeout(300)
-    .build();
-
-  return tx;
-}
-
-export async function submitTransaction(_xdr: string): Promise<string> {
-  throw new Error("Transaction submission not yet implemented");
-}
-
-export async function fetchMarketPayTransactions(
-  _publicKey: string,
-  _limit?: number,
-  _cursor?: string,
-): Promise<{ transactions: MarketPayTransaction[]; hasMore: boolean }> {
-  return { transactions: [], hasMore: false };
-}
-
 export async function signTransactionWithWallet(
   xdrString: string
 ): Promise<{ signedXDR: string | null; error: string | null }> {
   try {
     const { signTransaction } = await getFreighter();
-    const signedTransaction = await signTransaction(xdrString, {
+    const signResult = await signTransaction(xdrString, {
       network: "TESTNET",
       networkPassphrase: NETWORK_PASSPHRASE,
     });
+    const signedTransaction = typeof signResult === "string" ? signResult : (signResult as any).signedTransaction;
     return { signedXDR: signedTransaction, error: null };
   } catch (e) {
     return { signedXDR: null, error: e instanceof Error ? e.message : "Signing failed" };
   }
+}
+
+export interface BuildPaymentParams {
+  fromPublicKey: string;
+  toPublicKey: string;
+  amount: string;
+  memo?: string;
+  asset?: string;
+}
+
+export async function buildPaymentTransaction(params: BuildPaymentParams) {
+  const { fromPublicKey, toPublicKey, amount, memo, asset } = params;
+  const account = await sorobanServer.getAccount(fromPublicKey);
+  const tx = new TransactionBuilder(account, {
+    fee: BASE_FEE,
+    networkPassphrase: NETWORK_PASSPHRASE,
+  })
+    .addOperation(
+      asset && asset !== "XLM"
+        ? Operation.payment({ destination: toPublicKey, asset: new Asset(asset, CONTRACT_ID), amount })
+        : Operation.payment({ destination: toPublicKey, asset: Asset.native(), amount })
+    );
+  if (memo) {
+    tx.addMemo(Memo.text(memo));
+  }
+  return tx.setTimeout(300).build();
+}
+
+export async function submitTransaction(signedXDR: string) {
+  const { Transaction } = await import("@stellar/stellar-sdk");
+  const tx = new Transaction(signedXDR, NETWORK_PASSPHRASE);
+  return sorobanServer.sendTransaction(tx);
+}
+
+export async function fetchMarketPayTransactions(
+  publicKey: string,
+  limit?: number,
+  cursor?: string
+): Promise<FetchTransactionsResponse> {
+  const url = `${HORIZON_URL}/accounts/${publicKey}/transactions${cursor ? `?cursor=${cursor}` : ""}${limit ? `${cursor ? "&" : "?"}limit=${limit}` : ""}`;
+  const res = await fetch(url);
+  if (!res.ok) return { transactions: [], hasMore: false };
+  const data = await res.json();
+  return {
+    transactions: (data._embedded?.records || []).map((r: any) => ({
+      id: r.id,
+      hash: r.transaction_hash,
+      ledger: r.ledger,
+      created_at: r.created_at,
+      from: "",
+      to: "",
+      amount: "",
+      asset: "XLM",
+      successful: r.successful,
+    })),
+    hasMore: !!data._links?.next,
+  };
 }

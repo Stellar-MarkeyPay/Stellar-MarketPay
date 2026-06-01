@@ -3,10 +3,19 @@
  */
 "use strict";
 const jwt = require("jsonwebtoken");
-const pool = require("../db/pool");
-const { requireEnv } = require("../config/env");
 
-const JWT_SECRET = requireEnv("JWT_SECRET");
+function requireJwtSecret() {
+  if (!process.env.JWT_SECRET) {
+    const message = "FATAL: JWT_SECRET environment variable is required";
+    console.error(message);
+    process.exit(1);
+  }
+
+  return process.env.JWT_SECRET;
+}
+
+const JWT_SECRET = requireJwtSecret();
+const pool = require("../db/pool");
 
 async function verifyJWT(req, res, next) {
   const authHeader = req.headers.authorization;
@@ -42,4 +51,4 @@ async function requireAdmin2FA(req, res, next) {
   }
 }
 
-module.exports = { verifyJWT, requireAdmin2FA, JWT_SECRET };
+module.exports = { verifyJWT, requireAdmin2FA, JWT_SECRET, requireJwtSecret };

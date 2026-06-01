@@ -236,7 +236,7 @@ export default function JobAnalyticsPanel({ job, onExtend }: JobAnalyticsProps) 
               "font-mono text-sm",
               isExpired ? "text-red-400" : isExpiringSoon ? "text-amber-400" : "text-amber-400"
             )}>
-              {new Date(job.expiresAt ?? "").toLocaleDateString()}
+              {job.expiresAt ? new Date(job.expiresAt).toLocaleDateString() : "-"}
             </p>
           </div>
           <div>
@@ -311,10 +311,10 @@ export default function JobAnalyticsPanel({ job, onExtend }: JobAnalyticsProps) 
               </div>
             ) : (
               <div className="text-center">
-                {analytics?.daysToHire !== null ? (
+                {analytics && analytics.daysToHire !== null ? (
                   <>
                     <p className="font-display text-4xl font-bold text-emerald-400">
-                      {analytics?.daysToHire?.toFixed(1)}
+                      {analytics.daysToHire.toFixed(1)}
                     </p>
                     <p className="text-xs text-amber-700 mt-1">days until hired</p>
                   </>

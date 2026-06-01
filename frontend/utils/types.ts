@@ -18,7 +18,7 @@ export type FreelancerTier =
   | "Expert"
   | "Top Talent";
 export type AvailabilityStatus = "available" | "busy" | "unavailable";
-export type PortfolioItemType = "link" | "image" | "pdf" | "file" | "github" | "live" | "stellar_tx";
+export type PortfolioItemType = "link" | "image" | "pdf" | "github" | "live" | "stellar_tx" | "file";
 
 export interface PortfolioItem {
   title: string;
@@ -30,6 +30,14 @@ export interface Availability {
   status: AvailabilityStatus;
   availableFrom?: string;
   availableUntil?: string;
+}
+
+export interface JobMilestone {
+  description: string;
+  amount: string;
+  status: "pending" | "released" | "disputed";
+  releasedAt?: string | null;
+  disputedAt?: string | null;
 }
 
 export interface Job {
@@ -54,6 +62,7 @@ export interface Job {
   deadline?: string;
   timezone?: string; // IANA timezone string (e.g., "America/New_York")
   screeningQuestions?: string[]; // Up to 5 screening questions
+  milestones?: JobMilestone[]; // Up to 10 milestone payments
   expiresAt?: string; // ISO date when job expires if not hired
   extendedCount?: number; // Number of times expiry has been extended
   extendedUntil?: string; // Final expiry after all extensions
@@ -277,32 +286,43 @@ export interface TimeInvoice {
   status: "pending" | "approved" | "rejected";
   totalMinutes: number;
   amountXlm: string;
-  hourlyRateXlm?: number;
-  totalAmountXlm?: string;
+  hourlyRateXlm: string;
+  totalAmountXlm: string;
   createdAt: string;
 }
 
 // ─── Analytics ───────────────────────────────────────────────────────────────
 
 export interface JobAnalytics {
-  applicationsPerDay: { day: string; count: number }[];
+  jobId: string;
+  title: string;
+  applicantCount: number;
+  averageBid: string;
+  minBid: string;
+  maxBid: string;
+  views?: number;
+  applications: Array<{
+    freelancerAddress: string;
+    bidAmount: string;
+    createdAt: string;
+  }>;
+  applicationsPerDay: Array<{ day: string; count: number }>;
+  averageBidAmount: Array<{ currency: string; avgBid: number; count: number }>;
   skillDistribution: Record<string, number>;
-  averageBidAmount: { currency: string; avgBid: number; count: number }[];
   daysToHire: number | null;
-  applicationStatusCounts: {
-    pending: number;
-    accepted: number;
-    rejected: number;
-    [key: string]: number;
-  };
+  applicationStatusCounts: Record<string, number>;
 }
 
 // ─── Bulk Actions ────────────────────────────────────────────────────────────
 
 export interface BulkActionResponse {
+  success: boolean;
+  message?: string;
   succeeded: number;
   failed: number;
-  results: { success: boolean; id: string; error?: string; boostedUntil?: string }[];
+  processedCount: number;
+  failedCount: number;
+  results: { id: string; success: boolean; error?: string; boostedUntil?: string }[];
 }
 
 // ─── Job Invitations ─────────────────────────────────────────────────────────
@@ -310,12 +330,12 @@ export interface BulkActionResponse {
 export interface JobInvitation {
   id: string;
   jobId: string;
-  jobTitle: string;
-  jobBudget: string;
-  jobCurrency: string;
   clientAddress: string;
   clientName?: string;
   freelancerAddress: string;
+  jobTitle: string;
+  jobBudget: string;
+  jobCurrency: Currency;
   status: "pending" | "accepted" | "declined";
   createdAt: string;
 }

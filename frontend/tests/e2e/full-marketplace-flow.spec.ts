@@ -238,7 +238,7 @@ test.describe("full marketplace flow", () => {
     await page.locator("input[name=title]").fill("Build marketplace escrow integration tests");
     await page.locator("textarea[name=description]").fill("Need an end to end Playwright flow covering posting, escrow funding, applications, progress updates, release, and ratings.");
     await page.locator("input[name=budget]").fill("250");
-    await page.getByRole("button", { name: /Post Job & Lock 250 XLM Escrow/i }).click();
+    await page.getByRole("button", { name: /Post Job.*Escrow/i }).click();
     await expect(page.getByText("Job Posted!")).toBeVisible({ timeout: 20000 });
 
     const jobId = await page.evaluate(() => {

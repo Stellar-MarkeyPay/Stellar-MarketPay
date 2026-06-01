@@ -15,10 +15,10 @@ import type {
   PortfolioFile,
   TokenInfo,
   TokenBalance,
-  ReferralStats,
   TimeEntry,
   TimeInvoice,
   Message,
+  ReferralStats,
   AssessmentQuestion,
   SkillBadge,
   BulkActionResponse,
@@ -32,21 +32,91 @@ const api = axios.create({
 });
 
 let jwtToken: string | null = null;
+let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+let refreshPromise: Promise<string | null> | null = null;
+
+const TOKEN_REFRESH_BUFFER_MS = 60 * 1000;
+
+function getJwtExpiryMs(token: string) {
+  try {
+    const encodedPayload = token.split(".")[1] || "";
+    const base64Payload = encodedPayload
+      .replace(/-/g, "+")
+      .replace(/_/g, "/")
+      .padEnd(Math.ceil(encodedPayload.length / 4) * 4, "=");
+    const payload = JSON.parse(atob(base64Payload));
+    return typeof payload.exp === "number" ? payload.exp * 1000 : null;
+  } catch {
+    return null;
+  }
+}
+
+function clearRefreshTimer() {
+  if (refreshTimer) {
+    clearTimeout(refreshTimer);
+    refreshTimer = null;
+  }
+}
+
+function scheduleTokenRefresh(token: string) {
+  if (typeof window === "undefined") return;
+
+  const expiryMs = getJwtExpiryMs(token);
+  if (!expiryMs) return;
+
+  const delayMs = Math.max(expiryMs - Date.now() - TOKEN_REFRESH_BUFFER_MS, 0);
+  refreshTimer = setTimeout(() => {
+    refreshAccessToken().catch(() => setJwtToken(null));
+  }, delayMs);
+}
+
+function shouldRefreshToken() {
+  if (!jwtToken) return false;
+  const expiryMs = getJwtExpiryMs(jwtToken);
+  return Boolean(expiryMs && expiryMs - Date.now() <= TOKEN_REFRESH_BUFFER_MS);
+}
 
 export function setJwtToken(token: string | null) {
   jwtToken = token;
+  clearRefreshTimer();
+  if (token) scheduleTokenRefresh(token);
 }
 
 export function getJwtToken() {
   return jwtToken;
 }
 
-api.interceptors.request.use((config: any) => {
+api.interceptors.request.use(async (config: any) => {
+  if (!config.skipAuthRefresh && shouldRefreshToken()) {
+    await refreshAccessToken();
+  }
+
   if (jwtToken) {
     config.headers.Authorization = `Bearer ${jwtToken}`;
   }
   return config;
 });
+
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config || {};
+    if (
+      error.response?.status === 401 &&
+      !originalRequest._retry &&
+      !originalRequest.skipAuthRefresh
+    ) {
+      originalRequest._retry = true;
+      const token = await refreshAccessToken();
+      if (token) {
+        originalRequest.headers = originalRequest.headers || {};
+        originalRequest.headers.Authorization = `Bearer ${token}`;
+        return api(originalRequest);
+      }
+    }
+    throw error;
+  },
+);
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 
@@ -63,6 +133,38 @@ export async function verifyAuthChallenge(transaction: string) {
     { transaction },
   );
   return data.token;
+}
+
+export async function refreshAccessToken() {
+  if (!refreshPromise) {
+    refreshPromise = api
+      .post<{ success: boolean; token: string }>(
+        "/api/auth/refresh",
+        undefined,
+        { skipAuthRefresh: true } as any,
+      )
+      .then(({ data }) => {
+        setJwtToken(data.token);
+        return data.token;
+      })
+      .catch((error) => {
+        setJwtToken(null);
+        throw error;
+      })
+      .finally(() => {
+        refreshPromise = null;
+      });
+  }
+
+  return refreshPromise;
+}
+
+export async function logout() {
+  try {
+    await api.post("/api/auth/logout", undefined, { skipAuthRefresh: true } as any);
+  } finally {
+    setJwtToken(null);
+  }
 }
 
 // ─── Jobs ─────────────────────────────────────────────────────────────────────
@@ -237,6 +339,7 @@ export async function createJob(payload: {
   clientAddress: string;
   screeningQuestions?: string[];
   visibility?: "public" | "private" | "invite_only";
+  milestones?: { description: string; amount: string }[];
 }) {
   const { data } = await api.post<{ success: boolean; data: Job }>(
     "/api/jobs",
@@ -456,6 +559,32 @@ export async function releaseEscrow(
     clientAddress,
     ...(contractTxHash ? { contractTxHash } : {}),
     ...(releaseCurrency ? { releaseCurrency } : {}),
+  });
+  return data.data;
+}
+
+export async function releaseMilestone(
+  jobId: string,
+  clientAddress: string,
+  milestoneIndex: number,
+  contractTxHash?: string,
+) {
+  const { data } = await api.post(`/api/escrow/${jobId}/release-milestone`, {
+    clientAddress,
+    milestoneIndex,
+    ...(contractTxHash ? { contractTxHash } : {}),
+  });
+  return data.data;
+}
+
+export async function disputeMilestone(
+  jobId: string,
+  raisedBy: string,
+  milestoneIndex: number,
+) {
+  const { data } = await api.post(`/api/escrow/${jobId}/dispute-milestone`, {
+    raisedBy,
+    milestoneIndex,
   });
   return data.data;
 }
@@ -744,7 +873,7 @@ export async function fetchAssessment(skill: string) {
       retakeAvailableAt?: string;
       lastAttempt?: { score: number; passed: boolean };
     };
-  }>(`/api/assessments/${skill}`);
+  }>(`/api/assessments/${encodeURIComponent(skill)}`);
   return data.data;
 }
 
@@ -760,7 +889,7 @@ export async function submitAssessment(
       correct: number;
       total: number;
     };
-  }>("/api/assessments/submit", { skill, answers });
+  }>(`/api/assessments/${encodeURIComponent(skill)}/submit`, { answers });
   return data.data;
 }
 
@@ -790,6 +919,33 @@ export async function verifyAdmin2FA(token: string, setup = false) {
   }>("/api/admin/2fa/verify", { token, setup });
   return { token: data.token, backupCodes: data.data?.backupCodes, message: data.data?.message };
 }
+
+// ─── Bulk Job Actions ───────────────────────────────────────────────────────
+
+export async function bulkCancelJobs(jobIds: string[]): Promise<BulkActionResponse> {
+  const { data } = await api.post<{ success: boolean; data: BulkActionResponse }>(
+    "/api/jobs/bulk-cancel",
+    { jobIds },
+  );
+  return data.data;
+}
+
+export async function bulkExtendJobs(jobIds: string[], days: number): Promise<BulkActionResponse> {
+  const { data } = await api.post<{ success: boolean; data: BulkActionResponse }>(
+    "/api/jobs/bulk-extend",
+    { jobIds, days },
+  );
+  return data.data;
+}
+
+export async function bulkBoostJobs(jobIds: string[], txHash: string): Promise<BulkActionResponse> {
+  const { data } = await api.post<{ success: boolean; data: BulkActionResponse }>(
+    "/api/jobs/bulk-boost",
+    { jobIds, txHash },
+  );
+  return data.data;
+}
+
 
 // ─── IPFS File Upload (Issue #202) ──────────────────────────────────────────
 
@@ -1689,37 +1845,4 @@ export async function acceptInvitation(
   return data.data;
 }
 
-// ─── Bulk Job Actions ─────────────────────────────────────────────────────────
-
-export async function bulkCancelJobs(
-  jobIds: string[]
-): Promise<BulkActionResponse> {
-  const { data } = await api.post<{ success: boolean; data: BulkActionResponse }>(
-    "/api/jobs/bulk/cancel",
-    { jobIds }
-  );
-  return data.data;
-}
-
-export async function bulkExtendJobs(
-  jobIds: string[],
-  days: number
-): Promise<BulkActionResponse> {
-  const { data } = await api.post<{ success: boolean; data: BulkActionResponse }>(
-    "/api/jobs/bulk/extend",
-    { jobIds, days }
-  );
-  return data.data;
-}
-
-export async function bulkBoostJobs(
-  jobIds: string[],
-  amountXlm: number | string
-): Promise<BulkActionResponse> {
-  const { data } = await api.post<{ success: boolean; data: BulkActionResponse }>(
-    "/api/jobs/bulk/boost",
-    { jobIds, amountXlm }
-  );
-  return data.data;
-}
 

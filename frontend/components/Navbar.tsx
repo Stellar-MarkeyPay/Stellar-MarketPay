@@ -32,6 +32,7 @@ const STELLAR_NETWORK = process.env.NEXT_PUBLIC_STELLAR_NETWORK || "testnet";
 export default function Navbar({ publicKey, onConnect, onDisconnect }: NavbarProps) {
   const router = useRouter();
   const { t, i18n } = useTranslation("common");
+  const switchLanguage = (lng: string) => i18n?.changeLanguage(lng);
   const [hasNotification, setHasNotification] = useState(false);
   const [hasJobAlertBadge, setHasJobAlertBadge] = useState(false);
   const { currencyMode, setCurrencyMode, priceLoading } = usePriceContext();

@@ -178,7 +178,7 @@ export default function StatsPage() {
                       <tr key={trend.date} className="border-b hover:bg-gray-50">
                         <td className="py-2 px-4 text-gray-900">{new Date(trend.date).toLocaleDateString()}</td>
                         <td className="text-right py-2 px-4 text-gray-900">{trend.jobs_posted}</td>
-                        <td className="text-right py-2 px-4 text-gray-900">{(trend.avg_budget ?? 0).toFixed(2)} XLM</td>
+                        <td className="text-right py-2 px-4 text-gray-900">{(trend.avg_budget || 0).toFixed(2)} XLM</td>
                       </tr>
                     ))}
                   </tbody>

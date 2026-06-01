@@ -194,13 +194,11 @@ class IndexerService {
   }
 
   async processEvent(event) {
-    // Soroban events from Horizon have: type, id, paging_token, ledger, ledger_closed_at, contract_id, topic, value, etc.
     if (this.contractId && event.contract_id !== this.contractId) return;
 
     const eventTypeRaw = this.extractTopicString(event.topic?.[0]);
     if (!eventTypeRaw) return;
 
-    // Map contract symbols to DB event types
     const typeMap = {
       "escrow_created":      "escrow_created",
       "work_started":        "work_started",
@@ -236,7 +234,6 @@ class IndexerService {
       ]
     );
 
-    // ── Auto-update database status based on event ──────────────────────
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
@@ -345,7 +342,6 @@ class IndexerService {
         },
       });
 
-    // Start event stream
     this.startEventStream();
   }
 
@@ -364,7 +360,6 @@ class IndexerService {
         },
         onerror: (error) => {
           console.error("[Indexer] event stream error:", error?.message);
-          // Auto-reconnect logic
           setTimeout(() => {
             if (this.syncState.running) {
               console.log("[Indexer] attempting to reconnect event stream...");
@@ -382,7 +377,6 @@ class IndexerService {
     );
     return rows;
   }
-
 
   stop() {
     if (typeof this.closeStream === "function") this.closeStream();

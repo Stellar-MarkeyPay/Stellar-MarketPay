@@ -304,4 +304,5 @@ export const POPULAR_SKILLS: string[] = [
   "Solidity", "Rust", "Go", "AWS", "Docker",
   "Stellar", "Soroban", "Smart Contracts", "DeFi", "Web3",
   "PostgreSQL", "MongoDB", "GraphQL", "Next.js", "Tailwind CSS",
+  "UI/UX Design", "Full Stack", "Smart Contract",
 ];

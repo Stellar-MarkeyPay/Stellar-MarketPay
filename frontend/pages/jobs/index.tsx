@@ -105,6 +105,12 @@ export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
       .catch(() => {});
   }, [publicKey]);
 
+  let activeTimezone = manualTimezone || (useGeolocation ? userTimezone : "");
+  const category = (router.query.category as string) || "";
+  const status = (router.query.status as string) || "open";
+  const minBudget = (router.query.minBudget as string) || "";
+  const maxBudget = (router.query.maxBudget as string) || "";
+
   // Save current search filters as a saved search
   const handleSaveSearch = async () => {
     if (!publicKey) return;
@@ -149,12 +155,6 @@ export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
       setSavingSearch(false);
     }
   };
-
-  const category = (router.query.category as string) || "";
-  const status = (router.query.status as string) || "open";
-  const minBudget = (router.query.minBudget as string) || "";
-  const maxBudget = (router.query.maxBudget as string) || "";
-  let activeTimezone = "";
 
   const hasActiveFilters = Boolean(
     search.trim() || category || (status && status !== "open") || minBudget || maxBudget || activeTimezone
@@ -216,7 +216,7 @@ export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
     patch: Partial<JobFilterQuery>,
     removeKeys?: string[],
   ) => {
-    const next: Record<string, string | undefined> = { ...router.query, ...patch, page: undefined };
+    const next: Record<string, any> = { ...router.query, ...patch, page: undefined };
     for (const key of removeKeys || []) {
       delete next[key];
     }
@@ -979,13 +979,11 @@ export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
               onCta={() => window.location.reload()}
             />
           ) : filtered.length === 0 ? (
-            <StateMessage
-              type="empty"
-              title={t("jobs.emptyTitle")}
-              description={t("jobs.emptyDescription")}
-              ctaLabel={t("nav.postJob")}
-              onCta={() => router.push('/post-job')}
-            />
+            <div className="card text-center py-16 border border-amber-500 bg-amber-500/10">
+              <h2 className="font-display text-xl mb-2 text-amber-100">No jobs found</h2>
+              <p className="text-sm text-amber-800 mb-6 max-w-xs mx-auto">No jobs are currently available.</p>
+              <Link href="/post-job" className="btn-primary text-sm">Post the first job</Link>
+            </div>
           ) : (
             <>
               <div className="grid sm:grid-cols-2 gap-4">

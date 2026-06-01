@@ -87,6 +87,29 @@ async function installApiMocks(page: Page, jobs: any[] = [job]) {
     await route.fulfill({ status: 200, body: JSON.stringify({ stellar: { usd: 0.12 } }) });
   });
 
+  await page.route("**/api/auth?account=**", async (route) => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ transaction: "challenge-xdr" }) });
+  });
+
+  await page.route("**/api/auth", async (route) => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ success: true, token: "jwt-token" }) });
+  });
+
+  await page.route("**/api/jobs/job-1", async (route) => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ success: true, data: job }) });
+  });
+
+  await page.route("**/api/jobs?**", async (route) => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ success: true, data: jobs }) });
+  });
+
+  await page.route("**/api/applications/job/job-1", async (route) => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ success: true, data: [] }) });
+  });
+
+  await page.route("**/api/applications", async (route) => {
+    await route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ success: true, data: { id: "app-1" } }) });
+
   await page.route("**/api/**", async (route) => {
     if (route.request().method() === "OPTIONS") {
       await route.fulfill({
@@ -100,6 +123,7 @@ async function installApiMocks(page: Page, jobs: any[] = [job]) {
     } else {
       await route.fulfill({ status: 200, body: JSON.stringify({ success: true, data: [] }) });
     }
+  });
   });
 }
 

@@ -74,9 +74,10 @@ function sanitizeString(value, options = {}) {
  *
  * @param {*} obj - Object, array, or primitive to sanitize
  * @param {Object} options - Sanitization options
+ * @param {WeakSet} visited - Tracks visited objects/arrays to prevent circular references
  * @returns {*} Sanitized object/array/primitive
  */
-function sanitizeObject(obj, options = {}, depth = 0) {
+function sanitizeObject(obj, options = {}, visited = new WeakSet(), depth = 0) {
   const MAX_DEPTH = 20;
   if (depth > MAX_DEPTH) {
     throw new Error("Input nesting depth exceeds limit");
@@ -91,10 +92,19 @@ function sanitizeObject(obj, options = {}, depth = 0) {
   }
 
   if (Array.isArray(obj)) {
-    return obj.map((item) => sanitizeObject(item, options, depth + 1));
+    if (visited.has(obj)) {
+      return [];
+    }
+    visited.add(obj);
+    return obj.map((item) => sanitizeObject(item, options, visited, depth + 1));
   }
 
   if (typeof obj === "object") {
+    if (visited.has(obj)) {
+      return {};
+    }
+    visited.add(obj);
+
     const sanitized = {};
     for (const [key, value] of Object.entries(obj)) {
       // Sanitize the key as well to prevent prototype pollution
@@ -106,7 +116,7 @@ function sanitizeObject(obj, options = {}, depth = 0) {
         continue;
       }
 
-      sanitized[sanitizedKey] = sanitizeObject(value, options, depth + 1);
+      sanitized[sanitizedKey] = sanitizeObject(value, options, visited, depth + 1);
     }
     return sanitized;
   }
