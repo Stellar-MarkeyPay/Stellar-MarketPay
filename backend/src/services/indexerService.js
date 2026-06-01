@@ -185,6 +185,8 @@ class IndexerService {
   }
 
   extractTopicString(topic) {
+    // Horizon returns Soroban symbols as plain strings.
+    // Soroban String values can be { type: "string", value: "..." } or a plain string.
     if (!topic) return null;
     if (typeof topic === "string") return topic;
     if (typeof topic.value === "string") return topic.value;
@@ -204,12 +206,14 @@ class IndexerService {
       "escrow_refunded":     "escrow_refunded",
       "escrow_timeout_refunded": "escrow_refunded",
       "escrow_disputed":     "dispute_opened",
-      "milestone_released":  "milestone_released"
+      "milestone_released":  "milestone_released",
+      "message_sent":        "message_sent"
     };
 
     const eventType = typeMap[eventTypeRaw];
     if (!eventType) return;
 
+    // Extract job_id from topic[1] — all escrow lifecycle events use (symbol, job_id) as topics
     const jobId = this.extractTopicString(event.topic?.[1]) || event.value?.job_id;
     if (!jobId) return;
 
@@ -283,6 +287,7 @@ class IndexerService {
           break;
 
         case "milestone_released":
+          // Mark partial progress; full release events will update status separately
           await client.query(
             `UPDATE escrows SET updated_at = NOW() WHERE job_id = $1`,
             [jobId]
@@ -296,6 +301,7 @@ class IndexerService {
       await client.query("COMMIT");
     } catch (error) {
       await client.query("ROLLBACK");
+      // Non-fatal: event is already inserted, status update will retry on next event
       console.error("[Indexer] failed to update DB status for event:", error.message);
     } finally {
       client.release();

@@ -292,6 +292,24 @@ export default function JobDetail({ publicKey, onConnect }: JobDetailProps) {
             </div>
           )}
 
+          {clientReputation && (
+            <div className="mt-6 rounded-xl border border-market-500/20 bg-ink-900/40 p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-display text-base font-semibold text-amber-100">Client Reputation</h3>
+                <span className="inline-flex items-center rounded-full border border-market-500/30 bg-market-500/10 px-2.5 py-1 text-xs font-semibold text-market-300">
+                  ★ {clientReputation.score.toFixed(1)} / 5.0
+                </span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-amber-700">
+                <p>Payment release rate: {clientReputation.paymentReleaseRate}%</p>
+                <p>Dispute rate: {clientReputation.disputeRate}%</p>
+                <p>Completion rate: {clientReputation.completionRate}%</p>
+                <p>Avg payment release time: {clientReputation.avgTimeToReleaseHours}h</p>
+                <p>Response time to applications: {clientReputation.responseTimeToApplicationsHours}h</p>
+              </div>
+            </div>
+          )}
+
           {actionError && (
             <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
               {actionError}

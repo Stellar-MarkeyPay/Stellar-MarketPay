@@ -24,8 +24,6 @@ const {
   getClientReputation,
   getProfileStats,
   getResponseTime,
-  blockFreelancer,
-  unblockFreelancer,
 } = require("../services/profileService");
 const {
   upsertPriceAlertPreference,
