@@ -533,7 +533,7 @@ export default function PostJobForm({
             {step === "posting" ? "Creating job…" :
              step === "fee_modal" ? "Estimating fees…" :
              step === "signing" ? "Waiting for signature…" :
-             `Post Job & Lock Budget in Escrow`}
+             `Post Job & Lock ${form.budget} ${form.currency} Escrow`}
           </button>
 
           {isInProgress && (
