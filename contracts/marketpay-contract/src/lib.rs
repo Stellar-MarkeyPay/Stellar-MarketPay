@@ -404,6 +404,11 @@ impl MarketPayContract {
             .instance()
             .set(&DataKey::EscrowCount, &new_count);
 
+        // Emit event
+        env.events().publish(
+            (Symbol::new(&env, "escrow_created"), job_id.clone()),
+            (escrow.client.clone(), escrow.freelancer.clone(), escrow.amount),
+        );
     }
 
     /// Client accepts a freelancer and marks work as in-progress.
@@ -428,6 +433,10 @@ impl MarketPayContract {
             .instance()
             .set(&DataKey::Escrow(job_id.clone()), &escrow);
 
+        env.events().publish(
+            (Symbol::new(&env, "work_started"), job_id.clone()),
+            (escrow.client.clone(), escrow.freelancer.clone()),
+        );
     }
 
     /// Client approves completed work and releases funds to the freelancer.
@@ -526,6 +535,10 @@ impl MarketPayContract {
                             referrer_addr,
                             &bonus,
                         );
+                        env.events().publish(
+                            (symbol_short!("ref_bon"), referrer_addr.clone()),
+                            (job_id.clone(), bonus),
+                        );
                     }
                     (to_freelancer, bonus)
                 }
@@ -541,6 +554,15 @@ impl MarketPayContract {
                 );
             }
 
+            env.events().publish(
+                (Symbol::new(&env, "escrow_released"), job_id.clone()),
+                (escrow.client.clone(), escrow.freelancer.clone(), freelancer_amount, referral_amount),
+            );
+        } else {
+            env.events().publish(
+                (Symbol::new(&env, "escrow_released"), job_id.clone()),
+                (escrow.client.clone(), escrow.freelancer.clone(), 0i128, 0i128),
+            );
         }
     }
 
@@ -639,6 +661,10 @@ impl MarketPayContract {
             .instance()
             .remove(&DataKey::TimeoutTimestamp(job_id.clone()));
 
+        env.events().publish(
+            (Symbol::new(&env, "escrow_released"), job_id.clone()),
+            (escrow.client.clone(), escrow.freelancer.clone(), release_amount),
+        );
     }
 
     /// Client cancels and gets a refund (only before work starts).
@@ -668,6 +694,11 @@ impl MarketPayContract {
 
         escrow.status = EscrowStatus::Refunded;
         env.storage().instance().set(&DataKey::Escrow(job_id.clone()), &escrow);
+
+        env.events().publish(
+            (Symbol::new(&env, "escrow_refunded"), job_id.clone()),
+            (escrow.client.clone(), escrow.freelancer.clone(), escrow.amount),
+        );
     }
 
     /// Issue #175 — Client claims a refund if the freelancer never started work
@@ -714,6 +745,11 @@ impl MarketPayContract {
 
         escrow.status = EscrowStatus::Refunded;
         env.storage().instance().set(&DataKey::Escrow(job_id.clone()), &escrow);
+
+        env.events().publish(
+            (Symbol::new(&env, "escrow_refunded"), job_id.clone()),
+            (escrow.client.clone(), escrow.freelancer.clone(), escrow.amount),
+        );
     }
 
     // ─── Getters ─────────────────────────────────────────────────────────────
@@ -1056,6 +1092,11 @@ impl MarketPayContract {
         env.storage()
             .instance()
             .set(&DataKey::Escrow(job_id.clone()), &escrow);
+
+        env.events().publish(
+            (Symbol::new(&env, "escrow_disputed"), job_id.clone()),
+            (escrow.client.clone(), escrow.freelancer.clone(), caller.clone()),
+        );
     }
 
     /// Milestone-based partial release.
@@ -1141,6 +1182,11 @@ impl MarketPayContract {
         env.storage()
             .instance()
             .set(&DataKey::Escrow(job_id.clone()), &escrow);
+
+        env.events().publish(
+            (Symbol::new(&env, "milestone_released"), job_id.clone()),
+            (escrow.client.clone(), escrow.freelancer.clone(), milestone_index, milestone.amount),
+        );
     }
 
     // ─── Issue #344: Job Boost with XLM Payment ──────────────────────────────
