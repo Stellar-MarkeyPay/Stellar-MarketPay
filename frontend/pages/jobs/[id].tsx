@@ -38,6 +38,7 @@ export default function JobDetail({ publicKey, onConnect }: JobDetailProps) {
   const [ratingSubmitted, setRatingSubmitted] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [releasingEscrow, setReleasingEscrow] = useState(false);
+  const [activeMilestoneIndex, setActiveMilestoneIndex] = useState<number | null>(null);
   const [releaseSuccess, setReleaseSuccess] = useState(false);
   const [prefillData, setPrefillData] = useState<any>(null);
   const [showDisputeModal, setShowDisputeModal] = useState(false);
@@ -102,6 +103,35 @@ export default function JobDetail({ publicKey, onConnect }: JobDetailProps) {
       setApplications(updatedApplications);
     } catch {
       setActionError("Failed to accept application.");
+    }
+  };
+
+  const handleReleaseMilestone = async (milestoneIndex: number) => {
+    if (!publicKey || !job) return;
+    setActiveMilestoneIndex(milestoneIndex);
+    setActionError(null);
+    try {
+      await releaseMilestone(job.id, publicKey, milestoneIndex, `offchain-${Date.now()}`);
+      setJob(await fetchJob(job.id));
+      setReleaseSuccess(true);
+    } catch (error: unknown) {
+      setActionError(error instanceof Error ? error.message : "Could not release milestone.");
+    } finally {
+      setActiveMilestoneIndex(null);
+    }
+  };
+
+  const handleDisputeMilestone = async (milestoneIndex: number) => {
+    if (!publicKey || !job) return;
+    setActiveMilestoneIndex(milestoneIndex);
+    setActionError(null);
+    try {
+      await disputeMilestone(job.id, publicKey, milestoneIndex);
+      setJob(await fetchJob(job.id));
+    } catch (error: unknown) {
+      setActionError(error instanceof Error ? error.message : "Could not dispute milestone.");
+    } finally {
+      setActiveMilestoneIndex(null);
     }
   };
 
@@ -390,7 +420,7 @@ export default function JobDetail({ publicKey, onConnect }: JobDetailProps) {
           </>
         )}
 
-        {isClient && job.status === "in_progress" && (
+        {isClient && job.status === "in_progress" && (!job.milestones || job.milestones.length === 0) && (
           <div className="card mb-6">
             <h2 className="font-display text-xl font-bold text-amber-100 mb-3">Escrow</h2>
             <button
