@@ -2176,7 +2176,175 @@ mod upgrade_tests {
     }
 }
 
+#[cfg(test)]
+mod event_tests {
+    extern crate std;
 
+    use super::*;
+    use soroban_sdk::testutils::Address as _;
+    use soroban_sdk::testutils::Events;
+    use soroban_sdk::{Address, Env, IntoVal, String, Vec};
+
+    fn setup(env: &Env) -> (MarketPayContractClient, Address, Address, Address) {
+        env.mock_all_auths();
+        let id = env.register(MarketPayContract, ());
+        let client = MarketPayContractClient::new(env, &id);
+        let admin = Address::generate(env);
+        client.initialize(&admin);
+
+        let contract_client = Address::generate(env);
+        let freelancer = Address::generate(env);
+        let token_contract = env.register_stellar_asset_contract_v2(admin.clone());
+        let token_id = token_contract.address();
+        let token_admin = token::StellarAssetClient::new(env, &token_id);
+        token_admin.mint(&contract_client, &1000);
+
+        (client, contract_client, freelancer, token_id)
+    }
+
+    fn get_event_topic0_str(env: &Env, idx: u32) -> std::string::String {
+        let events = env.events().all();
+        let event = events.get(idx).unwrap();
+        let topic0 = event.1.get(0).unwrap();
+        let sym: Symbol = topic0.into_val(env);
+        std::string::ToString::to_string(&sym)
+    }
+
+    #[test]
+    fn test_create_escrow_emits_event() {
+        let env = Env::default();
+        let (client, contract_client, freelancer, token_id) = setup(&env);
+        let job_id = String::from_str(&env, "evt-job-1");
+
+        client.create_escrow(
+            &job_id, &contract_client,
+            &CreateEscrowParams { freelancer: freelancer.clone(), token: token_id.clone(), amount: 500, milestones: None, timeout_ledgers: None, referrer: None },
+        );
+
+        let last_idx = env.events().all().len() - 1;
+        assert!(
+            get_event_topic0_str(&env, last_idx).contains("escrow_created"),
+        );
+    }
+
+    #[test]
+    fn test_start_work_emits_event() {
+        let env = Env::default();
+        let (client, contract_client, freelancer, token_id) = setup(&env);
+        let job_id = String::from_str(&env, "evt-job-2");
+        client.create_escrow(
+            &job_id, &contract_client,
+            &CreateEscrowParams { freelancer: freelancer.clone(), token: token_id.clone(), amount: 500, milestones: None, timeout_ledgers: None, referrer: None },
+        );
+
+        client.start_work(&job_id, &contract_client);
+
+        assert!(
+            get_event_topic0_str(&env, env.events().all().len() - 1).contains("work_started"),
+        );
+    }
+
+    #[test]
+    fn test_release_escrow_emits_event() {
+        let env = Env::default();
+        let (client, contract_client, freelancer, token_id) = setup(&env);
+        let job_id = String::from_str(&env, "evt-job-3");
+        client.create_escrow(
+            &job_id, &contract_client,
+            &CreateEscrowParams { freelancer: freelancer.clone(), token: token_id.clone(), amount: 500, milestones: None, timeout_ledgers: None, referrer: None },
+        );
+        client.start_work(&job_id, &contract_client);
+
+        client.release_escrow(&job_id, &contract_client);
+
+        assert!(
+            get_event_topic0_str(&env, env.events().all().len() - 1).contains("escrow_released"),
+        );
+    }
+
+    #[test]
+    fn test_refund_escrow_emits_event() {
+        let env = Env::default();
+        let (client, contract_client, freelancer, token_id) = setup(&env);
+        let job_id = String::from_str(&env, "evt-job-4");
+        client.create_escrow(
+            &job_id, &contract_client,
+            &CreateEscrowParams { freelancer: freelancer.clone(), token: token_id.clone(), amount: 500, milestones: None, timeout_ledgers: None, referrer: None },
+        );
+
+        client.refund_escrow(&job_id, &contract_client);
+
+        assert!(
+            get_event_topic0_str(&env, env.events().all().len() - 1).contains("escrow_refunded"),
+        );
+    }
+
+    #[test]
+    fn test_raise_dispute_emits_event() {
+        let env = Env::default();
+        let (client, contract_client, freelancer, token_id) = setup(&env);
+        let job_id = String::from_str(&env, "evt-job-5");
+        client.create_escrow(
+            &job_id, &contract_client,
+            &CreateEscrowParams { freelancer: freelancer.clone(), token: token_id.clone(), amount: 500, milestones: None, timeout_ledgers: None, referrer: None },
+        );
+
+        client.raise_dispute(&job_id, &contract_client);
+
+        assert!(
+            get_event_topic0_str(&env, env.events().all().len() - 1).contains("escrow_disputed"),
+        );
+    }
+
+    #[test]
+    fn test_milestone_released_emits_event() {
+        let env = Env::default();
+        let (client, contract_client, freelancer, token_id) = setup(&env);
+        let job_id = String::from_str(&env, "evt-job-6");
+        let mut milestones = Vec::new(&env);
+        milestones.push_back(400);
+        milestones.push_back(600);
+        client.create_escrow(
+            &job_id, &contract_client,
+            &CreateEscrowParams { freelancer: freelancer.clone(), token: token_id.clone(), amount: 1000, milestones: Some(milestones), timeout_ledgers: None, referrer: None },
+        );
+        client.start_work(&job_id, &contract_client);
+
+        client.partial_release(&job_id, &0u32, &contract_client);
+
+        assert!(
+            get_event_topic0_str(&env, env.events().all().len() - 1).contains("milestone_released"),
+        );
+    }
+
+    #[test]
+    fn test_full_lifecycle_events_all_emitted() {
+        let env = Env::default();
+        let (client, contract_client, freelancer, token_id) = setup(&env);
+        let job_id = String::from_str(&env, "evt-job-7");
+
+        client.create_escrow(
+            &job_id, &contract_client,
+            &CreateEscrowParams { freelancer: freelancer.clone(), token: token_id.clone(), amount: 500, milestones: None, timeout_ledgers: None, referrer: None },
+        );
+        assert!(
+            get_event_topic0_str(&env, env.events().all().len() - 1).contains("escrow_created"),
+            "Missing escrow_created after create_escrow",
+        );
+
+        client.start_work(&job_id, &contract_client);
+        assert!(
+            get_event_topic0_str(&env, env.events().all().len() - 1).contains("work_started"),
+            "Missing work_started after start_work",
+        );
+
+        client.release_escrow(&job_id, &contract_client);
+        assert!(
+            get_event_topic0_str(&env, env.events().all().len() - 1).contains("escrow_released"),
+            "Missing escrow_released after release_escrow",
+        );
+    }
+}
 
 /*
 #[cfg(test)]
