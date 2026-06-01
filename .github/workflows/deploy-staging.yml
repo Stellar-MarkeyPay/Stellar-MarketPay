@@ -28,7 +28,7 @@ jobs:
           docker push $IMAGE_TAG
 
       - name: Deploy on staging VPS via SSH
-        uses: appleboy/ssh-action@v1.2.0
+        uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ secrets.STAGING_SSH_HOST }}
           username: ${{ secrets.STAGING_SSH_USER }}
