@@ -1,6 +1,6 @@
 /**
  * pages/admin.tsx
- * Admin moderation dashboard — gated to admin wallet addresses only.
+ * Admin moderation dashboard gated by the server-issued admin JWT role.
  * Non-admin wallets are immediately redirected to /jobs.
  */
 import { useEffect, useState, useCallback } from "react";
@@ -15,22 +15,38 @@ import {
   adminCancelJob,
   freezeWallet,
   unfreezeWallet,
+  fetchAdmin2FAStatus,
+  getJwtToken,
 } from "@/lib/api";
 import { shortenAddress, timeAgo } from "@/utils/format";
 import AdminAnalytics from "@/components/AdminAnalytics";
 import Admin2FAModal from "@/components/Admin2FAModal";
-import { fetchAdmin2FAStatus } from "@/lib/api";
-
-// Wallet addresses with admin access — can also be overridden by env var
-const ADMIN_ADDRESSES = (
-  process.env.NEXT_PUBLIC_ADMIN_ADDRESSES || ""
-).split(",").map((a) => a.trim()).filter(Boolean);
 
 interface AdminPageProps {
   publicKey: string | null;
 }
 
 type ActiveTab = "analytics" | "disputes" | "reports" | "wallets" | "logs";
+type AdminState = "checking" | "authorized" | "denied";
+
+function getJwtRole() {
+  if (typeof window === "undefined") return null;
+
+  const token = getJwtToken();
+  if (!token) return null;
+
+  try {
+    const encodedPayload = token.split(".")[1] || "";
+    const base64Payload = encodedPayload
+      .replace(/-/g, "+")
+      .replace(/_/g, "/")
+      .padEnd(Math.ceil(encodedPayload.length / 4) * 4, "=");
+    const payload = JSON.parse(window.atob(base64Payload));
+    return typeof payload.role === "string" ? payload.role : null;
+  } catch {
+    return null;
+  }
+}
 
 function Badge({ label, color }: { label: string; color: "red" | "amber" | "emerald" | "blue" | "gray" }) {
   const colorMap = {
@@ -102,15 +118,41 @@ export default function AdminDashboard({ publicKey }: AdminPageProps) {
   const [freezeReason, setFreezeReason] = useState("");
 
   const [twoFaState, setTwoFaState] = useState<"loading" | "setup" | "verify" | "ready">("loading");
+  const [adminState, setAdminState] = useState<AdminState>("checking");
 
-  const isAdmin = Boolean(publicKey && ADMIN_ADDRESSES.includes(publicKey));
+  const isAdmin = adminState === "authorized";
 
   useEffect(() => {
-    if (!publicKey) return;
-    if (!isAdmin) {
+    let timeout: ReturnType<typeof setTimeout> | null = null;
+    let attempts = 0;
+
+    function verifyAdminToken() {
+      if (!publicKey) {
+        setAdminState("checking");
+        return;
+      }
+
+      if (getJwtRole() === "admin") {
+        setAdminState("authorized");
+        return;
+      }
+
+      if (!getJwtToken() && attempts < 20) {
+        attempts += 1;
+        timeout = setTimeout(verifyAdminToken, 250);
+        return;
+      }
+
+      setAdminState("denied");
       router.replace("/jobs");
     }
-  }, [publicKey, isAdmin, router]);
+
+    verifyAdminToken();
+
+    return () => {
+      if (timeout) clearTimeout(timeout);
+    };
+  }, [publicKey, router]);
 
   useEffect(() => {
     if (!isAdmin || !publicKey) return;
@@ -219,10 +261,18 @@ export default function AdminDashboard({ publicKey }: AdminPageProps) {
     );
   }
 
-  if (!isAdmin) {
+  if (adminState === "checking") {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p className="text-red-400">Access denied. Admin wallets only.</p>
+        <p className="text-amber-800">Verifying admin session...</p>
+      </div>
+    );
+  }
+
+  if (adminState === "denied") {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-red-400">Access denied. Admin role required.</p>
       </div>
     );
   }
