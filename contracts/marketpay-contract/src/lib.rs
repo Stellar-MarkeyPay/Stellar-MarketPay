@@ -2332,20 +2332,20 @@ mod event_tests {
             &CreateEscrowParams { freelancer: freelancer.clone(), token: token_id.clone(), amount: 500, milestones: None, timeout_ledgers: None, referrer: None },
         );
         assert!(
-            get_event_topic0_str(&env, env.events().all().len() - 1).contains("escrow_created"),
-            "Missing escrow_created after create_escrow",
+            get_event_topic0_str(&env, env.events().all().len() - 1).contains("escrow_cr"),
+            "Missing escrow_cr after create_escrow",
         );
 
         client.start_work(&job_id, &contract_client);
         assert!(
-            get_event_topic0_str(&env, env.events().all().len() - 1).contains("work_started"),
-            "Missing work_started after start_work",
+            get_event_topic0_str(&env, env.events().all().len() - 1).contains("work_strt"),
+            "Missing work_strt after start_work",
         );
 
         client.release_escrow(&job_id, &contract_client);
         assert!(
-            get_event_topic0_str(&env, env.events().all().len() - 1).contains("escrow_released"),
-            "Missing escrow_released after release_escrow",
+            get_event_topic0_str(&env, env.events().all().len() - 1).contains("escrow_rl"),
+            "Missing escrow_rl after release_escrow",
         );
     }
 }

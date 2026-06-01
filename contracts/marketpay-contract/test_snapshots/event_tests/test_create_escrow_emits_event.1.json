@@ -803,7 +803,7 @@
           "v0": {
             "topics": [
               {
-                "symbol": "escrow_created"
+                "symbol": "escrow_cr"
               },
               {
                 "string": "evt-job-1"

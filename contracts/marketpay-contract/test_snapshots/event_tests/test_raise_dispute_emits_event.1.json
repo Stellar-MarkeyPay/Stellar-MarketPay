@@ -826,7 +826,7 @@
           "v0": {
             "topics": [
               {
-                "symbol": "escrow_disputed"
+                "symbol": "escrow_ds"
               },
               {
                 "string": "evt-job-5"

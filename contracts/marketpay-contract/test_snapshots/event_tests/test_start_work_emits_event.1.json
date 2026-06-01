@@ -826,7 +826,7 @@
           "v0": {
             "topics": [
               {
-                "symbol": "work_started"
+                "symbol": "work_strt"
               },
               {
                 "string": "evt-job-2"

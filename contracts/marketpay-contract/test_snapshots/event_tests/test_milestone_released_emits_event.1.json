@@ -1051,7 +1051,7 @@
           "v0": {
             "topics": [
               {
-                "symbol": "milestone_released"
+                "symbol": "ms_rel"
               },
               {
                 "string": "evt-job-6"

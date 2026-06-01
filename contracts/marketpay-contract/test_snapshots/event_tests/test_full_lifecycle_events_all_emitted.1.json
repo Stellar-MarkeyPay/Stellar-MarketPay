@@ -1001,7 +1001,7 @@
           "v0": {
             "topics": [
               {
-                "symbol": "escrow_released"
+                "symbol": "escrow_rl"
               },
               {
                 "string": "evt-job-7"
