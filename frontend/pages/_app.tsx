@@ -15,6 +15,7 @@ import {
   fetchAuthChallenge,
   verifyAuthChallenge,
   setJwtToken,
+  logout,
   registerReferral,
 } from "@/lib/api";
 import "@/styles/globals.css";
@@ -192,8 +193,8 @@ function App({ Component, pageProps }: AppProps) {
 
   return (
     <>
-      <ToastProvider>
-        <PriceProvider>
+      <PriceProvider>
+        <ToastProvider>
           <Head>
             <title>
               Stellar MarketPay — Decentralised Freelance Marketplace
@@ -251,8 +252,8 @@ function App({ Component, pageProps }: AppProps) {
               onClose={handleCloseShortcutsModal}
             />
           </div>
-        </PriceProvider>
-      </ToastProvider>
+        </ToastProvider>
+      </PriceProvider>
     </>
   );
 }
