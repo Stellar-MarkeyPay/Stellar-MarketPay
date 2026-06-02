@@ -3,10 +3,19 @@
  */
 "use strict";
 const jwt = require("jsonwebtoken");
-const pool = require("../db/pool");
-const { requireEnv } = require("../config/env");
 
-const JWT_SECRET = requireEnv("JWT_SECRET");
+function requireJwtSecret() {
+  if (!process.env.JWT_SECRET) {
+    const message = "FATAL: JWT_SECRET environment variable is required";
+    console.error(message);
+    process.exit(1);
+  }
+
+  return process.env.JWT_SECRET;
+}
+
+const JWT_SECRET = requireJwtSecret();
+const pool = require("../db/pool");
 
 async function verifyJWT(req, res, next) {
   const authHeader = req.headers.authorization;
@@ -23,6 +32,18 @@ async function verifyJWT(req, res, next) {
   } catch {
     return res.status(401).json({ error: "Unauthorized: Invalid or expired token" });
   }
+}
+
+function requireAdminRole(req, res, next) {
+  if (!req.user) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  if (req.user.role !== "admin") {
+    return res.status(403).json({ error: "Forbidden: Admin access required" });
+  }
+
+  return next();
 }
 
 async function requireAdmin2FA(req, res, next) {
@@ -42,4 +63,4 @@ async function requireAdmin2FA(req, res, next) {
   }
 }
 
-module.exports = { verifyJWT, requireAdmin2FA, JWT_SECRET };
+module.exports = { verifyJWT, requireAdminRole, requireAdmin2FA, JWT_SECRET, requireJwtSecret };

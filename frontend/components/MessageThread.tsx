@@ -29,7 +29,6 @@ export default function MessageThread({ jobId, currentUserAddress, otherUserAddr
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const isMountedRef = useRef<boolean>(true);
-  const isMountedRef = useRef<boolean>(true);
 
   // Fetch messages on mount
   useEffect(() => {

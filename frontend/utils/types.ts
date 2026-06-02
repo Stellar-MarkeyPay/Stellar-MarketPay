@@ -14,11 +14,11 @@ export type Currency = "XLM" | "USDC";
 export type JobVisibility = "public" | "private" | "invite_only";
 export type FreelancerTier =
   | "Newcomer"
-  | "Rising Star"
-  | "Expert"
-  | "Top Talent";
+  | "Rising Talent"
+  | "Top Rated"
+  | "Expert";
 export type AvailabilityStatus = "available" | "busy" | "unavailable";
-export type PortfolioItemType = "link" | "image" | "pdf";
+export type PortfolioItemType = "link" | "image" | "pdf" | "github" | "live" | "stellar_tx" | "file";
 
 export interface PortfolioItem {
   title: string;
@@ -30,6 +30,26 @@ export interface Availability {
   status: AvailabilityStatus;
   availableFrom?: string;
   availableUntil?: string;
+}
+
+export interface JobMilestone {
+  description: string;
+  amount: string;
+  status: "pending" | "released" | "disputed";
+  releasedAt?: string | null;
+  disputedAt?: string | null;
+}
+
+export interface NotificationItem {
+  id: string;
+  userAddress: string;
+  type: string;
+  title: string;
+  body: string;
+  read: boolean;
+  jobId?: string | null;
+  linkPath?: string | null;
+  createdAt: string;
 }
 
 export interface Job {
@@ -54,11 +74,16 @@ export interface Job {
   deadline?: string;
   timezone?: string; // IANA timezone string (e.g., "America/New_York")
   screeningQuestions?: string[]; // Up to 5 screening questions
+  milestones?: JobMilestone[]; // Up to 10 milestone payments
   expiresAt?: string; // ISO date when job expires if not hired
   extendedCount?: number; // Number of times expiry has been extended
   extendedUntil?: string; // Final expiry after all extensions
   disputedAt?: string;
   clientReputationScore?: number | null;
+  disputedBy?: string;
+  disputedAt?: string | null;
+  disputeReason?: string | null;
+  disputeDescription?: string | null;
 }
 
 export interface ClientReputation {
@@ -84,11 +109,13 @@ export interface Application {
   freelancerAddress: string;
   freelancerTier?: FreelancerTier;
   proposal: string;
-  bidAmount: string; // Amount as string
-  currency: Currency; // XLM or USDC
+  bidAmount: string;
+  currency: Currency;
   status: "pending" | "accepted" | "rejected";
-  screeningAnswers?: Record<string, string>; // Question -> Answer mapping
+  screeningAnswers?: Record<string, string>;
+  estimatedDuration?: string;
   createdAt: string;
+  acceptedAt?: string;
 }
 
 export interface UserProfile {
@@ -104,8 +131,9 @@ export interface UserProfile {
   totalEarnedXLM: string;
   rating?: number;
   tier?: FreelancerTier;
-  /** Number of ratings received (when returned by profile API). */
   ratingCount?: number;
+  referralCount?: number;
+  reputationPoints?: number;
   didHash?: string;
   isKycVerified?: boolean;
   createdAt: string;
@@ -276,5 +304,56 @@ export interface TimeInvoice {
   status: "pending" | "approved" | "rejected";
   totalMinutes: number;
   amountXlm: string;
+  hourlyRateXlm: string;
+  totalAmountXlm: string;
+  createdAt: string;
+}
+
+// ─── Analytics ───────────────────────────────────────────────────────────────
+
+export interface JobAnalytics {
+  jobId: string;
+  title: string;
+  applicantCount: number;
+  averageBid: string;
+  minBid: string;
+  maxBid: string;
+  views?: number;
+  applications: Array<{
+    freelancerAddress: string;
+    bidAmount: string;
+    createdAt: string;
+  }>;
+  applicationsPerDay: Array<{ day: string; count: number }>;
+  averageBidAmount: Array<{ currency: string; avgBid: number; count: number }>;
+  skillDistribution: Record<string, number>;
+  daysToHire: number | null;
+  applicationStatusCounts: Record<string, number>;
+}
+
+// ─── Bulk Actions ────────────────────────────────────────────────────────────
+
+export interface BulkActionResponse {
+  success: boolean;
+  message?: string;
+  succeeded: number;
+  failed: number;
+  processedCount: number;
+  failedCount: number;
+  results: { id: string; success: boolean; error?: string; boostedUntil?: string }[];
+}
+
+// ─── Job Invitations ─────────────────────────────────────────────────────────
+
+export interface JobInvitation {
+  id: string;
+  jobId: string;
+  clientAddress: string;
+  clientName?: string;
+  freelancerAddress: string;
+  jobTitle: string;
+  jobBudget: string;
+  jobCurrency: Currency;
+  status: "pending" | "accepted" | "declined";
   createdAt: string;
 }

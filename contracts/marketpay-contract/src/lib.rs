@@ -20,11 +20,16 @@
  */
 
 #![no_std]
+#![allow(
+    clippy::too_many_arguments,
+    clippy::manual_range_contains,
+    unused_variables
+)]
 
 use soroban_sdk::{
     contract, contractimpl, contracttype, token,
     symbol_short,
-    Address, BytesN, Env, String, Symbol, Vec,
+    Address, BytesN, Env, String, Vec,
 };
 
 // ─── Storage keys ─────────────────────────────────────────────────────────────
@@ -35,6 +40,17 @@ const DEFAULT_TIMEOUT_SECONDS: u32 = 7 * 24 * 60 * 60;
 const DEFAULT_TIMEOUT_LEDGERS: u32 = 120_960;
 
 // ─── Data structures ──────────────────────────────────────────────────────────
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct CreateEscrowParams {
+    pub freelancer: Address,
+    pub token: Address,
+    pub amount: i128,
+    pub milestones: Option<soroban_sdk::Vec<i128>>,
+    pub timeout_ledgers: Option<u32>,
+    pub referrer: Option<Address>,
+}
+
 
 /// Status of an escrow agreement.
 #[contracttype]
@@ -201,6 +217,7 @@ pub struct Proposal {
 #[contract]
 pub struct MarketPayContract;
 
+#[allow(clippy::too_many_arguments)]
 #[contractimpl]
 impl MarketPayContract {
     // ─── Initialization ──────────────────────────────────────────────────────
@@ -264,6 +281,26 @@ impl MarketPayContract {
     ///   timeout_ledgers  — optional ledger timeout (default 7 days)
     ///   referrer         — optional referrer address; receives 2% bonus on release
     pub fn create_escrow(
+        env: Env,
+        job_id: String,
+        client: Address,
+        params: CreateEscrowParams,
+    ) {
+        Self::create_escrow_internal(
+            env,
+            job_id,
+            client,
+            params.freelancer,
+            params.token,
+            params.amount,
+            params.milestones,
+            params.timeout_ledgers,
+            params.referrer,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn create_escrow_internal(
         env: Env,
         job_id: String,
         client: Address,
@@ -374,7 +411,7 @@ impl MarketPayContract {
 
         // Emit event
         env.events().publish(
-            (Symbol::new(&env, "escrow_created"), job_id.clone()),
+            (symbol_short!("escrow_cr"), job_id.clone()),
             (escrow.client.clone(), escrow.freelancer.clone(), escrow.amount),
         );
     }
@@ -402,7 +439,7 @@ impl MarketPayContract {
             .set(&DataKey::Escrow(job_id.clone()), &escrow);
 
         env.events().publish(
-            (Symbol::new(&env, "work_started"), job_id.clone()),
+            (symbol_short!("work_strt"), job_id.clone()),
             (escrow.client.clone(), escrow.freelancer.clone()),
         );
     }
@@ -523,12 +560,12 @@ impl MarketPayContract {
             }
 
             env.events().publish(
-                (Symbol::new(&env, "escrow_released"), job_id.clone()),
+                (symbol_short!("escrow_rl"), job_id.clone()),
                 (escrow.client.clone(), escrow.freelancer.clone(), freelancer_amount, referral_amount),
             );
         } else {
             env.events().publish(
-                (Symbol::new(&env, "escrow_released"), job_id.clone()),
+                (symbol_short!("escrow_rl"), job_id.clone()),
                 (escrow.client.clone(), escrow.freelancer.clone(), 0i128, 0i128),
             );
         }
@@ -540,8 +577,8 @@ impl MarketPayContract {
         env: Env,
         job_id: String,
         client: Address,
-        target_token: Address,
-        min_amount_out: i128,
+        _target_token: Address,
+        _min_amount_out: i128,
     ) {
         client.require_auth();
 
@@ -630,7 +667,7 @@ impl MarketPayContract {
             .remove(&DataKey::TimeoutTimestamp(job_id.clone()));
 
         env.events().publish(
-            (Symbol::new(&env, "escrow_released"), job_id.clone()),
+            (symbol_short!("escrow_rl"), job_id.clone()),
             (escrow.client.clone(), escrow.freelancer.clone(), release_amount),
         );
     }
@@ -664,7 +701,7 @@ impl MarketPayContract {
         env.storage().instance().set(&DataKey::Escrow(job_id.clone()), &escrow);
 
         env.events().publish(
-            (Symbol::new(&env, "escrow_refunded"), job_id.clone()),
+            (symbol_short!("escrow_rf"), job_id.clone()),
             (escrow.client.clone(), escrow.freelancer.clone(), escrow.amount),
         );
     }
@@ -715,7 +752,7 @@ impl MarketPayContract {
         env.storage().instance().set(&DataKey::Escrow(job_id.clone()), &escrow);
 
         env.events().publish(
-            (Symbol::new(&env, "escrow_refunded"), job_id.clone()),
+            (symbol_short!("escrow_rf"), job_id.clone()),
             (escrow.client.clone(), escrow.freelancer.clone(), escrow.amount),
         );
     }
@@ -844,7 +881,7 @@ impl MarketPayContract {
         sender.require_auth();
 
         // Basic validation
-        if ipfs_cid.len() == 0 {
+        if ipfs_cid.is_empty() {
             panic!("IPFS CID cannot be empty");
         }
 
@@ -858,7 +895,7 @@ impl MarketPayContract {
         let ledger_seq = env.ledger().sequence();
 
         env.events().publish(
-            (Symbol::new(&env, "message_sent"), job_id.clone()),
+            (symbol_short!("msg_sent"), job_id.clone()),
             (
                 sender.clone(),
                 recipient.clone(),
@@ -1062,7 +1099,7 @@ impl MarketPayContract {
             .set(&DataKey::Escrow(job_id.clone()), &escrow);
 
         env.events().publish(
-            (Symbol::new(&env, "escrow_disputed"), job_id.clone()),
+            (symbol_short!("escrow_ds"), job_id.clone()),
             (escrow.client.clone(), escrow.freelancer.clone(), caller.clone()),
         );
     }
@@ -1152,7 +1189,7 @@ impl MarketPayContract {
             .set(&DataKey::Escrow(job_id.clone()), &escrow);
 
         env.events().publish(
-            (Symbol::new(&env, "milestone_released"), job_id.clone()),
+            (symbol_short!("ms_rel"), job_id.clone()),
             (escrow.client.clone(), escrow.freelancer.clone(), milestone_index, milestone.amount),
         );
     }
@@ -1423,7 +1460,7 @@ impl MarketPayContract {
 
     pub fn submit_client_rating(env: Env, job_id: String, client: Address, score: u32) {
         client.require_auth();
-        if score < 1 || score > 5 {
+        if !(1..=5).contains(&score) {
             panic!("Score must be between 1 and 5");
         }
 
@@ -1477,7 +1514,7 @@ impl MarketPayContract {
 
     pub fn submit_freelancer_rating(env: Env, job_id: String, freelancer: Address, score: u32) {
         freelancer.require_auth();
-        if score < 1 || score > 5 {
+        if !(1..=5).contains(&score) {
             panic!("Score must be between 1 and 5");
         }
 
@@ -1791,7 +1828,8 @@ mod timeout_tests {
 
         let contract_client_addr = Address::generate(env);
         let freelancer = Address::generate(env);
-        let token_id = env.register_stellar_asset_contract(admin.clone());
+        let token_contract = env.register_stellar_asset_contract_v2(admin.clone());
+        let token_id = token_contract.address();
         let token_admin = token::StellarAssetClient::new(env, &token_id);
         token_admin.mint(&contract_client_addr, &1000);
 
@@ -1806,7 +1844,7 @@ mod timeout_tests {
 
         let job_id = String::from_str(&env, "timeout_job_1");
         let timeout_ledgers = 10u32;
-        client.create_escrow(&job_id, &contract_client, &freelancer, &token_id, &1000, &None, &Some(timeout_ledgers), &None);
+        client.create_escrow(&job_id, &contract_client, &CreateEscrowParams { freelancer: freelancer.clone(), token: token_id.clone(), amount: 1000, milestones: None, timeout_ledgers: Some(timeout_ledgers), referrer: None });
 
         let escrow = client.get_escrow(&job_id);
         assert_eq!(escrow.status, EscrowStatus::Locked);
@@ -1815,9 +1853,10 @@ mod timeout_tests {
             env.ledger().sequence() + timeout_ledgers
         );
 
-        // Advance ledger past timeout
+        // Advance ledger past timeout (both sequence and timestamp)
         let mut ledger_info = env.ledger().get();
         ledger_info.sequence_number += timeout_ledgers + 1;
+        ledger_info.timestamp += (DEFAULT_TIMEOUT_SECONDS + 1) as u64; // Advance timestamp too
         env.ledger().set(ledger_info);
 
         client.timeout_refund(&job_id, &contract_client);
@@ -1838,7 +1877,7 @@ mod timeout_tests {
 
         let job_id = String::from_str(&env, "timeout_job_2");
         let timeout_ledgers = 100u32;
-        client.create_escrow(&job_id, &contract_client, &freelancer, &token_id, &1000, &None, &Some(timeout_ledgers), &None);
+        client.create_escrow(&job_id, &contract_client, &CreateEscrowParams { freelancer: freelancer.clone(), token: token_id.clone(), amount: 1000, milestones: None, timeout_ledgers: Some(timeout_ledgers), referrer: None });
 
         // Try to timeout refund before timeout — should panic
         client.timeout_refund(&job_id, &contract_client);
@@ -1853,7 +1892,7 @@ mod timeout_tests {
 
         let job_id = String::from_str(&env, "timeout_job_3");
         let timeout_ledgers = 5u32;
-        client.create_escrow(&job_id, &contract_client, &freelancer, &token_id, &1000, &None, &Some(timeout_ledgers), &None);
+        client.create_escrow(&job_id, &contract_client, &CreateEscrowParams { freelancer: freelancer.clone(), token: token_id.clone(), amount: 1000, milestones: None, timeout_ledgers: Some(timeout_ledgers), referrer: None });
 
         let mut ledger_info = env.ledger().get();
         ledger_info.sequence_number += timeout_ledgers + 1;
@@ -1872,7 +1911,7 @@ mod timeout_tests {
 
         let job_id = String::from_str(&env, "timeout_job_4");
         let timeout_ledgers = 10u32;
-        client.create_escrow(&job_id, &contract_client, &freelancer, &token_id, &1000, &None, &Some(timeout_ledgers), &None);
+        client.create_escrow(&job_id, &contract_client, &CreateEscrowParams { freelancer: freelancer.clone(), token: token_id.clone(), amount: 1000, milestones: None, timeout_ledgers: Some(timeout_ledgers), referrer: None });
 
         // Start work changes status to InProgress
         client.start_work(&job_id, &contract_client);
@@ -1892,7 +1931,7 @@ mod timeout_tests {
 
         let job_id = String::from_str(&env, "custom_timeout_job");
         let custom_timeout = 50u32;
-        client.create_escrow(&job_id, &contract_client, &freelancer, &token_id, &500, &None, &Some(custom_timeout), &None);
+        client.create_escrow(&job_id, &contract_client, &CreateEscrowParams { freelancer: freelancer.clone(), token: token_id.clone(), amount: 500, milestones: None, timeout_ledgers: Some(custom_timeout), referrer: None });
 
         let escrow = client.get_escrow(&job_id);
         assert_eq!(
@@ -1908,7 +1947,7 @@ mod timeout_tests {
         let (client, contract_client, freelancer, token_id, _admin) = setup_contract(&env);
 
         let job_id = String::from_str(&env, "default_timeout_job");
-        client.create_escrow(&job_id, &contract_client, &freelancer, &token_id, &500, &None, &None, &None);
+        client.create_escrow(&job_id, &contract_client, &CreateEscrowParams { freelancer: freelancer.clone(), token: token_id.clone(), amount: 500, milestones: None, timeout_ledgers: None, referrer: None });
 
         let escrow = client.get_escrow(&job_id);
         assert_eq!(
@@ -1925,7 +1964,7 @@ mod timeout_tests {
 
         let job_id = String::from_str(&env, "get_timeout_job");
         let timeout = 25u32;
-        client.create_escrow(&job_id, &contract_client, &freelancer, &token_id, &500, &None, &Some(timeout), &None);
+        client.create_escrow(&job_id, &contract_client, &CreateEscrowParams { freelancer: freelancer.clone(), token: token_id.clone(), amount: 500, milestones: None, timeout_ledgers: Some(timeout), referrer: None });
 
         assert_eq!(
             client.get_timeout_ledger(&job_id),
@@ -1958,7 +1997,7 @@ mod regression_tests {
         milestones.push_back(i128::MAX);
         milestones.push_back(1);
         
-        client.create_escrow(&job_id, &admin, &freelancer, &token, &i128::MAX, &Some(milestones), &None, &None);
+        client.create_escrow(&job_id, &admin, &CreateEscrowParams { freelancer: freelancer.clone(), token: token.clone(), amount: i128::MAX, milestones: Some(milestones), timeout_ledgers: None, referrer: None });
     }
 
     #[test]
@@ -1974,13 +2013,14 @@ mod regression_tests {
         let client = Address::generate(&env);
         let freelancer = Address::generate(&env);
 
-        let token_id = env.register_stellar_asset_contract(admin.clone());
+        let token_contract = env.register_stellar_asset_contract_v2(admin.clone());
+        let token_id = token_contract.address();
         let token_client = token::Client::new(&env, &token_id);
         let token_admin = token::StellarAssetClient::new(&env, &token_id);
         token_admin.mint(&client, &1000);
 
         let job_id = String::from_str(&env, "job1");
-        contract_client.create_escrow(&job_id, &client.clone(), &freelancer, &token_id, &1000, &None, &None, &None);
+        contract_client.create_escrow(&job_id, &client.clone(), &CreateEscrowParams { freelancer: freelancer.clone(), token: token_id.clone(), amount: 1000, milestones: None, timeout_ledgers: None, referrer: None });
         contract_client.start_work(&job_id, &client.clone());
 
         contract_client.release_escrow(&job_id, &client.clone());
@@ -2003,12 +2043,13 @@ mod regression_tests {
         let client = Address::generate(&env);
         let freelancer = Address::generate(&env);
 
-        let token_id = env.register_stellar_asset_contract(admin.clone());
+        let token_contract = env.register_stellar_asset_contract_v2(admin.clone());
+        let token_id = token_contract.address();
         let token_admin = token::StellarAssetClient::new(&env, &token_id);
         token_admin.mint(&client, &1000);
 
         let job_id = String::from_str(&env, "job_conv");
-        contract_client.create_escrow(&job_id, &client.clone(), &freelancer, &token_id, &1000, &None, &None, &None);
+        contract_client.create_escrow(&job_id, &client.clone(), &CreateEscrowParams { freelancer: freelancer.clone(), token: token_id.clone(), amount: 1000, milestones: None, timeout_ledgers: None, referrer: None });
         
         let target_token = Address::generate(&env); 
         contract_client.release_with_conversion(&job_id, &client.clone(), &target_token, &900);
@@ -2029,7 +2070,8 @@ mod regression_tests {
         let client = Address::generate(&env);
         let freelancer = Address::generate(&env);
 
-        let token_id = env.register_stellar_asset_contract(admin.clone());
+        let token_contract = env.register_stellar_asset_contract_v2(admin.clone());
+        let token_id = token_contract.address();
         let token_client = token::Client::new(&env, &token_id);
         let token_admin = token::StellarAssetClient::new(&env, &token_id);
         token_admin.mint(&client, &1000);
@@ -2039,7 +2081,7 @@ mod regression_tests {
         milestones.push_back(600);
 
         let job_id = String::from_str(&env, "job_partial");
-        contract_client.create_escrow(&job_id, &client.clone(), &freelancer, &token_id, &1000, &Some(milestones), &None, &None);
+        contract_client.create_escrow(&job_id, &client.clone(), &CreateEscrowParams { freelancer: freelancer.clone(), token: token_id.clone(), amount: 1000, milestones: Some(milestones), timeout_ledgers: None, referrer: None });
         contract_client.start_work(&job_id, &client.clone());
 
         // Raise dispute to test that we can still partial release
@@ -2100,12 +2142,13 @@ mod upgrade_tests {
 
         let depositor = Address::generate(&env);
         let freelancer = Address::generate(&env);
-        let token_id = env.register_stellar_asset_contract(admin.clone());
+        let token_contract = env.register_stellar_asset_contract_v2(admin.clone());
+        let token_id = token_contract.address();
         let token_admin = token::StellarAssetClient::new(&env, &token_id);
         token_admin.mint(&depositor, &500);
 
         let job_id = String::from_str(&env, "upgrade_job_1");
-        client.create_escrow(&job_id, &depositor, &freelancer, &token_id, &500, &None, &None, &None);
+        client.create_escrow(&job_id, &depositor, &CreateEscrowParams { freelancer: freelancer.clone(), token: token_id.clone(), amount: 500, milestones: None, timeout_ledgers: None, referrer: None });
 
         // Simulate the version bump that upgrade() performs (without WASM swap)
         env.as_contract(&id, || {
@@ -2156,7 +2199,8 @@ mod event_tests {
 
         let contract_client = Address::generate(env);
         let freelancer = Address::generate(env);
-        let token_id = env.register_stellar_asset_contract(admin.clone());
+        let token_contract = env.register_stellar_asset_contract_v2(admin.clone());
+        let token_id = token_contract.address();
         let token_admin = token::StellarAssetClient::new(env, &token_id);
         token_admin.mint(&contract_client, &1000);
 
@@ -2177,13 +2221,13 @@ mod event_tests {
         let job_id = String::from_str(&env, "evt-job-1");
 
         client.create_escrow(
-            &job_id, &contract_client, &freelancer, &token_id, &500,
-            &None, &None, &None,
+            &job_id, &contract_client,
+            &CreateEscrowParams { freelancer: freelancer.clone(), token: token_id.clone(), amount: 500, milestones: None, timeout_ledgers: None, referrer: None },
         );
 
         let last_idx = env.events().all().len() - 1;
         assert!(
-            get_event_topic0_str(&env, last_idx).contains("escrow_created"),
+            get_event_topic0_str(&env, last_idx).contains("escrow_cr"),
         );
     }
 
@@ -2193,14 +2237,14 @@ mod event_tests {
         let (client, contract_client, freelancer, token_id) = setup(&env);
         let job_id = String::from_str(&env, "evt-job-2");
         client.create_escrow(
-            &job_id, &contract_client, &freelancer, &token_id, &500,
-            &None, &None, &None,
+            &job_id, &contract_client,
+            &CreateEscrowParams { freelancer: freelancer.clone(), token: token_id.clone(), amount: 500, milestones: None, timeout_ledgers: None, referrer: None },
         );
 
         client.start_work(&job_id, &contract_client);
 
         assert!(
-            get_event_topic0_str(&env, env.events().all().len() - 1).contains("work_started"),
+            get_event_topic0_str(&env, env.events().all().len() - 1).contains("work_strt"),
         );
     }
 
@@ -2210,15 +2254,15 @@ mod event_tests {
         let (client, contract_client, freelancer, token_id) = setup(&env);
         let job_id = String::from_str(&env, "evt-job-3");
         client.create_escrow(
-            &job_id, &contract_client, &freelancer, &token_id, &500,
-            &None, &None, &None,
+            &job_id, &contract_client,
+            &CreateEscrowParams { freelancer: freelancer.clone(), token: token_id.clone(), amount: 500, milestones: None, timeout_ledgers: None, referrer: None },
         );
         client.start_work(&job_id, &contract_client);
 
         client.release_escrow(&job_id, &contract_client);
 
         assert!(
-            get_event_topic0_str(&env, env.events().all().len() - 1).contains("escrow_released"),
+            get_event_topic0_str(&env, env.events().all().len() - 1).contains("escrow_rl"),
         );
     }
 
@@ -2228,14 +2272,14 @@ mod event_tests {
         let (client, contract_client, freelancer, token_id) = setup(&env);
         let job_id = String::from_str(&env, "evt-job-4");
         client.create_escrow(
-            &job_id, &contract_client, &freelancer, &token_id, &500,
-            &None, &None, &None,
+            &job_id, &contract_client,
+            &CreateEscrowParams { freelancer: freelancer.clone(), token: token_id.clone(), amount: 500, milestones: None, timeout_ledgers: None, referrer: None },
         );
 
         client.refund_escrow(&job_id, &contract_client);
 
         assert!(
-            get_event_topic0_str(&env, env.events().all().len() - 1).contains("escrow_refunded"),
+            get_event_topic0_str(&env, env.events().all().len() - 1).contains("escrow_rf"),
         );
     }
 
@@ -2245,14 +2289,14 @@ mod event_tests {
         let (client, contract_client, freelancer, token_id) = setup(&env);
         let job_id = String::from_str(&env, "evt-job-5");
         client.create_escrow(
-            &job_id, &contract_client, &freelancer, &token_id, &500,
-            &None, &None, &None,
+            &job_id, &contract_client,
+            &CreateEscrowParams { freelancer: freelancer.clone(), token: token_id.clone(), amount: 500, milestones: None, timeout_ledgers: None, referrer: None },
         );
 
         client.raise_dispute(&job_id, &contract_client);
 
         assert!(
-            get_event_topic0_str(&env, env.events().all().len() - 1).contains("escrow_disputed"),
+            get_event_topic0_str(&env, env.events().all().len() - 1).contains("escrow_ds"),
         );
     }
 
@@ -2265,15 +2309,15 @@ mod event_tests {
         milestones.push_back(400);
         milestones.push_back(600);
         client.create_escrow(
-            &job_id, &contract_client, &freelancer, &token_id, &1000,
-            &Some(milestones), &None, &None,
+            &job_id, &contract_client,
+            &CreateEscrowParams { freelancer: freelancer.clone(), token: token_id.clone(), amount: 1000, milestones: Some(milestones), timeout_ledgers: None, referrer: None },
         );
         client.start_work(&job_id, &contract_client);
 
         client.partial_release(&job_id, &0u32, &contract_client);
 
         assert!(
-            get_event_topic0_str(&env, env.events().all().len() - 1).contains("milestone_released"),
+            get_event_topic0_str(&env, env.events().all().len() - 1).contains("ms_rel"),
         );
     }
 
@@ -2284,94 +2328,24 @@ mod event_tests {
         let job_id = String::from_str(&env, "evt-job-7");
 
         client.create_escrow(
-            &job_id, &contract_client, &freelancer, &token_id, &500,
-            &None, &None, &None,
+            &job_id, &contract_client,
+            &CreateEscrowParams { freelancer: freelancer.clone(), token: token_id.clone(), amount: 500, milestones: None, timeout_ledgers: None, referrer: None },
         );
+        assert!(
+            get_event_topic0_str(&env, env.events().all().len() - 1).contains("escrow_cr"),
+            "Missing escrow_cr after create_escrow",
+        );
+
         client.start_work(&job_id, &contract_client);
+        assert!(
+            get_event_topic0_str(&env, env.events().all().len() - 1).contains("work_strt"),
+            "Missing work_strt after start_work",
+        );
+
         client.release_escrow(&job_id, &contract_client);
-
-        // Verify each stage emitted events with correct symbols
-        let events = env.events().all();
-        let symbols: std::vec::Vec<std::string::String> = (0..events.len())
-            .map(|i| get_event_topic0_str(&env, i))
-            .collect();
-        let joined = symbols.join(", ");
-
-        assert!(joined.contains("escrow_created"), "Missing escrow_created: {}", joined);
-        assert!(joined.contains("work_started"), "Missing work_started: {}", joined);
-        assert!(joined.contains("escrow_released"), "Missing escrow_released: {}", joined);
+        assert!(
+            get_event_topic0_str(&env, env.events().all().len() - 1).contains("escrow_rl"),
+            "Missing escrow_rl after release_escrow",
+        );
     }
-}
-
-/*
-#[cfg(test)]
-mod fuzz_testing {
-    extern crate alloc;
-    use alloc::format;
-    use super::*;
-    use soroban_sdk::{testutils::Address as _, Address, Env, String};
-
-    #[test]
-    fn fuzz_create_escrow_random_amounts() {
-        let env = Env::default();
-        env.mock_all_auths();
-        let id = env.register(MarketPayContract, ());
-        let client = MarketPayContractClient::new(&env, &id);
-
-        let admin = Address::generate(&env);
-        client.initialize(&admin);
-
-        let freelancer = Address::generate(&env);
-        let token_id = env.register_stellar_asset_contract(admin.clone());
-        let token_admin = token::StellarAssetClient::new(&env, &token_id);
-
-        // Test a range of amounts
-        for i in 1..100 {
-            let amount = (i as i128) * 1000;
-            let job_id = String::from_str(&env, &format!("fuzz_job_{}", i));
-
-            let user = Address::generate(&env);
-            token_admin.mint(&user, &amount);
-
-            client.create_escrow(&job_id, &user, &freelancer, &token_id, &amount, &None, &None);
-
-            let escrow = client.get_escrow(&job_id);
-            assert_eq!(escrow.amount, amount);
-        }
-    }
-
-    #[test]
-    fn fuzz_release_escrow_lifecycle() {
-        let env = Env::default();
-        env.mock_all_auths();
-        let id = env.register(MarketPayContract, ());
-        let client = MarketPayContractClient::new(&env, &id);
-
-        let admin = Address::generate(&env);
-        client.initialize(&admin);
-
-        let user = Address::generate(&env);
-        let freelancer = Address::generate(&env);
-        let token_id = env.register_stellar_asset_contract(admin.clone());
-        let token_admin = token::StellarAssetClient::new(&env, &token_id);
-
-        token_admin.mint(&user, &1000000);
-
-        for i in 1..50 {
-            let job_id = String::from_str(&env, &format!("lifecycle_{}", i));
-            client.create_escrow(&job_id, &user, &freelancer, &token_id, &1000, &None, &None);
-
-            // Randomly decide to start work or not
-            if i % 2 == 0 {
-                client.start_work(&job_id, &user);
-            }
-
-            client.release_escrow(&job_id, &user);
-
-            let escrow = client.get_escrow(&job_id);
-            assert_eq!(escrow.status, EscrowStatus::Released);
-        }
-    }
-}
-*/
 }

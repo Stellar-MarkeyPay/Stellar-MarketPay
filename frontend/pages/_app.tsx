@@ -15,6 +15,7 @@ import {
   fetchAuthChallenge,
   verifyAuthChallenge,
   setJwtToken,
+  logout,
   registerReferral,
 } from "@/lib/api";
 import "@/styles/globals.css";
@@ -26,9 +27,20 @@ import { useBackgroundSync } from "@/hooks/useBackgroundSync";
 import "../lib/i18n";
 
 const REF_STORAGE_KEY = "marketpay_pending_referrer";
+const WALLET_PUBLIC_KEY_STORAGE_KEY = "marketpay_last_public_key";
+
+function loadStoredPublicKey(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const stored = localStorage.getItem(WALLET_PUBLIC_KEY_STORAGE_KEY);
+    return stored && /^G[A-Z0-9]{55}$/.test(stored) ? stored : null;
+  } catch {
+    return null;
+  }
+}
 
 function App({ Component, pageProps }: AppProps) {
-  const [publicKey, setPublicKey] = useState<string | null>(null);
+  const [publicKey, setPublicKey] = useState<string | null>(() => loadStoredPublicKey());
   const [shortcutsModalOpen, setShortcutsModalOpen] = useState(false);
   const [deferredInstallPrompt, setDeferredInstallPrompt] = useState<{
     prompt: () => Promise<void>;
@@ -92,6 +104,17 @@ function App({ Component, pageProps }: AppProps) {
     }
   }, []);
 
+  const persistPublicKey = useCallback((pk: string | null) => {
+    setPublicKey(pk);
+    if (typeof window === "undefined") return;
+    try {
+      if (pk) localStorage.setItem(WALLET_PUBLIC_KEY_STORAGE_KEY, pk);
+      else localStorage.removeItem(WALLET_PUBLIC_KEY_STORAGE_KEY);
+    } catch {
+      // Ignore storage failures; wallet state still works in memory.
+    }
+  }, []);
+
   const handleAuthAndConnect = async (pk: string) => {
     try {
       const challengeTx = await fetchAuthChallenge(pk);
@@ -114,12 +137,14 @@ function App({ Component, pageProps }: AppProps) {
       if (pk) {
         const authenticated = await handleAuthAndConnect(pk);
         if (authenticated) {
-          setPublicKey(pk);
+          persistPublicKey(pk);
           await maybeRegisterReferral(pk);
+        } else {
+          persistPublicKey(null);
         }
       }
     });
-  }, []);
+  }, [maybeRegisterReferral, persistPublicKey]);
 
   useEffect(() => {
     if (typeof window !== "undefined" && "serviceWorker" in navigator) {
@@ -156,7 +181,7 @@ function App({ Component, pageProps }: AppProps) {
     if (pk) {
       const authenticated = await handleAuthAndConnect(pk);
       if (authenticated) {
-        setPublicKey(pk);
+        persistPublicKey(pk);
         await maybeRegisterReferral(pk);
       } else {
         alert("Wallet connected, but authentication failed.");
@@ -168,8 +193,8 @@ function App({ Component, pageProps }: AppProps) {
 
   return (
     <>
-      <ToastProvider>
-        <PriceProvider>
+      <PriceProvider>
+        <ToastProvider>
           <Head>
             <title>
               Stellar MarketPay — Decentralised Freelance Marketplace
@@ -202,7 +227,7 @@ function App({ Component, pageProps }: AppProps) {
             <Navbar
               publicKey={publicKey}
               onConnect={handleConnect}
-              onDisconnect={() => setPublicKey(null)}
+              onDisconnect={() => persistPublicKey(null)}
             />
             <main id="main-content" className="flex-1">
               <Component
@@ -227,8 +252,8 @@ function App({ Component, pageProps }: AppProps) {
               onClose={handleCloseShortcutsModal}
             />
           </div>
-        </PriceProvider>
-      </ToastProvider>
+        </ToastProvider>
+      </PriceProvider>
     </>
   );
 }

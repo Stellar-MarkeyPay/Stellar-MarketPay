@@ -21,6 +21,9 @@ import {
   fetchMyInvitations,
   declineInvitation,
   acceptInvitation,
+  bulkCancelJobs,
+  bulkExtendJobs,
+  bulkBoostJobs,
   fetchSavedSearches,
   updateSavedSearch,
   deleteSavedSearch,
@@ -36,8 +39,10 @@ import WithdrawToBankModal, {
   type WithdrawHistoryEntry,
 } from "@/components/WithdrawToBankModal";
 import { useToast } from "@/components/Toast";
+import StateMessage from "@/components/StateMessage";
 import clsx from "clsx";
 import JobAnalytics from "@/components/JobAnalytics";
+import JobTimeline from "@/components/JobTimeline";
 import BulkJobActionBar from "@/components/BulkJobActionBar";
 import JobStatusTimeline from "@/components/JobStatusTimeline";
 import ExtendJobModal from "@/components/ExtendJobModal";
@@ -48,6 +53,9 @@ import { useOnboarding } from "@/hooks/useOnboarding";
 import ReferralDashboard from "@/components/ReferralDashboard";
 
 const LOW_BALANCE_THRESHOLD_XLM = 5;
+const IS_CONTRACT_MOCK_DEV_MODE =
+  process.env.NODE_ENV !== "production" &&
+  process.env.NEXT_PUBLIC_USE_CONTRACT_MOCK === "true";
 const CATEGORY_ICONS: Record<string, string> = {
   web: "Web",
   mobile: "Mobile",
@@ -61,7 +69,7 @@ interface DashboardProps {
   onConnect: (pk: string) => void;
 }
 
-type Tab = "posted" | "applied" | "invitations" | "analytics" | "spending" | "send" | "edit_profile" | "templates" | "price_alerts" | "withdrawals" | "saved_searches";
+type Tab = "posted" | "applied" | "invitations" | "analytics" | "spending" | "send" | "edit_profile" | "templates" | "price_alerts" | "withdrawals" | "saved_searches" | "referrals";
 const REPOST_JOB_PREFILL_STORAGE_KEY = "marketpay_repost_job_prefill";
 
 async function fetchBalances(
@@ -126,6 +134,14 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
   // ── Saved searches state (Issue #284) ──────────────────────────────────────
   const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([]);
   const [savedSearchesLoading, setSavedSearchesLoading] = useState(false);
+
+  const handleResetContractMock = async () => {
+    if (!IS_CONTRACT_MOCK_DEV_MODE) return;
+
+    const { clearMockData } = await import("@/lib/contractMock");
+    clearMockData();
+    success("Mock contract data reset");
+  };
 
   // ── Bulk selection state ──────────────────────────────────────────────────
   const [selectedJobIds, setSelectedJobIds] = useState<Set<string>>(new Set());
@@ -415,7 +431,22 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
             >
               Withdraw to Bank
             </button>
+            {IS_CONTRACT_MOCK_DEV_MODE && (
+              <button
+                onClick={handleResetContractMock}
+                className="btn-secondary text-xs py-1.5 px-3 border-red-400/30 text-red-300 hover:bg-red-400/10"
+                title="Mock-only: clears locally persisted escrow test data"
+              >
+                Reset Mock
+              </button>
+            )}
           </div>
+          {IS_CONTRACT_MOCK_DEV_MODE && (
+            <p className="mt-2 text-xs text-amber-700">
+              Mock-only contract escrow state is persisted in this browser for
+              local development and can be cleared with Reset Mock.
+            </p>
+          )}
         </div>
 
         {usdcBalance !== null && (
@@ -787,12 +818,9 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
                     {template.content}
                   </p>
                 </div>
-                <p className="font-mono font-semibold text-market-400">{formatXLM(app.bidAmount)}</p>
-              </Link>
-            ))}
+              )))}
           </div>
-        )
-      ) : tab === "invitations" ? (
+        ) : tab === "invitations" ? (
         myInvitations.length === 0 ? (
           <div className="card text-center py-16">
             <p className="font-display text-xl text-amber-100 mb-2">No invitations yet</p>
@@ -845,38 +873,7 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
             ))}
           </div>
         )
-      ) : tab === "analytics" ? (
-        selectedJob ? <JobAnalytics job={selectedJob} onExtend={() => handleExtendJob(selectedJob.id)} /> : (
-          <div className="space-y-3">
-            {myJobs.map((job) => (
-              <button key={job.id} onClick={() => setSelectedJob(job)} className="btn-secondary text-sm px-3 py-2 mr-2 mb-2">{job.title}{extendingJob === job.id ? " (Extending...)" : ""}</button>
-            ))}
-          </div>
-        )
-      ) : tab === "spending" ? (
-        <ClientSpendingTab analytics={spendingAnalytics} loading={spendingLoading} xlmPriceUsd={xlmPriceUsd} />
-      ) : tab === "send" ? (
-        <SendPaymentForm fromPublicKey={publicKey} />
-      ) : tab === "templates" ? (
-        <div className="space-y-4">
-          <div className="card space-y-3">
-            <input value={templateName} onChange={(e) => setTemplateName(e.target.value)} className="input-field" placeholder="Template name" />
-            <textarea value={templateContent} onChange={(e) => setTemplateContent(e.target.value)} className="textarea-field" rows={5} placeholder="Template proposal content" />
-            <button className="btn-primary text-sm" onClick={async () => {
-              if (!templateName.trim() || !templateContent.trim()) return;
-              if (editingTemplateId) {
-                const updated = await updateProposalTemplate(editingTemplateId, { name: templateName, content: templateContent });
-                setTemplates((current) => current.map((item) => item.id === updated.id ? updated : item));
-                setEditingTemplateId(null);
-              } else {
-                const created = await createProposalTemplate({ name: templateName, content: templateContent });
-                setTemplates((current) => [created, ...current]);
-              }
-              setTemplateName("");
-              setTemplateContent("");
-            }}>{editingTemplateId ? "Update Template" : "Create Template"}</button>
-          </div>
-        ) : tab === "price_alerts" ? (
+      ) : tab === "price_alerts" ? (
           (!minPrice && !maxPrice && !emailEnabled) ? (
             <StateMessage
               type="empty"
@@ -990,8 +987,8 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
                     </div>
                     <p className="text-xs text-amber-800">
                       Saved {new Date(s.created_at).toLocaleDateString()} ·
-                      In-app: {s.notify_in_app ? "✓" : "✕"} ·
-                      Email: {s.notify_email ? "✓" : "✕"}
+                      In-app: {s.notify_in_app ? "\u2713" : "\u2715"} ·
+                      Email: {s.notify_email ? "\u2713" : "\u2715"}
                     </p>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
@@ -1014,9 +1011,8 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
                           ? "bg-market-500/15 text-market-300 border-market-500/30"
                           : "bg-ink-800 text-amber-700 border-market-500/10"
                       }`}
-                      title="Toggle in-app notifications"
                     >
-                      🔔 In-app
+                      In-app
                     </button>
                     <button
                       onClick={async () => {
@@ -1029,9 +1025,8 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
                         }
                       }}
                       className="text-xs px-3 py-2 rounded-lg border border-red-500/20 text-red-400 hover:bg-red-500/10 min-h-[44px] transition-colors"
-                      title="Delete saved search"
                     >
-                      ✕ Remove
+                      Remove
                     </button>
                   </div>
                 </div>
