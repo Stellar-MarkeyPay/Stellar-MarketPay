@@ -34,6 +34,18 @@ async function verifyJWT(req, res, next) {
   }
 }
 
+function requireAdminRole(req, res, next) {
+  if (!req.user) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  if (req.user.role !== "admin") {
+    return res.status(403).json({ error: "Forbidden: Admin access required" });
+  }
+
+  return next();
+}
+
 async function requireAdmin2FA(req, res, next) {
   if (req.user?.role !== "admin") return next();
 
@@ -51,4 +63,4 @@ async function requireAdmin2FA(req, res, next) {
   }
 }
 
-module.exports = { verifyJWT, requireAdmin2FA, JWT_SECRET, requireJwtSecret };
+module.exports = { verifyJWT, requireAdminRole, requireAdmin2FA, JWT_SECRET, requireJwtSecret };

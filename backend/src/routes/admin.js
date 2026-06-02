@@ -7,22 +7,9 @@
 const express = require("express");
 const router = express.Router();
 const pool = require("../db/pool");
-const { verifyJWT, requireAdmin2FA } = require("../middleware/auth");
+const { verifyJWT, requireAdminRole, requireAdmin2FA } = require("../middleware/auth");
 const { updateJobStatus } = require("../services/jobService");
 const { logContractInteraction } = require("../services/contractAuditService");
-
-// ── Admin Role Guard ───────────────────────────────────────────────────────────
-function requireAdmin(req, res, next) {
-  if (!req.user) return res.status(401).json({ error: "Unauthorized" });
-  const adminAddresses = (process.env.ADMIN_WALLET_ADDRESSES || "")
-    .split(",")
-    .map((a) => a.trim())
-    .filter(Boolean);
-  if (!adminAddresses.includes(req.user.publicKey) && req.user.role !== "admin") {
-    return res.status(403).json({ error: "Forbidden: Admin access required" });
-  }
-  next();
-}
 
 // Helper: log admin action
 async function logAdminAction({ action, adminAddress, targetId, targetType, details }) {
@@ -44,7 +31,7 @@ async function logAdminAction({ action, adminAddress, targetId, targetType, deta
 }
 
 // ── GET /api/admin/metrics — platform analytics dashboard ─────────────────────
-router.get("/metrics", verifyJWT, requireAdmin, requireAdmin2FA, async (req, res, next) => {
+router.get("/metrics", verifyJWT, requireAdminRole, requireAdmin2FA, async (req, res, next) => {
   try {
     const { period = "30d" } = req.query;
     
@@ -184,7 +171,7 @@ router.get("/metrics", verifyJWT, requireAdmin, requireAdmin2FA, async (req, res
 });
 
 // ── GET /api/admin/reports/jobs — list all flagged/reported jobs ───────────────
-router.get("/reports/jobs", verifyJWT, requireAdmin, requireAdmin2FA, async (req, res, next) => {
+router.get("/reports/jobs", verifyJWT, requireAdminRole, requireAdmin2FA, async (req, res, next) => {
   try {
     const { rows } = await pool.query(
       `SELECT jr.id, jr.job_id, jr.reporter_address, jr.category, jr.description,
@@ -202,7 +189,7 @@ router.get("/reports/jobs", verifyJWT, requireAdmin, requireAdmin2FA, async (req
 });
 
 // ── GET /api/admin/disputes — list all open disputes ─────────────────────────
-router.get("/disputes", verifyJWT, requireAdmin, requireAdmin2FA, async (req, res, next) => {
+router.get("/disputes", verifyJWT, requireAdminRole, requireAdmin2FA, async (req, res, next) => {
   try {
     const { rows } = await pool.query(
       `SELECT e.job_id, e.status AS escrow_status, e.created_at AS escrow_created_at,
@@ -221,7 +208,7 @@ router.get("/disputes", verifyJWT, requireAdmin, requireAdmin2FA, async (req, re
 });
 
 // ── GET /api/admin/reported-wallets — list reported user addresses ─────────────
-router.get("/reported-wallets", verifyJWT, requireAdmin, requireAdmin2FA, async (req, res, next) => {
+router.get("/reported-wallets", verifyJWT, requireAdminRole, requireAdmin2FA, async (req, res, next) => {
   try {
     const { rows } = await pool.query(
       `SELECT reporter_address AS reported_address, COUNT(*) AS report_count,
@@ -239,7 +226,7 @@ router.get("/reported-wallets", verifyJWT, requireAdmin, requireAdmin2FA, async 
 });
 
 // ── GET /api/admin/logs — admin action audit log ───────────────────────────────
-router.get("/logs", verifyJWT, requireAdmin, requireAdmin2FA, async (req, res) => {
+router.get("/logs", verifyJWT, requireAdminRole, requireAdmin2FA, async (req, res) => {
   try {
     const { rows } = await pool.query(
       `SELECT id, action, actor_address, target, reason, metadata, created_at
@@ -254,7 +241,7 @@ router.get("/logs", verifyJWT, requireAdmin, requireAdmin2FA, async (req, res) =
 });
 
 // ── PATCH /api/admin/disputes/:jobId/resolve — mark dispute resolved ───────────
-router.patch("/disputes/:jobId/resolve", verifyJWT, requireAdmin, requireAdmin2FA, async (req, res, next) => {
+router.patch("/disputes/:jobId/resolve", verifyJWT, requireAdminRole, requireAdmin2FA, async (req, res, next) => {
   try {
     const { jobId } = req.params;
     const { resolution, releaseTo } = req.body; // releaseTo: 'client' | 'freelancer'
@@ -298,7 +285,7 @@ router.patch("/disputes/:jobId/resolve", verifyJWT, requireAdmin, requireAdmin2F
 });
 
 // ── PATCH /api/admin/jobs/:jobId/cancel — cancel a flagged job ─────────────────
-router.patch("/jobs/:jobId/cancel", verifyJWT, requireAdmin, requireAdmin2FA, async (req, res, next) => {
+router.patch("/jobs/:jobId/cancel", verifyJWT, requireAdminRole, requireAdmin2FA, async (req, res, next) => {
   try {
     const { jobId } = req.params;
     const { reason } = req.body;
@@ -320,7 +307,7 @@ router.patch("/jobs/:jobId/cancel", verifyJWT, requireAdmin, requireAdmin2FA, as
 });
 
 // ── POST /api/admin/wallets/:address/freeze — freeze a wallet ─────────────────
-router.post("/wallets/:address/freeze", verifyJWT, requireAdmin, requireAdmin2FA, async (req, res, next) => {
+router.post("/wallets/:address/freeze", verifyJWT, requireAdminRole, requireAdmin2FA, async (req, res, next) => {
   try {
     const { address } = req.params;
     const { reason } = req.body;
@@ -351,7 +338,7 @@ router.post("/wallets/:address/freeze", verifyJWT, requireAdmin, requireAdmin2FA
 });
 
 // ── DELETE /api/admin/wallets/:address/freeze — unfreeze a wallet ─────────────
-router.delete("/wallets/:address/freeze", verifyJWT, requireAdmin, requireAdmin2FA, async (req, res, next) => {
+router.delete("/wallets/:address/freeze", verifyJWT, requireAdminRole, requireAdmin2FA, async (req, res, next) => {
   try {
     const { address } = req.params;
     await pool.query("DELETE FROM frozen_wallets WHERE address = $1", [address]);
@@ -371,7 +358,7 @@ router.delete("/wallets/:address/freeze", verifyJWT, requireAdmin, requireAdmin2
 });
 
 // ── GET /api/admin/wallets/frozen — list frozen wallets ───────────────────────
-router.get("/wallets/frozen", verifyJWT, requireAdmin, requireAdmin2FA, async (req, res) => {
+router.get("/wallets/frozen", verifyJWT, requireAdminRole, requireAdmin2FA, async (req, res) => {
   try {
     const { rows } = await pool.query(
       "SELECT address, reason, frozen_by, created_at FROM frozen_wallets ORDER BY created_at DESC"
@@ -383,7 +370,7 @@ router.get("/wallets/frozen", verifyJWT, requireAdmin, requireAdmin2FA, async (r
 });
 
 // ── GET /api/admin/jobs/expired — list expired jobs ───────────────────────────
-router.get("/jobs/expired", verifyJWT, requireAdmin, async (req, res, next) => {
+router.get("/jobs/expired", verifyJWT, requireAdminRole, async (req, res, next) => {
   try {
     const { rows } = await pool.query(
       `SELECT id, title, client_address, budget, currency, status, expires_at, created_at
@@ -399,7 +386,7 @@ router.get("/jobs/expired", verifyJWT, requireAdmin, async (req, res, next) => {
 });
 
 // ── POST /api/admin/jobs/:jobId/reactivate — reactivate expired job ───────────
-router.post("/jobs/:jobId/reactivate", verifyJWT, requireAdmin, requireAdmin2FA, async (req, res, next) => {
+router.post("/jobs/:jobId/reactivate", verifyJWT, requireAdminRole, requireAdmin2FA, async (req, res, next) => {
   try {
     const { jobId } = req.params;
     const { rows } = await pool.query(

@@ -9,6 +9,7 @@ const crypto = require("crypto");
 const pool = require("../db/pool");
 const { getJob, assignFreelancer } = require("./jobService");
 const { calculateFreelancerTier, isBlocked } = require("./profileService");
+const { createJobNotification, EVENT_TYPES } = require("./notificationService");
 
 /**
  * Camel-cased application record returned by this service.
@@ -64,16 +65,24 @@ function validatePublicKey(key) {
  */
 function rowToApp(row) {
   const completedJobs = row.completed_jobs ?? 0;
+  const totalJobs = row.total_jobs ?? completedJobs;
   const freelancerRating =
     row.avg_rating !== null && row.avg_rating !== undefined
       ? parseFloat(row.avg_rating)
       : null;
+  const totalEarnedXlm = row.total_earned_xlm ?? 0;
 
   return {
     id: row.id,
     jobId: row.job_id,
     freelancerAddress: row.freelancer_address,
-    freelancerTier: calculateFreelancerTier(completedJobs, freelancerRating),
+    freelancerTier: calculateFreelancerTier({
+      completedJobs,
+      totalJobs,
+      rating: freelancerRating,
+      totalEarnedXlm,
+      createdAt: row.profile_created_at,
+    }),
     proposal: row.proposal,
     bidAmount: row.bid_amount,
     currency: row.currency || "XLM",
@@ -84,6 +93,7 @@ function rowToApp(row) {
     revealedBidAmount: row.revealed_bid_amount || null,
     revealedAt: row.revealed_at || null,
     createdAt: row.created_at,
+    acceptedAt: row.accepted_at,
   };
 }
 
@@ -236,6 +246,14 @@ async function submitApplication({
     [jobId],
   );
 
+  await createJobNotification({
+    userAddress: job.clientAddress,
+    type: EVENT_TYPES.APPLICATION_RECEIVED,
+    title: "New application received",
+    body: `${freelancerAddress.slice(0, 6)}...${freelancerAddress.slice(-4)} applied to "${job.title}".`,
+    jobId,
+  });
+
   return rowToApp(appRow);
 }
 
@@ -346,25 +364,31 @@ async function revealApplicationBid(applicationId, freelancerAddress, bidAmount,
  * @param {number|string} jobId - The ID of the job.
  * @returns {Promise<Object[]>} An array of application objects ordered by creation date ascending.
  */
-async function getApplicationsForJob(jobId) {
+async function getApplicationsForJob(jobId, filters = {}) {
   const { rows } = await pool.query(
     `SELECT a.*,
             COALESCE(p.completed_jobs, 0) AS completed_jobs,
+            COALESCE(p.total_earned_xlm, 0) AS total_earned_xlm,
+            p.created_at AS profile_created_at,
+            COUNT(DISTINCT fj.id)::int AS total_jobs,
             ROUND(AVG(r.stars)::numeric, 2) AS avg_rating
      FROM applications a
      LEFT JOIN profiles p ON p.public_key = a.freelancer_address
      LEFT JOIN ratings r ON r.rated_address = a.freelancer_address
+     LEFT JOIN jobs fj ON fj.freelancer_address = a.freelancer_address
      WHERE a.job_id = $1
        AND NOT EXISTS (
          SELECT 1 FROM profiles cp
          WHERE cp.public_key = (SELECT client_address FROM jobs WHERE id = $1)
            AND a.freelancer_address = ANY(cp.blocked_addresses)
        )
-     GROUP BY a.id, p.completed_jobs
+     GROUP BY a.id, p.completed_jobs, p.total_earned_xlm, p.created_at
      ORDER BY a.created_at ASC`,
     [jobId],
   );
-  return rows.map(rowToApp);
+  const applications = rows.map(rowToApp);
+  if (!filters.tier) return applications;
+  return applications.filter((application) => application.freelancerTier === filters.tier);
 }
 
 /**
@@ -379,12 +403,16 @@ async function getApplicationsForFreelancer(freelancerAddress) {
   const { rows } = await pool.query(
     `SELECT a.*,
             COALESCE(p.completed_jobs, 0) AS completed_jobs,
+            COALESCE(p.total_earned_xlm, 0) AS total_earned_xlm,
+            p.created_at AS profile_created_at,
+            COUNT(DISTINCT fj.id)::int AS total_jobs,
             ROUND(AVG(r.stars)::numeric, 2) AS avg_rating
      FROM applications a
      LEFT JOIN profiles p ON p.public_key = a.freelancer_address
      LEFT JOIN ratings r ON r.rated_address = a.freelancer_address
+     LEFT JOIN jobs fj ON fj.freelancer_address = a.freelancer_address
      WHERE a.freelancer_address = $1
-     GROUP BY a.id, p.completed_jobs
+     GROUP BY a.id, p.completed_jobs, p.total_earned_xlm, p.created_at
      ORDER BY a.created_at DESC`,
     [freelancerAddress],
   );
@@ -434,12 +462,37 @@ async function acceptApplication(applicationId, clientAddress) {
       [applicationId],
     );
 
-    await client.query(
+    const { rows: rejectedApplications } = await client.query(
       `UPDATE applications
        SET status = 'rejected'
-       WHERE job_id = $1 AND id <> $2 AND status = 'pending'`,
+       WHERE job_id = $1 AND id <> $2 AND status = 'pending'
+       RETURNING freelancer_address`,
       [app.job_id, applicationId],
     );
+
+    await createJobNotification(
+      {
+        userAddress: app.freelancer_address,
+        type: EVENT_TYPES.APPLICATION_ACCEPTED,
+        title: "Application accepted",
+        body: `Your application for "${job.title}" was accepted.`,
+        jobId: app.job_id,
+      },
+      client,
+    );
+
+    for (const rejected of rejectedApplications) {
+      await createJobNotification(
+        {
+          userAddress: rejected.freelancer_address,
+          type: EVENT_TYPES.APPLICATION_REJECTED,
+          title: "Application rejected",
+          body: `Your application for "${job.title}" was not selected.`,
+          jobId: app.job_id,
+        },
+        client,
+      );
+    }
 
     await client.query("COMMIT");
 

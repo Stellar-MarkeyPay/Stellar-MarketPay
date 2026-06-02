@@ -135,9 +135,9 @@ describe("component snapshots", () => {
 
   it.each([
     "Newcomer",
-    "Rising Star",
+    "Rising Talent",
+    "Top Rated",
     "Expert",
-    "Top Talent",
   ] as const)("FreelancerTierBadge %s", (tier) => {
     const { container } = render(<FreelancerTierBadge tier={tier} />);
     expect(container.firstChild).toMatchSnapshot();

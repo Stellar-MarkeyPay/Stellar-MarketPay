@@ -42,7 +42,9 @@ import { useToast } from "@/components/Toast";
 import StateMessage from "@/components/StateMessage";
 import clsx from "clsx";
 import JobAnalytics from "@/components/JobAnalytics";
+import JobTimeline from "@/components/JobTimeline";
 import BulkJobActionBar from "@/components/BulkJobActionBar";
+import JobStatusTimeline from "@/components/JobStatusTimeline";
 import ExtendJobModal from "@/components/ExtendJobModal";
 import ClientSpendingTab from "@/components/ClientSpendingTab";
 import { usePriceContext } from "@/contexts/PriceContext";
@@ -274,13 +276,6 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
   const handleJobExtended = (updated: Job) => {
     setMyJobs((prev) => prev.map((j) => (j.id === updated.id ? updated : j)));
   };
-
-  async function handleResetContractMock() {
-    if (!IS_CONTRACT_MOCK_DEV_MODE) return;
-    const { clearMockData } = await import("@/lib/contractMock");
-    clearMockData();
-    success("Mock escrow state reset.");
-  }
 
   useEffect(() => {
     if (!publicKey) return;
@@ -609,7 +604,7 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
               {myJobs.map((job) => (
                 <div
                   key={job.id}
-                  className="card-hover flex items-center justify-between gap-4"
+                  className="card-hover flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
                 >
                   <Link
                     href={`/jobs/${job.id}`}
@@ -631,6 +626,7 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
                       {job.applicantCount !== 1 ? "s" : ""} ·{" "}
                       {timeAgo(job.createdAt)}
                     </p>
+                    <JobStatusTimeline job={job} compact />
                   </Link>
                   <div className="text-right flex-shrink-0">
                     <p className="font-mono font-semibold text-market-400">

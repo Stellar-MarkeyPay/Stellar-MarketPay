@@ -12,6 +12,12 @@ const VALID_PROFILE_ROLES = ["client", "freelancer", "both"];
 const VALID_PORTFOLIO_TYPES = ["github", "live", "stellar_tx", "file"];
 const VALID_AVAILABILITY_STATUSES = ["available", "busy", "unavailable"];
 const MAX_PORTFOLIO_ITEMS = 10;
+const FREELANCER_TIERS = {
+  NEWCOMER: "Newcomer",
+  RISING_TALENT: "Rising Talent",
+  TOP_RATED: "Top Rated",
+  EXPERT: "Expert",
+};
 
 /**
  * Camel-cased profile record returned by this service.
@@ -266,7 +272,7 @@ async function getProfile(publicKey) {
   const profile = rowToProfile(rows[0]);
   profile.rating = rows[0].avg_rating !== null ? parseFloat(rows[0].avg_rating) : null;
   profile.ratingCount = rows[0].rating_count;
-  profile.tier = calculateFreelancerTier(profile.completedJobs, profile.rating);
+  profile.tier = await calculateTier(publicKey);
 
   // Calculate reputation score (simple formula: higher weight on ratings, lower on time)
   // Max score 100.
@@ -557,16 +563,96 @@ async function verifyIdentity(publicKey, didHash) {
 }
 
 /**
- * Calculate freelancer tier based on completed jobs and rating.
- * @param {number} completedJobs
+ * Calculate freelancer tier from profile and job-history metrics.
+ * @param {Object|number} metrics
  * @param {number|null} rating
  * @returns {string}
  */
-function calculateFreelancerTier(completedJobs, rating) {
-  if (completedJobs >= 25 && (rating || 0) >= 4.5) return "Top Talent";
-  if (completedJobs >= 10 && (rating || 0) >= 4.0) return "Expert";
-  if (completedJobs >= 3 && (rating || 0) >= 3.5) return "Rising Star";
-  return "Newcomer";
+function calculateFreelancerTier(metrics, rating = null) {
+  const source = typeof metrics === "object" && metrics !== null
+    ? metrics
+    : { completedJobs: Number(metrics) || 0, rating };
+
+  const completedJobs = Number(source.completedJobs) || 0;
+  const totalJobs = Math.max(Number(source.totalJobs) || 0, completedJobs);
+  const averageRating = Number(source.rating) || 0;
+  const totalEarnedXlm = Number(source.totalEarnedXlm) || 0;
+  const createdAt = source.createdAt ? new Date(source.createdAt) : null;
+  const accountAgeMs = createdAt && !Number.isNaN(createdAt.getTime())
+    ? Date.now() - createdAt.getTime()
+    : null;
+  const accountAgeDays = accountAgeMs == null ? null : accountAgeMs / (24 * 60 * 60 * 1000);
+  const completionRate = totalJobs > 0 ? completedJobs / totalJobs : 0;
+
+  if (completedJobs >= 20 && averageRating >= 4.8 && totalEarnedXlm >= 500) {
+    return FREELANCER_TIERS.EXPERT;
+  }
+  if (completedJobs >= 5 && averageRating >= 4.5 && completionRate >= 0.9) {
+    return FREELANCER_TIERS.TOP_RATED;
+  }
+  if (completedJobs >= 1 && accountAgeDays !== null && accountAgeDays < 90) {
+    return FREELANCER_TIERS.RISING_TALENT;
+  }
+  return FREELANCER_TIERS.NEWCOMER;
+}
+
+async function calculateTier(publicKey, queryRunner = pool) {
+  validatePublicKey(publicKey);
+
+  const { rows } = await queryRunner.query(
+    `
+    SELECT
+      p.created_at,
+      GREATEST(
+        COALESCE(p.completed_jobs, 0),
+        COALESCE((SELECT COUNT(*) FROM jobs j WHERE j.freelancer_address = p.public_key AND j.status = 'completed'), 0)
+      )::int AS completed_jobs,
+      GREATEST(
+        COALESCE(p.total_earned_xlm::numeric, 0),
+        COALESCE((SELECT SUM(j.budget::numeric) FROM jobs j WHERE j.freelancer_address = p.public_key AND j.status = 'completed'), 0)
+      ) AS total_earned_xlm,
+      COALESCE((SELECT ROUND(AVG(r.stars)::numeric, 2) FROM ratings r WHERE r.rated_address = p.public_key), p.rating) AS avg_rating,
+      COALESCE((SELECT COUNT(*) FROM jobs j WHERE j.freelancer_address = p.public_key), 0)::int AS total_jobs
+    FROM profiles p
+    WHERE p.public_key = $1
+    `,
+    [publicKey],
+  );
+
+  if (!rows.length) return FREELANCER_TIERS.NEWCOMER;
+
+  const row = rows[0];
+  return calculateFreelancerTier({
+    completedJobs: row.completed_jobs,
+    totalJobs: row.total_jobs,
+    rating: row.avg_rating,
+    totalEarnedXlm: row.total_earned_xlm,
+    createdAt: row.created_at,
+  });
+}
+
+async function refreshFreelancerTier(publicKey, queryRunner = pool) {
+  validatePublicKey(publicKey);
+
+  await queryRunner.query(
+    `
+    UPDATE profiles
+    SET completed_jobs = stats.completed_jobs,
+        total_earned_xlm = stats.total_earned_xlm,
+        rating = stats.avg_rating,
+        updated_at = NOW()
+    FROM (
+      SELECT
+        COALESCE((SELECT COUNT(*) FROM jobs j WHERE j.freelancer_address = $1 AND j.status = 'completed'), 0)::int AS completed_jobs,
+        COALESCE((SELECT SUM(j.budget::numeric) FROM jobs j WHERE j.freelancer_address = $1 AND j.status = 'completed'), 0)::numeric(20,7) AS total_earned_xlm,
+        (SELECT ROUND(AVG(r.stars)::numeric, 2) FROM ratings r WHERE r.rated_address = $1) AS avg_rating
+    ) stats
+    WHERE profiles.public_key = $1
+    `,
+    [publicKey],
+  );
+
+  return calculateTier(publicKey, queryRunner);
 }
 
 async function getClientSpendingAnalytics(publicKey) {
@@ -772,7 +858,10 @@ module.exports = {
   endorseSkill,
   getClientSpendingAnalytics,
   getClientReputation,
+  calculateTier,
   calculateFreelancerTier,
+  refreshFreelancerTier,
+  FREELANCER_TIERS,
   getProfileStats,
   getResponseTime,
   isBlocked,

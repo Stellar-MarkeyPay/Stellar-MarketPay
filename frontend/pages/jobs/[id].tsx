@@ -1,4 +1,5 @@
 import TimeTracker from "@/components/TimeTracker";
+import JobTimeline from "@/components/JobTimeline";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import { recordViewedJob } from "@/lib/offlineJobs";
@@ -274,6 +275,8 @@ export default function JobDetail({ publicKey, onConnect }: JobDetailProps) {
                 <span>{applications.length} application{applications.length === 1 ? "" : "s"}</span>
                 {job.deadline && <span>Deadline: {formatDate(job.deadline)}</span>}
               </div>
+
+              <JobStatusTimeline job={job} />
             </div>
 
             <div className="flex-shrink-0 sm:text-right">
@@ -291,6 +294,14 @@ export default function JobDetail({ publicKey, onConnect }: JobDetailProps) {
               </a>
             </div>
           </div>
+
+          <JobTimeline
+            status={job.status}
+            createdAt={job.createdAt}
+            updatedAt={job.updatedAt}
+            applications={applications}
+            disputedAt={job.disputedAt}
+          />
 
           <div className="prose prose-sm max-w-none">
             <h3 className="font-display text-base font-semibold text-amber-300 mb-3">

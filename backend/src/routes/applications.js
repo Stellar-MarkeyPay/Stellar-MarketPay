@@ -16,6 +16,7 @@ const {
   closeBiddingForJob,
   revealApplicationBid,
 } = require("../services/applicationService");
+const { FREELANCER_TIERS } = require("../services/profileService");
 const { logContractInteraction } = require("../services/contractAuditService");
 const { notifyEscrowEvent, EVENT_TYPES } = require("../services/notificationService");
 const { getJob } = require("../services/jobService");
@@ -60,7 +61,14 @@ const { getJob } = require("../services/jobService");
 // GET /api/applications/job/:jobId
 router.get("/job/:jobId", generalApplicationRateLimiter, async (req, res, next) => {
   try {
-    const applications = await getApplicationsForJob(req.params.jobId);
+    const tier = typeof req.query.tier === "string" ? req.query.tier : null;
+    if (tier && !Object.values(FREELANCER_TIERS).includes(tier)) {
+      const e = new Error("Invalid freelancer tier filter");
+      e.status = 400;
+      throw e;
+    }
+
+    const applications = await getApplicationsForJob(req.params.jobId, { tier });
     res.json({ success: true, data: applications });
   } catch (e) {
     next(e);

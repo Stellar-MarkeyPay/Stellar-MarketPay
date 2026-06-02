@@ -14,9 +14,9 @@ export type Currency = "XLM" | "USDC";
 export type JobVisibility = "public" | "private" | "invite_only";
 export type FreelancerTier =
   | "Newcomer"
-  | "Rising Star"
-  | "Expert"
-  | "Top Talent";
+  | "Rising Talent"
+  | "Top Rated"
+  | "Expert";
 export type AvailabilityStatus = "available" | "busy" | "unavailable";
 export type PortfolioItemType = "link" | "image" | "pdf" | "github" | "live" | "stellar_tx" | "file";
 
@@ -38,6 +38,18 @@ export interface JobMilestone {
   status: "pending" | "released" | "disputed";
   releasedAt?: string | null;
   disputedAt?: string | null;
+}
+
+export interface NotificationItem {
+  id: string;
+  userAddress: string;
+  type: string;
+  title: string;
+  body: string;
+  read: boolean;
+  jobId?: string | null;
+  linkPath?: string | null;
+  createdAt: string;
 }
 
 export interface Job {
@@ -68,6 +80,10 @@ export interface Job {
   extendedUntil?: string; // Final expiry after all extensions
   biddingClosedAt?: string | null;
   clientReputationScore?: number | null;
+  disputedBy?: string;
+  disputedAt?: string | null;
+  disputeReason?: string | null;
+  disputeDescription?: string | null;
 }
 
 export interface ClientReputation {
@@ -103,6 +119,7 @@ export interface Application {
   revealedBidAmount?: string | null;
   revealedAt?: string | null;
   createdAt: string;
+  acceptedAt?: string;
 }
 
 export interface UserProfile {
