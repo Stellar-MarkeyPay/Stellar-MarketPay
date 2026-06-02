@@ -5,7 +5,8 @@
 import { useEffect, useState, useRef } from "react";
 import { formatXLM, shortenAddress, timeAgo } from "@/utils/format";
 import { accountUrl } from "@/lib/stellar";
-import type { Application } from "@/utils/types";
+import FreelancerTierBadge from "@/components/FreelancerTierBadge";
+import type { Application, FreelancerTier } from "@/utils/types";
 
 interface RealtimeBidComparisonProps {
   jobId: string;
@@ -26,6 +27,8 @@ function badgeClass(status: string) {
   return "bg-market-500/10 text-market-400 border-market-500/20";
 }
 
+const tierOptions: FreelancerTier[] = ["Rising Talent", "Top Rated", "Expert"];
+
 export default function RealtimeBidComparison({ 
   jobId, 
   initialApplications, 
@@ -36,6 +39,7 @@ export default function RealtimeBidComparison({
   const [newBidsCount, setNewBidsCount] = useState(0);
   const [isVisible, setIsVisible] = useState(true);
   const [highlightedBids, setHighlightedBids] = useState<Set<string>>(new Set());
+  const [tierFilter, setTierFilter] = useState<FreelancerTier | "">("");
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -145,8 +149,12 @@ export default function RealtimeBidComparison({
     }
   }, []);
 
+  const visibleApplications = tierFilter
+    ? applications.filter((application) => application.freelancerTier === tierFilter)
+    : applications;
+
   // Sort applications by bid amount (lowest first) and creation date
-  const sortedApplications = [...applications].sort((a, b) => {
+  const sortedApplications = [...visibleApplications].sort((a, b) => {
     const bidDiff = parseFloat(a.bidAmount) - parseFloat(b.bidAmount);
     if (bidDiff !== 0) return bidDiff;
     return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
@@ -187,7 +195,20 @@ export default function RealtimeBidComparison({
         </div>
 
         {applications.length > 0 && (
-          <div className="flex items-center gap-4 text-sm">
+          <div className="flex flex-wrap items-center gap-3 text-sm">
+            {isClient && (
+              <select
+                value={tierFilter}
+                onChange={(event) => setTierFilter(event.target.value as FreelancerTier | "")}
+                className="input-field py-2 text-xs"
+                aria-label="Filter applications by freelancer tier"
+              >
+                <option value="">All tiers</option>
+                {tierOptions.map((tier) => (
+                  <option key={tier} value={tier}>{tier}</option>
+                ))}
+              </select>
+            )}
             <div className="text-amber-800">
               Avg: <span className="font-mono text-market-400">{formatXLM(averageBid.toString())}</span>
             </div>
@@ -205,6 +226,10 @@ export default function RealtimeBidComparison({
           {wsRef.current?.readyState === WebSocket.OPEN && (
             <p className="text-xs text-green-400 mt-2">🔴 Live updates enabled</p>
           )}
+        </div>
+      ) : sortedApplications.length === 0 ? (
+        <div className="border border-dashed border-market-500/20 rounded-xl p-8 text-center">
+          <p className="text-amber-800 text-sm">No applications match the selected tier.</p>
         </div>
       ) : (
         <div className="space-y-4">
@@ -236,6 +261,7 @@ export default function RealtimeBidComparison({
                     >
                       {shortenAddress(application.freelancerAddress)} ↗
                     </a>
+                    <FreelancerTierBadge tier={application.freelancerTier} className="px-2 py-0.5" />
 
                     {index === 0 && (
                       <span className="text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded-full border border-green-500/30">

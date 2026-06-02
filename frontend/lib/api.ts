@@ -425,9 +425,10 @@ export async function expireOldJobs() {
 
 // ─── Applications ─────────────────────────────────────────────────────────────
 
-export async function fetchApplications(jobId: string) {
+export async function fetchApplications(jobId: string, tier?: string) {
   const { data } = await api.get<{ success: boolean; data: Application[] }>(
     `/api/applications/job/${jobId}`,
+    { params: tier ? { tier } : undefined },
   );
   return data.data;
 }

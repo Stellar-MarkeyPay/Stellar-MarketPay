@@ -14,9 +14,9 @@ export type Currency = "XLM" | "USDC";
 export type JobVisibility = "public" | "private" | "invite_only";
 export type FreelancerTier =
   | "Newcomer"
-  | "Rising Star"
-  | "Expert"
-  | "Top Talent";
+  | "Rising Talent"
+  | "Top Rated"
+  | "Expert";
 export type AvailabilityStatus = "available" | "busy" | "unavailable";
 export type PortfolioItemType = "link" | "image" | "pdf" | "github" | "live" | "stellar_tx" | "file";
 

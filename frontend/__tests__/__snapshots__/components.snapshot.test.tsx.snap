@@ -2,7 +2,7 @@
 
 exports[`component snapshots FreelancerTierBadge Expert 1`] = `
 <span
-  class="inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold tracking-wide border-emerald-400/25 bg-emerald-400/10 text-emerald-300"
+  class="inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold tracking-wide border-amber-400/30 bg-amber-400/10 text-amber-200"
 >
   Expert
 </span>
@@ -16,19 +16,19 @@ exports[`component snapshots FreelancerTierBadge Newcomer 1`] = `
 </span>
 `;
 
-exports[`component snapshots FreelancerTierBadge Rising Star 1`] = `
+exports[`component snapshots FreelancerTierBadge Rising Talent 1`] = `
 <span
   class="inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold tracking-wide border-sky-400/25 bg-sky-400/10 text-sky-300"
 >
-  Rising Star
+  Rising Talent
 </span>
 `;
 
-exports[`component snapshots FreelancerTierBadge Top Talent 1`] = `
+exports[`component snapshots FreelancerTierBadge Top Rated 1`] = `
 <span
-  class="inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold tracking-wide border-amber-400/30 bg-amber-400/10 text-amber-200"
+  class="inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold tracking-wide border-emerald-400/25 bg-emerald-400/10 text-emerald-300"
 >
-  Top Talent
+  Top Rated
 </span>
 `;
 

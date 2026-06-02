@@ -6,6 +6,7 @@
 "use strict";
 
 const pool = require("../db/pool");
+const { refreshFreelancerTier } = require("./profileService");
 
 /**
  * Camel-cased job record returned by this service.
@@ -581,7 +582,12 @@ async function updateJobStatus(id, status) {
     throw e;
   }
 
-  return rowToJob(rows[0]);
+  const job = rowToJob(rows[0]);
+  if (status === "completed" && job.freelancerAddress) {
+    await refreshFreelancerTier(job.freelancerAddress);
+  }
+
+  return job;
 }
 
 /**
