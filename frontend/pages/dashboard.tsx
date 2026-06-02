@@ -49,6 +49,7 @@ import { usePriceContext } from "@/contexts/PriceContext";
 import ProfileCompletenessWidget from "@/components/ProfileCompletenessWidget";
 import { useOnboarding } from "@/hooks/useOnboarding";
 import ReferralDashboard from "@/components/ReferralDashboard";
+import XlmPriceWidget from "@/components/XlmPriceWidget";
 
 const LOW_BALANCE_THRESHOLD_XLM = 5;
 const IS_CONTRACT_MOCK_DEV_MODE =
@@ -407,64 +408,71 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
           </Link>
         </div>
 
-        <div className="card mb-4 bg-gradient-to-br from-ink-800 to-ink-900 border-market-500/18">
-          <p className="label mb-2">XLM Balance</p>
-          {balance !== null ? (
-            <p className="font-display text-4xl font-bold text-amber-100">
-              {parseFloat(balance).toLocaleString("en-US", {
-                maximumFractionDigits: 4,
-              })}
-              <span className="text-market-400 text-2xl ml-2">XLM</span>
-            </p>
-          ) : (
-            <div className="h-10 w-48 bg-market-500/8 rounded-xl animate-pulse" />
-          )}
-          <div className="mt-3 flex flex-wrap gap-2">
-            <button
-              onClick={() => setShowBuyXLM(true)}
-              className={
-                parseFloat(balance || "0") < LOW_BALANCE_THRESHOLD_XLM
-                  ? "btn-primary text-xs py-1.5 px-3"
-                  : "btn-secondary text-xs py-1.5 px-3"
-              }
-            >
-              Buy XLM
-            </button>
-            <button
-              onClick={() => setShowWithdraw(true)}
-              className="btn-secondary text-xs py-1.5 px-3"
-            >
-              Withdraw to Bank
-            </button>
-            {IS_CONTRACT_MOCK_DEV_MODE && (
-              <button
-                onClick={handleResetContractMock}
-                className="btn-secondary text-xs py-1.5 px-3 border-red-400/30 text-red-300 hover:bg-red-400/10"
-                title="Mock-only: clears locally persisted escrow test data"
-              >
-                Reset Mock
-              </button>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-8">
+          <div className="lg:col-span-2 space-y-4">
+            <div className="card bg-gradient-to-br from-ink-800 to-ink-900 border-market-500/18">
+              <p className="label mb-2">XLM Balance</p>
+              {balance !== null ? (
+                <p className="font-display text-4xl font-bold text-amber-100">
+                  {parseFloat(balance).toLocaleString("en-US", {
+                    maximumFractionDigits: 4,
+                  })}
+                  <span className="text-market-400 text-2xl ml-2">XLM</span>
+                </p>
+              ) : (
+                <div className="h-10 w-48 bg-market-500/8 rounded-xl animate-pulse" />
+              )}
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  onClick={() => setShowBuyXLM(true)}
+                  className={
+                    parseFloat(balance || "0") < LOW_BALANCE_THRESHOLD_XLM
+                      ? "btn-primary text-xs py-1.5 px-3"
+                      : "btn-secondary text-xs py-1.5 px-3"
+                  }
+                >
+                  Buy XLM
+                </button>
+                <button
+                  onClick={() => setShowWithdraw(true)}
+                  className="btn-secondary text-xs py-1.5 px-3"
+                >
+                  Withdraw to Bank
+                </button>
+                {IS_CONTRACT_MOCK_DEV_MODE && (
+                  <button
+                    onClick={handleResetContractMock}
+                    className="btn-secondary text-xs py-1.5 px-3 border-red-400/30 text-red-300 hover:bg-red-400/10"
+                    title="Mock-only: clears locally persisted escrow test data"
+                  >
+                    Reset Mock
+                  </button>
+                )}
+              </div>
+              {IS_CONTRACT_MOCK_DEV_MODE && (
+                <p className="mt-2 text-xs text-amber-700">
+                  Mock-only contract escrow state is persisted in this browser for
+                  local development and can be cleared with Reset Mock.
+                </p>
+              )}
+            </div>
+
+            {usdcBalance !== null && (
+              <div className="card bg-gradient-to-br from-ink-800 to-ink-900 border-blue-500/18">
+                <p className="label mb-2">USDC Balance</p>
+                <p className="font-display text-4xl font-bold text-amber-100">
+                  {parseFloat(usdcBalance).toLocaleString("en-US", {
+                    maximumFractionDigits: 4,
+                  })}
+                  <span className="text-blue-400 text-2xl ml-2">USDC</span>
+                </p>
+              </div>
             )}
           </div>
-          {IS_CONTRACT_MOCK_DEV_MODE && (
-            <p className="mt-2 text-xs text-amber-700">
-              Mock-only contract escrow state is persisted in this browser for
-              local development and can be cleared with Reset Mock.
-            </p>
-          )}
-        </div>
-
-        {usdcBalance !== null && (
-          <div className="card mb-8 bg-gradient-to-br from-ink-800 to-ink-900 border-blue-500/18">
-            <p className="label mb-2">USDC Balance</p>
-            <p className="font-display text-4xl font-bold text-amber-100">
-              {parseFloat(usdcBalance).toLocaleString("en-US", {
-                maximumFractionDigits: 4,
-              })}
-              <span className="text-blue-400 text-2xl ml-2">USDC</span>
-            </p>
+          <div className="lg:col-span-1">
+            <XlmPriceWidget />
           </div>
-        )}
+        </div>
 
         {/* Profile completeness widget */}
         {!progress.isComplete && (

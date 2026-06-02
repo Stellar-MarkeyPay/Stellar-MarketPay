@@ -438,6 +438,8 @@ export async function submitApplication(payload: {
   proposal: string;
   bidAmount: string;
   currency: string;
+  bidCommitment?: string;
+  bidNonce?: string;
   screeningAnswers?: Record<string, string>;
   referredBy?: string;
 }) {
@@ -445,6 +447,21 @@ export async function submitApplication(payload: {
     "/api/applications",
     payload,
   );
+  return data.data;
+}
+
+export async function closeBidding(jobId: string, clientAddress: string) {
+  const { data } = await api.post(`/api/applications/job/${jobId}/close-bidding`, {
+    clientAddress,
+  });
+  return data.data;
+}
+
+export async function revealApplicationBid(
+  applicationId: string,
+  payload: { freelancerAddress: string; bidAmount: string; nonce: string },
+) {
+  const { data } = await api.post(`/api/applications/${applicationId}/reveal`, payload);
   return data.data;
 }
 
@@ -667,6 +684,26 @@ export async function fetchClientSpendingAnalytics(publicKey: string) {
 export async function fetchClientReputation(publicKey: string): Promise<ClientReputation> {
   const { data } = await api.get<{ success: boolean; data: ClientReputation }>(
     `/api/profiles/${encodeURIComponent(publicKey)}/client-reputation`
+  );
+  return data.data;
+}
+
+export interface XlmPriceHistoryPoint {
+  timestamp: number;
+  priceUsd: number;
+}
+
+export interface XlmPriceHistory {
+  points: XlmPriceHistoryPoint[];
+  currentPriceUsd: number | null;
+  change24hPercent: number | null;
+  updatedAt?: string;
+  cached?: boolean;
+}
+
+export async function fetchXlmPriceHistory(): Promise<XlmPriceHistory> {
+  const { data } = await api.get<{ success: boolean; data: XlmPriceHistory }>(
+    "/api/stats/xlm-price-history",
   );
   return data.data;
 }

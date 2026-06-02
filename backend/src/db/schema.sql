@@ -1,5 +1,7 @@
 -- Idempotent schema.  Run via migrate.js on every startup.
 
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
 -- ─────────────────────────────────────────
 -- profiles
 -- ─────────────────────────────────────────
@@ -90,7 +92,16 @@ ALTER TABLE jobs
   ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ,
   ADD COLUMN IF NOT EXISTS extended_count INTEGER NOT NULL DEFAULT 0,
   ADD COLUMN IF NOT EXISTS extended_until TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS bidding_closed_at TIMESTAMPTZ,
   ADD COLUMN IF NOT EXISTS view_count INTEGER NOT NULL DEFAULT 0;
+
+ALTER TABLE jobs
+  ADD COLUMN IF NOT EXISTS job_search_vector tsvector
+  GENERATED ALWAYS AS (
+    setweight(to_tsvector('simple', COALESCE(title, '')), 'A') ||
+    setweight(to_tsvector('simple', COALESCE(description, '')), 'B') ||
+    setweight(to_tsvector('simple', COALESCE(array_to_string(skills, ' '), '')), 'C')
+  ) STORED;
 
 -- enforce valid visibility values for all rows
 DO $$
@@ -124,6 +135,7 @@ CREATE TABLE IF NOT EXISTS applications (
 
 CREATE INDEX IF NOT EXISTS applications_job_id_idx             ON applications(job_id);
 CREATE INDEX IF NOT EXISTS applications_freelancer_address_idx ON applications(freelancer_address);
+CREATE INDEX IF NOT EXISTS applications_job_created_idx        ON applications(job_id, created_at ASC);
 
 -- ─────────────────────────────────────────
 -- job analytics (Issue #212)
@@ -159,7 +171,12 @@ CREATE INDEX IF NOT EXISTS private_messages_participants_idx
 ALTER TABLE applications
   ADD COLUMN IF NOT EXISTS currency TEXT NOT NULL DEFAULT 'XLM',
   ADD COLUMN IF NOT EXISTS screening_answers JSONB NOT NULL DEFAULT '{}'::jsonb,
-  ADD COLUMN IF NOT EXISTS withdrawn_at TIMESTAMPTZ;
+  ADD COLUMN IF NOT EXISTS withdrawn_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS bid_commitment TEXT,
+  ADD COLUMN IF NOT EXISTS bid_nonce TEXT,
+  ADD COLUMN IF NOT EXISTS bid_revealed BOOLEAN NOT NULL DEFAULT FALSE,
+  ADD COLUMN IF NOT EXISTS revealed_bid_amount NUMERIC(20,7),
+  ADD COLUMN IF NOT EXISTS revealed_at TIMESTAMPTZ;
 
 -- ─────────────────────────────────────────
 -- escrows  (schema only; populated by smart-contract layer)
@@ -206,6 +223,29 @@ CREATE TABLE IF NOT EXISTS ratings (
 
 CREATE INDEX IF NOT EXISTS ratings_rated_address_idx ON ratings(rated_address);
 CREATE INDEX IF NOT EXISTS ratings_job_id_idx        ON ratings(job_id);
+CREATE INDEX IF NOT EXISTS ratings_rated_created_idx ON ratings(rated_address, created_at DESC);
+
+-- ─────────────────────────────────────────
+-- query optimization indexes
+-- ─────────────────────────────────────────
+CREATE INDEX IF NOT EXISTS jobs_open_public_created_idx
+  ON jobs(created_at DESC, id DESC)
+  WHERE status = 'open' AND visibility = 'public';
+
+CREATE INDEX IF NOT EXISTS jobs_status_category_created_idx
+  ON jobs(status, category, created_at DESC, id DESC);
+
+CREATE INDEX IF NOT EXISTS jobs_search_vector_idx
+  ON jobs USING GIN (job_search_vector);
+
+CREATE INDEX IF NOT EXISTS jobs_title_trgm_idx
+  ON jobs USING GIN (lower(title) gin_trgm_ops);
+
+CREATE INDEX IF NOT EXISTS jobs_description_trgm_idx
+  ON jobs USING GIN (lower(description) gin_trgm_ops);
+
+CREATE INDEX IF NOT EXISTS profiles_public_key_rating_idx
+  ON profiles(public_key, rating);
 
 -- ─────────────────────────────────────────
 -- messages

@@ -27,9 +27,8 @@
 )]
 
 use soroban_sdk::{
-    contract, contractimpl, contracttype, token,
-    symbol_short,
-    Address, BytesN, Env, String, Vec,
+    contract, contractimpl, contracttype, token, symbol_short, Address, Bytes, BytesN, Env,
+    String, Vec,
 };
 
 // ─── Storage keys ─────────────────────────────────────────────────────────────
@@ -99,6 +98,8 @@ pub struct Escrow {
     pub milestones: soroban_sdk::Vec<Milestone>,
     /// Optional referrer address — receives 2% bonus on release
     pub referrer: Option<Address>,
+    /// Optional expected SHA-256 deliverable hash agreed by both parties
+    pub deliverable_hash: Option<BytesN<32>>,
 }
 
 /// Budget commitment for sealed-bid system (Issue #108)
@@ -119,6 +120,37 @@ pub struct DeliverableSubmission {
     pub client_hash_submitted: bool,
     pub freelancer_hash_submitted: bool,
     pub hashes_match: bool,
+}
+
+/// Freelancer sealed-bid commitment entry.
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct BidCommitment {
+    pub job_id: String,
+    pub freelancer: Address,
+    pub commitment: BytesN<32>,
+    pub submitted_at_ledger: u32,
+    pub bid_revealed: bool,
+}
+
+/// Bidding lifecycle state for a job.
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct BiddingState {
+    pub job_id: String,
+    pub client: Address,
+    pub is_closed: bool,
+    pub closed_at_ledger: u32,
+    pub reveal_deadline_ledger: u32,
+}
+
+/// A successfully revealed bid.
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct RevealedBid {
+    pub freelancer: Address,
+    pub amount: i128,
+    pub revealed_at_ledger: u32,
 }
 
 /// Job completion certificate (Issue #102)
@@ -183,6 +215,9 @@ pub enum DataKey {
     TimeoutTimestamp(String),
     BudgetCommitment(String),
     DeliverableSubmission(String),
+    BidCommitment(String, Address),
+    BiddingState(String),
+    RevealedBids(String),
     Certificate(String),
     FreelancerCertificates(Address),
     ClientRating(String),
@@ -197,6 +232,9 @@ pub enum DataKey {
     /// Stores list of IPFS CIDs for messages in a job thread
     MessageCid(String),
 }
+
+/// Reveal phase is open for roughly 24 hours after client closes bidding.
+const REVEAL_WINDOW_LEDGERS: u32 = 17_280;
 
 /// A governance proposal
 #[contracttype]
@@ -220,6 +258,17 @@ pub struct MarketPayContract;
 #[allow(clippy::too_many_arguments)]
 #[contractimpl]
 impl MarketPayContract {
+    fn compute_bid_commitment(env: &Env, amount: i128, nonce: BytesN<32>) -> BytesN<32> {
+        let mut payload = Bytes::new(env);
+        for byte in amount.to_be_bytes().iter() {
+            payload.push_back(*byte);
+        }
+        for byte in nonce.to_array().iter() {
+            payload.push_back(*byte);
+        }
+        env.crypto().sha256(&payload)
+    }
+
     // ─── Initialization ──────────────────────────────────────────────────────
 
     /// Initialize with an admin address (called once after deployment).
@@ -296,6 +345,29 @@ impl MarketPayContract {
             params.milestones,
             params.timeout_ledgers,
             params.referrer,
+            None,
+        )
+    }
+
+    /// Client creates an escrow that includes an expected deliverable hash.
+    pub fn create_escrow_with_deliverable(
+        env: Env,
+        job_id: String,
+        client: Address,
+        params: CreateEscrowParams,
+        deliverable_hash: BytesN<32>,
+    ) {
+        Self::create_escrow_internal(
+            env,
+            job_id,
+            client,
+            params.freelancer,
+            params.token,
+            params.amount,
+            params.milestones,
+            params.timeout_ledgers,
+            params.referrer,
+            Some(deliverable_hash),
         )
     }
 
@@ -310,6 +382,7 @@ impl MarketPayContract {
         milestones: Option<soroban_sdk::Vec<i128>>,
         timeout_ledgers: Option<u32>,
         referrer: Option<Address>,
+        deliverable_hash: Option<BytesN<32>>,
     ) {
         client.require_auth();
 
@@ -388,6 +461,7 @@ impl MarketPayContract {
             timeout_ledger,
             milestones: milestone_list,
             referrer,
+            deliverable_hash,
         };
 
         env.storage()
@@ -457,6 +531,10 @@ impl MarketPayContract {
         if escrow.client != client {
             panic!("Only the client can release escrow");
         }
+        Self::release_escrow_core(env, job_id, escrow);
+    }
+
+    fn release_escrow_core(env: Env, job_id: String, mut escrow: Escrow) {
         if escrow.status != EscrowStatus::InProgress && escrow.status != EscrowStatus::Locked {
             panic!("Cannot release escrow in current status");
         }
@@ -1308,6 +1386,168 @@ impl MarketPayContract {
             .expect("Budget commitment not found")
     }
 
+    // ─── Issue #338: Sealed-Bid Commitment Scheme ───────────────────────────
+
+    /// Freelancer submits a sealed commitment hash for their bid amount.
+    pub fn submit_bid_commitment(
+        env: Env,
+        job_id: String,
+        freelancer: Address,
+        commitment: BytesN<32>,
+    ) {
+        freelancer.require_auth();
+
+        // Ensure this job has a client-owned bidding session via budget commitment.
+        let _budget: BudgetCommitment = env
+            .storage()
+            .instance()
+            .get(&DataKey::BudgetCommitment(job_id.clone()))
+            .expect("Budget commitment not found");
+
+        if let Some(state) = env
+            .storage()
+            .instance()
+            .get::<_, BiddingState>(&DataKey::BiddingState(job_id.clone()))
+        {
+            if state.is_closed {
+                panic!("Bidding is closed");
+            }
+        }
+
+        let key = DataKey::BidCommitment(job_id.clone(), freelancer.clone());
+        if env.storage().instance().has(&key) {
+            panic!("Bid commitment already submitted");
+        }
+
+        let bid_commitment = BidCommitment {
+            job_id: job_id.clone(),
+            freelancer: freelancer.clone(),
+            commitment,
+            submitted_at_ledger: env.ledger().sequence(),
+            bid_revealed: false,
+        };
+
+        env.storage().instance().set(&key, &bid_commitment);
+        env.events()
+            .publish((symbol_short!("bid_cmt"), job_id), freelancer);
+    }
+
+    /// Client closes bidding and opens a reveal window.
+    pub fn close_bidding(env: Env, job_id: String, client: Address) {
+        client.require_auth();
+
+        let budget: BudgetCommitment = env
+            .storage()
+            .instance()
+            .get(&DataKey::BudgetCommitment(job_id.clone()))
+            .expect("Budget commitment not found");
+        if budget.client != client {
+            panic!("Only the client can close bidding");
+        }
+
+        if let Some(existing) = env
+            .storage()
+            .instance()
+            .get::<_, BiddingState>(&DataKey::BiddingState(job_id.clone()))
+        {
+            if existing.is_closed {
+                panic!("Bidding already closed");
+            }
+        }
+
+        let closed_at = env.ledger().sequence();
+        let reveal_deadline = closed_at
+            .checked_add(REVEAL_WINDOW_LEDGERS)
+            .expect("Reveal deadline overflow");
+
+        let state = BiddingState {
+            job_id: job_id.clone(),
+            client: client.clone(),
+            is_closed: true,
+            closed_at_ledger: closed_at,
+            reveal_deadline_ledger: reveal_deadline,
+        };
+
+        env.storage()
+            .instance()
+            .set(&DataKey::BiddingState(job_id.clone()), &state);
+        env.events()
+            .publish((symbol_short!("bid_cls"), job_id), reveal_deadline);
+    }
+
+    /// Freelancer reveals their sealed bid: amount + nonce.
+    pub fn reveal_bid(env: Env, job_id: String, freelancer: Address, amount: i128, nonce: BytesN<32>) {
+        freelancer.require_auth();
+
+        if amount <= 0 {
+            panic!("Bid amount must be positive");
+        }
+
+        let state: BiddingState = env
+            .storage()
+            .instance()
+            .get(&DataKey::BiddingState(job_id.clone()))
+            .expect("Bidding not closed");
+        if !state.is_closed {
+            panic!("Bidding not closed");
+        }
+        if env.ledger().sequence() > state.reveal_deadline_ledger {
+            panic!("Reveal window has closed");
+        }
+
+        let key = DataKey::BidCommitment(job_id.clone(), freelancer.clone());
+        let mut bid_commitment: BidCommitment = env
+            .storage()
+            .instance()
+            .get(&key)
+            .expect("Bid commitment not found");
+
+        if bid_commitment.bid_revealed {
+            panic!("Bid already revealed");
+        }
+
+        let expected = Self::compute_bid_commitment(&env, amount, nonce);
+        if expected != bid_commitment.commitment {
+            panic!("Commitment verification failed");
+        }
+
+        bid_commitment.bid_revealed = true;
+        env.storage().instance().set(&key, &bid_commitment);
+
+        let mut reveals: Vec<RevealedBid> = env
+            .storage()
+            .instance()
+            .get(&DataKey::RevealedBids(job_id.clone()))
+            .unwrap_or_else(|| Vec::new(&env));
+        reveals.push_back(RevealedBid {
+            freelancer: freelancer.clone(),
+            amount,
+            revealed_at_ledger: env.ledger().sequence(),
+        });
+        env.storage()
+            .instance()
+            .set(&DataKey::RevealedBids(job_id.clone()), &reveals);
+
+        env.events()
+            .publish((symbol_short!("bid_rvl"), job_id), (freelancer, amount));
+    }
+
+    /// Read a freelancer's sealed bid commitment.
+    pub fn get_bid_commitment(env: Env, job_id: String, freelancer: Address) -> BidCommitment {
+        env.storage()
+            .instance()
+            .get(&DataKey::BidCommitment(job_id, freelancer))
+            .expect("Bid commitment not found")
+    }
+
+    /// Read all bids that were revealed during reveal phase.
+    pub fn get_revealed_bids(env: Env, job_id: String) -> Vec<RevealedBid> {
+        env.storage()
+            .instance()
+            .get(&DataKey::RevealedBids(job_id))
+            .unwrap_or_else(|| Vec::new(&env))
+    }
+
     // ─── Issue #105: Deliverable Hash Oracle ────────────────────────────────
 
     /// Client submits deliverable hash.
@@ -1356,6 +1596,56 @@ impl MarketPayContract {
 
         env.events()
             .publish((symbol_short!("frelhash"), freelancer), job_id);
+    }
+
+    /// Oracle/freelancer submits the deliverable hash.
+    ///
+    /// If it matches the expected deliverable hash stored in escrow,
+    /// the escrow is auto-released. If mismatched, escrow enters dispute.
+    pub fn submit_deliverable(env: Env, job_id: String, actual_hash: BytesN<32>, caller: Address) {
+        caller.require_auth();
+
+        let mut escrow: Escrow = env
+            .storage()
+            .instance()
+            .get(&DataKey::Escrow(job_id.clone()))
+            .expect("Escrow not found");
+
+        let admin: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .expect("Not initialized");
+
+        if caller != escrow.freelancer && caller != admin {
+            panic!("Only freelancer or oracle can submit deliverable");
+        }
+
+        let expected_hash = escrow
+            .deliverable_hash
+            .clone()
+            .expect("Escrow has no deliverable hash");
+
+        if actual_hash == expected_hash {
+            // Auto-release on successful deliverable verification.
+            Self::release_escrow_core(env, job_id.clone(), escrow);
+            env.events().publish(
+                (symbol_short!("dlv_ok"), job_id),
+                (caller, actual_hash),
+            );
+            return;
+        }
+
+        // Mismatch must explicitly enter dispute.
+        escrow.status = EscrowStatus::Disputed;
+        env.storage()
+            .instance()
+            .set(&DataKey::Escrow(job_id.clone()), &escrow);
+
+        env.events().publish(
+            (symbol_short!("dlv_bad"), job_id),
+            (caller, actual_hash),
+        );
     }
 
     /// Auto-release if both hashes match (manual fallback if mismatch after 7 days).
@@ -2347,5 +2637,173 @@ mod event_tests {
             get_event_topic0_str(&env, env.events().all().len() - 1).contains("escrow_rl"),
             "Missing escrow_rl after release_escrow",
         );
+    }
+}
+
+#[cfg(test)]
+mod sealed_bid_tests {
+    use super::*;
+    use soroban_sdk::{testutils::Address as _, testutils::Ledger, Address, Bytes, BytesN, Env, String};
+
+    fn bid_commitment(env: &Env, amount: i128, nonce: BytesN<32>) -> BytesN<32> {
+        let mut payload = Bytes::new(env);
+        for byte in amount.to_be_bytes().iter() {
+            payload.push_back(*byte);
+        }
+        for byte in nonce.to_array().iter() {
+            payload.push_back(*byte);
+        }
+        env.crypto().sha256(&payload)
+    }
+
+    fn setup(env: &Env) -> (MarketPayContractClient, Address, Address, String) {
+        env.mock_all_auths();
+        let id = env.register(MarketPayContract, ());
+        let client = MarketPayContractClient::new(env, &id);
+        let admin = Address::generate(env);
+        let owner = Address::generate(env);
+        client.initialize(&admin);
+        let job_id = String::from_str(env, "sealed-bid-job-1");
+        client.commit_budget(&job_id, &1_000, &owner);
+        (client, owner, admin, job_id)
+    }
+
+    #[test]
+    fn test_reveal_bid_verifies_commitment() {
+        let env = Env::default();
+        let (client, owner, _admin, job_id) = setup(&env);
+        let freelancer = Address::generate(&env);
+        let nonce = BytesN::from_array(&env, &[7u8; 32]);
+        let amount = 450i128;
+        let commitment = bid_commitment(&env, amount, nonce.clone());
+
+        client.submit_bid_commitment(&job_id, &freelancer, &commitment);
+        client.close_bidding(&job_id, &owner);
+        client.reveal_bid(&job_id, &freelancer, &amount, &nonce);
+
+        let reveals = client.get_revealed_bids(&job_id);
+        assert_eq!(reveals.len(), 1);
+        let revealed = reveals.get(0).unwrap();
+        assert_eq!(revealed.amount, amount);
+        assert_eq!(revealed.freelancer, freelancer);
+    }
+
+    #[test]
+    #[should_panic(expected = "Commitment verification failed")]
+    fn test_reveal_bid_with_invalid_nonce_rejected() {
+        let env = Env::default();
+        let (client, owner, _admin, job_id) = setup(&env);
+        let freelancer = Address::generate(&env);
+        let amount = 500i128;
+        let nonce = BytesN::from_array(&env, &[1u8; 32]);
+        let bad_nonce = BytesN::from_array(&env, &[2u8; 32]);
+        let commitment = bid_commitment(&env, amount, nonce);
+
+        client.submit_bid_commitment(&job_id, &freelancer, &commitment);
+        client.close_bidding(&job_id, &owner);
+        client.reveal_bid(&job_id, &freelancer, &amount, &bad_nonce);
+    }
+
+    #[test]
+    #[should_panic(expected = "Reveal window has closed")]
+    fn test_late_reveal_rejected() {
+        let env = Env::default();
+        let (client, owner, _admin, job_id) = setup(&env);
+        let freelancer = Address::generate(&env);
+        let nonce = BytesN::from_array(&env, &[3u8; 32]);
+        let amount = 525i128;
+        let commitment = bid_commitment(&env, amount, nonce.clone());
+
+        client.submit_bid_commitment(&job_id, &freelancer, &commitment);
+        client.close_bidding(&job_id, &owner);
+
+        let mut ledger = env.ledger().get();
+        ledger.sequence_number += REVEAL_WINDOW_LEDGERS + 1;
+        env.ledger().set(ledger);
+
+        client.reveal_bid(&job_id, &freelancer, &amount, &nonce);
+    }
+}
+
+#[cfg(test)]
+mod deliverable_oracle_tests {
+    use super::*;
+    use soroban_sdk::{testutils::Address as _, Address, BytesN, Env, String};
+
+    fn setup(env: &Env) -> (MarketPayContractClient, Address, Address, Address, Address) {
+        env.mock_all_auths();
+        let id = env.register(MarketPayContract, ());
+        let contract = MarketPayContractClient::new(env, &id);
+        let admin = Address::generate(env);
+        contract.initialize(&admin);
+
+        let client = Address::generate(env);
+        let freelancer = Address::generate(env);
+        let token_contract = env.register_stellar_asset_contract_v2(admin.clone());
+        let token_id = token_contract.address();
+        let token_admin = token::StellarAssetClient::new(env, &token_id);
+        token_admin.mint(&client, &1_000);
+
+        (contract, admin, client, freelancer, token_id)
+    }
+
+    #[test]
+    fn test_submit_deliverable_match_auto_releases() {
+        let env = Env::default();
+        let (contract, _admin, client, freelancer, token_id) = setup(&env);
+        let job_id = String::from_str(&env, "deliverable-match");
+        let expected_hash = BytesN::from_array(&env, &[9u8; 32]);
+
+        contract.create_escrow_with_deliverable(
+            &job_id,
+            &client,
+            &CreateEscrowParams {
+                freelancer: freelancer.clone(),
+                token: token_id.clone(),
+                amount: 1_000,
+                milestones: None,
+                timeout_ledgers: None,
+                referrer: None,
+            },
+            &expected_hash,
+        );
+
+        contract.submit_deliverable(&job_id, &expected_hash, &freelancer);
+
+        let escrow = contract.get_escrow(&job_id);
+        assert_eq!(escrow.status, EscrowStatus::Released);
+
+        let token_client = token::Client::new(&env, &token_id);
+        assert_eq!(token_client.balance(&freelancer), 1_000);
+    }
+
+    #[test]
+    fn test_submit_deliverable_mismatch_enters_dispute() {
+        let env = Env::default();
+        let (contract, _admin, client, freelancer, token_id) = setup(&env);
+        let job_id = String::from_str(&env, "deliverable-mismatch");
+        let expected_hash = BytesN::from_array(&env, &[1u8; 32]);
+        let actual_hash = BytesN::from_array(&env, &[2u8; 32]);
+
+        contract.create_escrow_with_deliverable(
+            &job_id,
+            &client,
+            &CreateEscrowParams {
+                freelancer: freelancer.clone(),
+                token: token_id.clone(),
+                amount: 1_000,
+                milestones: None,
+                timeout_ledgers: None,
+                referrer: None,
+            },
+            &expected_hash,
+        );
+
+        contract.submit_deliverable(&job_id, &actual_hash, &freelancer);
+        let escrow = contract.get_escrow(&job_id);
+        assert_eq!(escrow.status, EscrowStatus::Disputed);
+
+        let token_client = token::Client::new(&env, &token_id);
+        assert_eq!(token_client.balance(&freelancer), 0);
     }
 }

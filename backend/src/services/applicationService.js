@@ -5,6 +5,7 @@
  */
 "use strict";
 
+const crypto = require("crypto");
 const pool = require("../db/pool");
 const { getJob, assignFreelancer } = require("./jobService");
 const { calculateFreelancerTier, isBlocked } = require("./profileService");
@@ -78,6 +79,10 @@ function rowToApp(row) {
     currency: row.currency || "XLM",
     status: row.status,
     screeningAnswers: row.screening_answers || {},
+    bidCommitment: row.bid_commitment || null,
+    bidRevealed: Boolean(row.bid_revealed),
+    revealedBidAmount: row.revealed_bid_amount || null,
+    revealedAt: row.revealed_at || null,
     createdAt: row.created_at,
   };
 }
@@ -124,6 +129,8 @@ async function submitApplication({
   currency = "XLM",
   screeningAnswers,
   referredBy,
+  bidCommitment,
+  bidNonce,
 }) {
   validatePublicKey(freelancerAddress);
 
@@ -200,8 +207,8 @@ async function submitApplication({
   let appRow;
   try {
     const { rows } = await pool.query(
-      `INSERT INTO applications (job_id, freelancer_address, proposal, bid_amount, status, screening_answers, referred_by, created_at)
-       VALUES ($1, $2, $3, $4, 'pending', $5, $6, NOW())
+      `INSERT INTO applications (job_id, freelancer_address, proposal, bid_amount, status, screening_answers, referred_by, bid_commitment, bid_nonce, created_at)
+       VALUES ($1, $2, $3, $4, 'pending', $5, $6, $7, $8, NOW())
        RETURNING *`,
       [
         jobId,
@@ -210,6 +217,8 @@ async function submitApplication({
         parseFloat(bidAmount).toFixed(7),
         screeningAnswers || {},
         referredBy || null,
+        bidCommitment || null,
+        bidNonce || null,
       ],
     );
     appRow = rows[0];
@@ -228,6 +237,107 @@ async function submitApplication({
   );
 
   return rowToApp(appRow);
+}
+
+async function closeBiddingForJob(jobId, clientAddress) {
+  validatePublicKey(clientAddress);
+  const job = await getJob(jobId);
+  if (job.clientAddress !== clientAddress) {
+    const e = new Error("Only the client can close bidding");
+    e.status = 403;
+    throw e;
+  }
+  if (job.status !== "open") {
+    const e = new Error("Bidding can only be closed while job is open");
+    e.status = 400;
+    throw e;
+  }
+  if (job.biddingClosedAt) {
+    const e = new Error("Bidding is already closed");
+    e.status = 409;
+    throw e;
+  }
+
+  const { rows } = await pool.query(
+    "UPDATE jobs SET bidding_closed_at = NOW(), updated_at = NOW() WHERE id = $1 RETURNING bidding_closed_at",
+    [jobId],
+  );
+  return { jobId, biddingClosedAt: rows[0]?.bidding_closed_at || null };
+}
+
+function hashBidReveal(bidAmount, nonce) {
+  return crypto
+    .createHash("sha256")
+    .update(`${parseFloat(bidAmount).toFixed(7)}:${nonce}`)
+    .digest("hex");
+}
+
+async function revealApplicationBid(applicationId, freelancerAddress, bidAmount, nonce) {
+  validatePublicKey(freelancerAddress);
+  if (!nonce || typeof nonce !== "string") {
+    const e = new Error("Reveal nonce is required");
+    e.status = 400;
+    throw e;
+  }
+  if (!bidAmount || isNaN(parseFloat(bidAmount)) || parseFloat(bidAmount) <= 0) {
+    const e = new Error("Reveal bid amount must be positive");
+    e.status = 400;
+    throw e;
+  }
+
+  const { rows } = await pool.query("SELECT * FROM applications WHERE id = $1", [applicationId]);
+  if (!rows.length) {
+    const e = new Error("Application not found");
+    e.status = 404;
+    throw e;
+  }
+  const app = rows[0];
+  if (app.freelancer_address !== freelancerAddress) {
+    const e = new Error("Only the freelancer can reveal this bid");
+    e.status = 403;
+    throw e;
+  }
+  if (app.bid_revealed) {
+    const e = new Error("Bid already revealed");
+    e.status = 409;
+    throw e;
+  }
+  if (!app.bid_commitment) {
+    const e = new Error("No sealed commitment found for this bid");
+    e.status = 400;
+    throw e;
+  }
+
+  const job = await getJob(app.job_id);
+  if (!job.biddingClosedAt) {
+    const e = new Error("Bidding must be closed before reveal");
+    e.status = 400;
+    throw e;
+  }
+  const revealDeadline = new Date(job.biddingClosedAt).getTime() + 24 * 60 * 60 * 1000;
+  if (Date.now() > revealDeadline) {
+    const e = new Error("Reveal deadline has passed");
+    e.status = 400;
+    throw e;
+  }
+
+  const expected = hashBidReveal(bidAmount, nonce);
+  if (expected !== app.bid_commitment) {
+    const e = new Error("Commitment verification failed");
+    e.status = 400;
+    throw e;
+  }
+
+  const { rows: updatedRows } = await pool.query(
+    `UPDATE applications
+     SET bid_revealed = TRUE,
+         revealed_bid_amount = $2,
+         revealed_at = NOW()
+     WHERE id = $1
+     RETURNING *`,
+    [applicationId, parseFloat(bidAmount).toFixed(7)],
+  );
+  return rowToApp(updatedRows[0]);
 }
 
 /**
@@ -408,4 +518,6 @@ module.exports = {
   getApplicationsForFreelancer,
   acceptApplication,
   withdrawApplication,
+  closeBiddingForJob,
+  revealApplicationBid,
 };

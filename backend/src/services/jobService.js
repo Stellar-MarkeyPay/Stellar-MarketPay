@@ -202,6 +202,7 @@ function rowToJob(row) {
     expiresAt: row.expires_at,
     extendedCount: row.extended_count,
     extendedUntil: row.extended_until,
+    biddingClosedAt: row.bidding_closed_at,
     viewCount: row.view_count,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -484,12 +485,21 @@ async function listJobs({
   }
 
   if (search) {
-    params.push(`%${search.toLowerCase()}%`);
-    const idx = params.length;
+    const normalizedSearch = String(search).trim().toLowerCase();
+    const tsQuery = normalizedSearch
+      .split(/\s+/)
+      .filter(Boolean)
+      .join(" & ");
+    params.push(tsQuery || normalizedSearch);
+    const tsIdx = params.length;
+    params.push(`%${normalizedSearch}%`);
+    const likeIdx = params.length;
     conditions.push(
-      `(LOWER(title) LIKE $${idx} OR LOWER(description) LIKE $${idx} OR EXISTS (
-         SELECT 1 FROM unnest(skills) s WHERE LOWER(s) LIKE $${idx}
-       ))`,
+      `(
+        job_search_vector @@ to_tsquery('simple', $${tsIdx})
+        OR LOWER(title) LIKE $${likeIdx}
+        OR LOWER(description) LIKE $${likeIdx}
+      )`,
     );
   }
 
