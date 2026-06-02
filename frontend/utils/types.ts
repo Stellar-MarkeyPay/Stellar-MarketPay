@@ -67,6 +67,10 @@ export interface Job {
   extendedCount?: number; // Number of times expiry has been extended
   extendedUntil?: string; // Final expiry after all extensions
   clientReputationScore?: number | null;
+  disputedBy?: string;
+  disputedAt?: string | null;
+  disputeReason?: string | null;
+  disputeDescription?: string | null;
 }
 
 export interface ClientReputation {
@@ -98,6 +102,7 @@ export interface Application {
   screeningAnswers?: Record<string, string>;
   estimatedDuration?: string;
   createdAt: string;
+  acceptedAt?: string;
 }
 
 export interface UserProfile {

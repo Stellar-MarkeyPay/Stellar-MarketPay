@@ -79,6 +79,7 @@ function rowToApp(row) {
     status: row.status,
     screeningAnswers: row.screening_answers || {},
     createdAt: row.created_at,
+    acceptedAt: row.accepted_at,
   };
 }
 
