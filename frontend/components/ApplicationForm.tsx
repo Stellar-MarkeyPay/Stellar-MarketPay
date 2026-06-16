@@ -2,7 +2,7 @@
  * components/ApplicationForm.tsx
  * Freelancer applies to a job with a proposal and bid amount.
  */
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { submitApplication, fetchProposalTemplates } from "@/lib/api";
 import type { Job } from "@/utils/types";
 import { formatXLM } from "@/utils/format";
@@ -113,21 +113,22 @@ export default function ApplicationForm({ job, publicKey, biddingPhase = "commit
 
   return (
     <>
-      <div className="card animate-slide-up">
-        <h3 className="font-display text-lg font-bold text-amber-100 mb-1">Submit Proposal</h3>
-        <p className="text-amber-800 text-sm mb-6">
+      <div className="card animate-slide-up" role="region" aria-labelledby="application-form-title">
+        <h3 id="application-form-title" className="font-display text-lg font-bold text-amber-100 mb-1">Submit Proposal</h3>
+        <p id="application-budget-summary" className="text-amber-800 text-sm mb-6">
           Client budget: <span className="text-market-400 font-mono font-medium">{formatXLM(job.budget)}</span>
         </p>
-          <div className="mb-4 rounded-xl border border-market-500/20 bg-ink-900/40 p-3 text-xs text-amber-700">
+          <div id="bidding-phase-help" className="mb-4 rounded-xl border border-market-500/20 bg-ink-900/40 p-3 text-xs text-amber-700">
             {biddingPhase === "commitment"
               ? "Sealed-bid commitment phase: your amount stays hidden until reveal."
               : "Reveal phase: client has closed bidding and is waiting for reveals."}
           </div>
 
-        <div className="space-y-5">
+        <div className="space-y-5" aria-describedby="application-budget-summary bidding-phase-help">
           <div>
-            <label className="label">Use Template</label>
+            <label className="label" htmlFor="proposal-template">Use Template</label>
             <select
+              id="proposal-template"
               value={selectedTemplateId}
               onChange={(e) => {
                 const templateId = e.target.value;
@@ -136,6 +137,7 @@ export default function ApplicationForm({ job, publicKey, biddingPhase = "commit
                 if (template) setProposal(template.content);
               }}
               className="input-field appearance-none cursor-pointer"
+              aria-describedby="template-help"
             >
               <option value="">Select a template...</option>
               {(templates ?? []).map((template) => (
@@ -144,6 +146,9 @@ export default function ApplicationForm({ job, publicKey, biddingPhase = "commit
                 </option>
               ))}
             </select>
+            <p id="template-help" className="sr-only">
+              Choosing a template replaces the current cover letter text.
+            </p>
           </div>
 
           {/* Cover letter */}
@@ -167,6 +172,7 @@ export default function ApplicationForm({ job, publicKey, biddingPhase = "commit
                 "mt-1 text-xs font-medium",
                 meetsWordMinimum ? "text-green-400" : "text-red-400"
               )}
+              aria-live="polite"
             >
               {wordCount} {wordCount === 1 ? "word" : "words"} (minimum {MIN_WORDS})
               {!meetsWordMinimum && (
@@ -179,70 +185,78 @@ export default function ApplicationForm({ job, publicKey, biddingPhase = "commit
 
           {/* Bid amount */}
           <div>
-            <label className="label">Your Bid (XLM)</label>
+            <label className="label" htmlFor="bid-amount">Your Bid (XLM)</label>
             <input
+              id="bid-amount"
               type="number" value={bidAmount} onChange={(e) => setBidAmount(e.target.value)}
               min="1" step="1" className="input-field"
               placeholder="Enter your bid amount"
+              aria-describedby="bid-amount-help"
+              aria-invalid={parseFloat(bidAmount) <= 0}
             />
-            <p className="mt-1 text-xs text-amber-800/50">
+            <p id="bid-amount-help" className="mt-1 text-xs text-amber-800/50">
               This value is committed as a hash and hidden until reveal phase.
             </p>
           </div>
 
           <div>
-            <label className="label">Reveal Nonce (keep safe)</label>
+            <label className="label" htmlFor="reveal-nonce">Reveal Nonce (keep safe)</label>
             <input
+              id="reveal-nonce"
               type="text"
               value={revealNonce}
               onChange={(e) => setRevealNonce(e.target.value)}
               className="input-field font-mono text-xs"
               placeholder="Random nonce for reveal"
+              aria-describedby="reveal-nonce-help"
             />
-            <p className="mt-1 text-xs text-amber-800/50">
+            <p id="reveal-nonce-help" className="mt-1 text-xs text-amber-800/50">
               You must keep this nonce to reveal your bid later.
             </p>
           </div>
 
           {/* Screening Questions */}
           {job.screeningQuestions && job.screeningQuestions.length > 0 && (
-            <div>
-              <label className="label">Screening Questions <span className="text-red-400">*</span></label>
-              <p className="text-xs text-amber-800/50 mb-3">Please answer all questions to submit your application.</p>
+            <fieldset>
+              <legend className="label">Screening Questions <span className="text-red-400">*</span></legend>
+              <p id="screening-questions-help" className="text-xs text-amber-800/50 mb-3">Please answer all questions to submit your application.</p>
               <div className="space-y-4">
                 {job.screeningQuestions.map((question, index) => (
                   <div key={index}>
-                    <label className="text-sm text-amber-200 mb-1.5 block">
+                    <label htmlFor={`screening-question-${index}`} className="text-sm text-amber-200 mb-1.5 block">
                       {index + 1}. {question}
                     </label>
                     <textarea
+                      id={`screening-question-${index}`}
                       value={screeningAnswers[question] || ""}
                       onChange={(e) => setScreeningAnswers({ ...screeningAnswers, [question]: e.target.value })}
                       rows={3}
                       placeholder="Your answer..."
                       className="textarea-field"
+                      aria-describedby="screening-questions-help"
+                      aria-invalid={!screeningAnswers[question]?.trim()}
                     />
                   </div>
                 ))}
               </div>
               {!allScreeningQuestionsAnswered && (
-                <p className="mt-2 text-xs text-red-400">All screening questions must be answered</p>
+                <p className="mt-2 text-xs text-red-400" role="alert">All screening questions must be answered</p>
               )}
-            </div>
+            </fieldset>
           )}
 
           {error && (
-            <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">{error}</div>
+            <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm" role="alert">{error}</div>
           )}
 
-          <button onClick={handleSubmit} disabled={!isFormValid || loading} className="btn-primary w-full flex items-center justify-center gap-2">
+          <button type="button" onClick={handleSubmit} disabled={!isFormValid || loading} className="btn-primary w-full flex items-center justify-center gap-2">
             {loading ? <><Spinner />Submitting...</> : "Submit Proposal"}
           </button>
         </div>
       </div>
 
       {revealLater && (
-        <div className="mt-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-300">
+        <div className="mt-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-300" role="status" aria-live="polite">
           Save your reveal nonce securely: <span className="font-mono break-all">{revealNonce}</span>
         </div>
       )}
@@ -269,6 +283,9 @@ interface ConfirmModalProps {
 }
 
 function ConfirmModal({ jobTitle, bidAmount, proposal, onConfirm, onClose }: ConfirmModalProps) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -277,25 +294,71 @@ function ConfirmModal({ jobTitle, bidAmount, proposal, onConfirm, onClose }: Con
     return () => window.removeEventListener("keydown", handleEsc);
   }, [onClose]);
 
+  useEffect(() => {
+    const previousActiveElement = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const dialog = dialogRef.current;
+    closeButtonRef.current?.focus();
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Tab" || !dialog) return;
+
+      const focusable = Array.from(
+        dialog.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        )
+      );
+      if (focusable.length === 0) return;
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      previousActiveElement?.focus();
+    };
+  }, []);
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#0c0a06]/90 backdrop-blur-sm animate-fade-in">
-      <div className="card w-full max-w-lg gold-glow border-market-500/30 animate-scale-up" role="dialog" aria-modal="true">
-        <h3 className="font-display text-xl font-bold text-amber-100 mb-4">Confirm Your Application</h3>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#0c0a06]/90 backdrop-blur-sm animate-fade-in" role="presentation" onMouseDown={(event) => {
+      if (event.target === event.currentTarget) onClose();
+    }}>
+      <div
+        ref={dialogRef}
+        className="card w-full max-w-lg gold-glow border-market-500/30 animate-scale-up"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="confirm-application-title"
+        aria-describedby="confirm-application-description"
+      >
+        <h3 id="confirm-application-title" className="font-display text-xl font-bold text-amber-100 mb-4">Confirm Your Application</h3>
+        <p id="confirm-application-description" className="sr-only">
+          Review the selected job, bid, and proposal preview before submitting the application.
+        </p>
         
         <div className="space-y-4 mb-6">
           <div>
-            <span className="text-amber-800 text-xs uppercase tracking-wider font-semibold block mb-1">Job</span>
-            <p className="text-amber-100 font-medium">{jobTitle}</p>
+            <span className="text-amber-800 text-xs uppercase tracking-wider font-semibold block mb-1" style={{ color: "#44403c" }}>Job</span>
+            <p className="text-amber-100 font-medium" style={{ color: "#1c1917" }}>{jobTitle}</p>
           </div>
           
           <div>
-            <span className="text-amber-800 text-xs uppercase tracking-wider font-semibold block mb-1">Your Bid</span>
-            <p className="text-market-400 font-mono font-bold text-lg">{formatXLM(bidAmount)}</p>
+            <span className="text-amber-800 text-xs uppercase tracking-wider font-semibold block mb-1" style={{ color: "#44403c" }}>Your Bid</span>
+            <p className="text-market-400 font-mono font-bold text-lg" style={{ color: "#7c2d12" }}>{formatXLM(bidAmount)}</p>
           </div>
           
           <div>
-            <span className="text-amber-800 text-xs uppercase tracking-wider font-semibold block mb-1">Proposal Preview</span>
-            <p className="text-amber-100/70 text-sm line-clamp-3 italic">
+            <span className="text-amber-800 text-xs uppercase tracking-wider font-semibold block mb-1" style={{ color: "#44403c" }}>Proposal Preview</span>
+            <p className="text-amber-100/70 text-sm line-clamp-3 italic" style={{ color: "#44403c" }}>
               {'\u201c'}
               {proposal.slice(0, 100)}
               {proposal.length > 100 ? "..." : ""}
@@ -304,8 +367,8 @@ function ConfirmModal({ jobTitle, bidAmount, proposal, onConfirm, onClose }: Con
           </div>
 
           <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20">
-            <p className="text-amber-500 text-xs font-semibold flex items-center gap-2">
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <p className="text-amber-500 text-xs font-semibold flex items-center gap-2" style={{ color: "#7c2d12" }}>
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
               Warning: Applications cannot be withdrawn
@@ -314,8 +377,8 @@ function ConfirmModal({ jobTitle, bidAmount, proposal, onConfirm, onClose }: Con
         </div>
 
         <div className="flex flex-col sm:flex-row gap-3">
-          <button onClick={onConfirm} className="btn-primary flex-1">Confirm & Submit</button>
-          <button onClick={onClose} className="btn-secondary flex-1">Go back</button>
+          <button type="button" onClick={onConfirm} className="btn-primary flex-1" style={{ color: "#1c1917" }}>Confirm & Submit</button>
+          <button ref={closeButtonRef} type="button" onClick={onClose} className="btn-secondary flex-1" style={{ color: "#7c2d12" }}>Go back</button>
         </div>
       </div>
     </div>

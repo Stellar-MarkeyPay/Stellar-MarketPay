@@ -182,6 +182,7 @@ export default function JobFiltersPanel({
         <p className="label mb-2">{t("jobs.clientRating")}</p>
         <select
           value={query.minClientRating || ""}
+          aria-label={t("jobs.clientRating")}
           onChange={(e) =>
             onQueryChange(
               { minClientRating: e.target.value || undefined },
@@ -202,6 +203,7 @@ export default function JobFiltersPanel({
         <p className="label mb-2">{t("jobs.duration")}</p>
         <select
           value={query.duration || ""}
+          aria-label={t("jobs.duration")}
           onChange={(e) =>
             onQueryChange(
               { duration: e.target.value || undefined },
@@ -221,6 +223,7 @@ export default function JobFiltersPanel({
         <p className="label mb-2">{t("jobs.posted")}</p>
         <select
           value={query.postedSince || ""}
+          aria-label={t("jobs.posted")}
           onChange={(e) =>
             onQueryChange(
               { postedSince: e.target.value || undefined },

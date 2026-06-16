@@ -111,6 +111,7 @@ function StepCircle({ state }: { state: StepState }) {
         "flex items-center justify-center rounded-full border-2 font-bold transition-all duration-300 w-7 h-7 text-xs",
         circleClasses(state),
       ].join(" ")}
+      aria-hidden="true"
     >
       {state === "complete" ? "✓" : state === "branch" ? "!" : ""}
     </div>
@@ -141,8 +142,12 @@ export default function JobStatusTimeline({ job, compact = false }: JobStatusTim
         );
 
     return (
-      <div className="mt-3 pt-3 border-t border-[rgba(251,191,36,0.07)]">
-        <div className="flex items-center gap-1">
+      <div
+        className="mt-3 pt-3 border-t border-[rgba(251,191,36,0.07)]"
+        role="group"
+        aria-label={`Job progress: ${currentStep?.label ?? "Posted"}`}
+      >
+        <div className="flex items-center gap-1" aria-hidden="true">
           {steps.map((step, i) => (
             <div key={step.id} className="flex items-center flex-1 last:flex-none">
               <div
@@ -166,18 +171,25 @@ export default function JobStatusTimeline({ job, compact = false }: JobStatusTim
             </div>
           ))}
         </div>
-        <p className="text-[10px] text-amber-800/70 mt-1.5">{currentStep?.label}</p>
+        <p className="text-[10px] text-amber-800/70 mt-1.5">
+          <span className="sr-only">Current job progress step: </span>
+          {currentStep?.label}
+        </p>
       </div>
     );
   }
 
   return (
-    <div className="mt-5 pt-5 border-t border-[rgba(251,191,36,0.07)]">
-      <p className="text-xs uppercase tracking-wider text-amber-800/70 mb-4">Job Progress</p>
+    <section className="mt-5 pt-5 border-t border-[rgba(251,191,36,0.07)]" aria-labelledby="job-progress-heading">
+      <p id="job-progress-heading" className="text-xs uppercase tracking-wider text-amber-800/70 mb-4">Job Progress</p>
 
-      <div className="hidden sm:flex items-start">
+      <ol className="hidden sm:flex items-start" aria-label="Job progress steps">
         {steps.map((step, i) => (
-          <div key={step.id} className="flex items-start flex-1 last:flex-none">
+          <li
+            key={step.id}
+            className="flex items-start flex-1 last:flex-none"
+            aria-current={step.state === "current" ? "step" : undefined}
+          >
             <div className="flex flex-col items-center gap-1.5 min-w-[4.5rem]">
               <StepCircle state={step.state} />
               <span
@@ -191,9 +203,9 @@ export default function JobStatusTimeline({ job, compact = false }: JobStatusTim
                 {step.label}
               </span>
               {step.date && (
-                <span className="text-[10px] text-amber-800/60 whitespace-nowrap">
+                <time dateTime={step.date} className="text-[10px] text-amber-800/60 whitespace-nowrap">
                   {formatDate(step.date)}
-                </span>
+                </time>
               )}
             </div>
             {i < steps.length - 1 && (
@@ -201,27 +213,27 @@ export default function JobStatusTimeline({ job, compact = false }: JobStatusTim
                 <Connector complete={step.state === "complete"} />
               </div>
             )}
-          </div>
+          </li>
         ))}
 
         {branch && (
-          <div className="flex items-start ml-2 pl-2 border-l border-dashed border-red-400/40">
+          <li className="flex items-start ml-2 pl-2 border-l border-dashed border-red-400/40" aria-current="step">
             <div className="flex flex-col items-center gap-1.5 min-w-[4.5rem]">
               <StepCircle state="branch" />
               <span className="text-xs font-medium text-red-400 text-center">{branch.label}</span>
               {branch.date && (
-                <span className="text-[10px] text-amber-800/60 whitespace-nowrap">
+                <time dateTime={branch.date} className="text-[10px] text-amber-800/60 whitespace-nowrap">
                   {formatDate(branch.date)}
-                </span>
+                </time>
               )}
             </div>
-          </div>
+          </li>
         )}
-      </div>
+      </ol>
 
-      <div className="sm:hidden space-y-0">
+      <ol className="sm:hidden space-y-0" aria-label="Job progress steps">
         {steps.map((step, i) => (
-          <div key={step.id}>
+          <li key={step.id} aria-current={step.state === "current" ? "step" : undefined}>
             <div className="flex items-start gap-3">
               <StepCircle state={step.state} />
               <div className="pt-0.5 pb-1">
@@ -236,7 +248,7 @@ export default function JobStatusTimeline({ job, compact = false }: JobStatusTim
                   {step.label}
                 </p>
                 {step.date && (
-                  <p className="text-xs text-amber-800/60">{formatDate(step.date)}</p>
+                  <time dateTime={step.date} className="text-xs text-amber-800/60">{formatDate(step.date)}</time>
                 )}
               </div>
             </div>
@@ -245,21 +257,21 @@ export default function JobStatusTimeline({ job, compact = false }: JobStatusTim
                 <Connector complete={step.state === "complete"} vertical />
               </div>
             )}
-          </div>
+          </li>
         ))}
 
         {branch && (
-          <div className="flex items-start gap-3 mt-2 pt-2 border-t border-dashed border-red-400/30">
+          <li className="flex items-start gap-3 mt-2 pt-2 border-t border-dashed border-red-400/30" aria-current="step">
             <StepCircle state="branch" />
             <div className="pt-0.5">
               <p className="text-sm font-medium text-red-400">{branch.label}</p>
               {branch.date && (
-                <p className="text-xs text-amber-800/60">{formatDate(branch.date)}</p>
+                <time dateTime={branch.date} className="text-xs text-amber-800/60">{formatDate(branch.date)}</time>
               )}
             </div>
-          </div>
+          </li>
         )}
-      </div>
-    </div>
+      </ol>
+    </section>
   );
 }

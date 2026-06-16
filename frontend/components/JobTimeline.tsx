@@ -96,15 +96,25 @@ export default function JobTimeline({
   if (isCompact) {
     // Return a streamlined bar for list items
     return (
-      <div className="flex items-center gap-1 mt-2 py-1 select-none w-full max-w-md">
+      <div
+        className="flex items-center gap-1 mt-2 py-1 select-none w-full max-w-md"
+        role="list"
+        aria-label={`Job progress: ${steps.filter((step) => step.active).at(-1)?.label ?? "Posted"}`}
+      >
         {steps.map((step, idx) => (
-          <div key={step.label} className="flex items-center flex-1 last:flex-initial">
+          <div
+            key={step.label}
+            className="flex items-center flex-1 last:flex-initial"
+            role="listitem"
+            aria-label={`${step.label}: ${step.active ? "complete" : "not complete"}${step.date ? `, ${formatDate(step.date)}` : ""}`}
+          >
             <div className="flex flex-col items-center">
               <span
                 className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center text-[7px] font-bold ${
                   step.active ? step.color : "border-ink-700 text-ink-700 bg-ink-950/50"
                 }`}
                 title={`${step.label}${step.date ? ` - ${formatDate(step.date)}` : ""}`}
+                aria-hidden="true"
               >
                 {step.active && "✓"}
               </span>
@@ -114,6 +124,7 @@ export default function JobTimeline({
                 className={`h-[2px] flex-1 mx-1.5 rounded-full ${
                   steps[idx + 1].active ? "bg-market-500/60" : "bg-ink-800"
                 }`}
+                aria-hidden="true"
               />
             )}
           </div>
@@ -123,25 +134,33 @@ export default function JobTimeline({
   }
 
   return (
-    <div className="w-full bg-ink-950/40 backdrop-blur-md border border-market-500/12 rounded-2xl p-6 my-6 shadow-xl">
-      <h3 className="font-display font-bold text-sm text-amber-200 uppercase tracking-wider mb-6">
+    <section
+      className="w-full bg-ink-950/40 backdrop-blur-md border border-market-500/12 rounded-2xl p-6 my-6 shadow-xl"
+      aria-labelledby="job-status-progression-heading"
+    >
+      <h3 id="job-status-progression-heading" className="font-display font-bold text-sm text-amber-200 uppercase tracking-wider mb-6">
         Job Status Progression
       </h3>
 
       {/* Responsive timeline layout: Horizontal on Desktop, Vertical on Mobile */}
-      <div className="flex flex-col md:flex-row items-stretch md:items-start justify-between gap-6 md:gap-4">
+      <ol className="flex flex-col md:flex-row items-stretch md:items-start justify-between gap-6 md:gap-4" aria-label="Job lifecycle steps">
         {steps.map((step, idx) => {
           const isLast = idx === steps.length - 1;
           const nextActive = !isLast && steps[idx + 1].active;
 
           return (
-            <div key={step.label} className="flex flex-row md:flex-col items-start md:items-center flex-1 relative group">
+            <li
+              key={step.label}
+              className="flex flex-row md:flex-col items-start md:items-center flex-1 relative group"
+              aria-current={step.active && (!steps[idx + 1] || !steps[idx + 1].active) ? "step" : undefined}
+            >
               {/* Connector line for vertical layout (mobile) */}
               {!isLast && (
                 <div
                   className={`absolute left-[11px] top-[24px] bottom-[-24px] w-[2px] md:hidden rounded-full ${
                     nextActive ? "bg-market-500/70" : "bg-ink-800/80"
                   }`}
+                  aria-hidden="true"
                 />
               )}
 
@@ -151,6 +170,7 @@ export default function JobTimeline({
                   className={`hidden md:block absolute left-[50%] right-[-50%] top-[11px] h-[2px] rounded-full z-0 ${
                     nextActive ? "bg-market-500/70" : "bg-ink-800/80"
                   }`}
+                  aria-hidden="true"
                 />
               )}
 
@@ -162,6 +182,7 @@ export default function JobTimeline({
                       ? `${step.color} scale-110 shadow-market-500/5`
                       : "border-ink-700 text-amber-900 bg-ink-950/40"
                   }`}
+                  aria-hidden="true"
                 >
                   {step.active ? (isCompleted && idx === 3 ? "🏆" : "✓") : idx + 1}
                 </div>
@@ -180,15 +201,15 @@ export default function JobTimeline({
                   {step.description}
                 </p>
                 {step.active && step.date && (
-                  <p className="text-[9px] font-mono text-market-400 mt-1.5 bg-market-500/5 border border-market-500/10 px-1.5 py-0.5 rounded-full inline-block">
+                  <time dateTime={step.date} className="text-[9px] font-mono text-market-400 mt-1.5 bg-market-500/5 border border-market-500/10 px-1.5 py-0.5 rounded-full inline-block">
                     {formatDate(step.date)}
-                  </p>
+                  </time>
                 )}
               </div>
-            </div>
+            </li>
           );
         })}
-      </div>
-    </div>
+      </ol>
+    </section>
   );
 }

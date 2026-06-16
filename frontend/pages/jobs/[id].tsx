@@ -276,9 +276,9 @@ export default function JobDetail({ publicKey, onConnect }: JobDetailProps) {
           </div>
 
           <div className="prose prose-sm max-w-none">
-            <h3 className="font-display text-base font-semibold text-amber-300 mb-3">
+            <h2 className="font-display text-base font-semibold text-amber-300 mb-3">
               Description
-            </h3>
+            </h2>
             <p className="text-amber-700/90 leading-relaxed whitespace-pre-wrap font-body text-sm">
               {job.description}
             </p>
@@ -286,9 +286,9 @@ export default function JobDetail({ publicKey, onConnect }: JobDetailProps) {
 
           {job.skills?.length > 0 && (
             <div className="mt-5">
-              <h3 className="font-display text-base font-semibold text-amber-300 mb-3">
+              <h2 className="font-display text-base font-semibold text-amber-300 mb-3">
                 Required Skills
-              </h3>
+              </h2>
               <div className="flex flex-wrap gap-2">
                 {job.skills.map((skill) => (
                   <span
