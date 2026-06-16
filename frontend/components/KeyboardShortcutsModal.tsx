@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 interface KeyboardShortcutsModalProps {
   isOpen: boolean;
@@ -14,6 +14,9 @@ function Key({ children }: { children: string }) {
 }
 
 export default function KeyboardShortcutsModal({ isOpen, onClose }: KeyboardShortcutsModalProps) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+
   useEffect(() => {
     if (!isOpen) return;
 
@@ -27,6 +30,42 @@ export default function KeyboardShortcutsModal({ isOpen, onClose }: KeyboardShor
     window.addEventListener("keydown", onEsc);
     return () => window.removeEventListener("keydown", onEsc);
   }, [isOpen, onClose]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const previousActiveElement = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    closeButtonRef.current?.focus();
+
+    const onTab = (event: KeyboardEvent) => {
+      if (event.key !== "Tab") return;
+      const dialog = dialogRef.current;
+      if (!dialog) return;
+
+      const focusable = Array.from(
+        dialog.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        )
+      );
+      if (focusable.length === 0) return;
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", onTab);
+    return () => {
+      document.removeEventListener("keydown", onTab);
+      previousActiveElement?.focus();
+    };
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -49,12 +88,16 @@ export default function KeyboardShortcutsModal({ isOpen, onClose }: KeyboardShor
         onClick={onClose}
       />
 
-      <div className="relative w-full max-w-xl rounded-2xl border border-market-500/20 bg-ink-900 p-6 shadow-2xl">
+      <div
+        ref={dialogRef}
+        className="relative w-full max-w-xl rounded-2xl border border-market-500/20 bg-ink-900 p-6 shadow-2xl"
+        aria-describedby="shortcuts-description"
+      >
         <div className="mb-4 flex items-center justify-between">
           <h2 id="shortcuts-title" className="font-display text-xl font-bold text-amber-100">
             Keyboard Shortcuts
           </h2>
-          <button type="button" onClick={onClose} className="btn-ghost px-3 py-1 text-xs">
+          <button ref={closeButtonRef} type="button" onClick={onClose} className="btn-ghost px-3 py-1 text-xs">
             Close
           </button>
         </div>
@@ -78,7 +121,7 @@ export default function KeyboardShortcutsModal({ isOpen, onClose }: KeyboardShor
           </tbody>
         </table>
 
-        <p className="mt-5 text-xs text-amber-800">
+        <p id="shortcuts-description" className="mt-5 text-xs text-amber-800">
           Shortcuts are disabled while typing in form fields.
         </p>
       </div>

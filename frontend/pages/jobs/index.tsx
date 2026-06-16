@@ -922,6 +922,7 @@ export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
 
               <select
                 value={manualTimezone}
+                aria-label={t("jobs.timezone")}
                 onChange={(e) => {
                   setManualTimezone(e.target.value);
                   setUseGeolocation(false);

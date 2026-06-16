@@ -174,6 +174,7 @@ export default function Navbar({ publicKey, onConnect, onDisconnect }: NavbarPro
             value={i18n.language}
             onChange={(e) => switchLanguage(e.target.value)}
             className="bg-market-900/40 border border-amber-900/30 rounded px-2 py-1 text-xs text-amber-100 cursor-pointer min-h-[44px]"
+            aria-label={t("language.switch") as string}
           >
             <option value="en">EN</option>
             <option value="es">ES</option>

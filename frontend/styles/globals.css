@@ -77,19 +77,49 @@
 
   /* Very-light amber text → dark stone in light mode */
   html:not(.dark) .text-amber-100 { color: #1c1917; }
+  html:not(.dark) .text-amber-200 { color: #292524; }
+  html:not(.dark) .text-amber-300 { color: #92400e; }
+  html:not(.dark) .text-amber-400 { color: #92400e; }
+  html:not(.dark) .text-amber-500 { color: #92400e; }
+  html:not(.dark) .text-amber-600 { color: #92400e; }
 
   /* Medium muted amber → warm mid-tone */
-  html:not(.dark) .text-amber-800 { color: #78716c; }
+  html:not(.dark) .text-amber-700 { color: #57534e; }
+  html:not(.dark) .text-amber-800 { color: #57534e; }
   html:not(.dark) .text-amber-900 { color: #57534e; }
+  html:not(.dark) .text-amber-700\/60,
+  html:not(.dark) .text-amber-700\/70,
+  html:not(.dark) .text-amber-700\/80,
+  html:not(.dark) .text-amber-700\/90,
+  html:not(.dark) .text-amber-200\/90,
+  html:not(.dark) .text-amber-800\/50,
+  html:not(.dark) .text-amber-800\/60,
+  html:not(.dark) .text-amber-800\/70,
+  html:not(.dark) .text-amber-800\/75,
+  html:not(.dark) .text-amber-800\/80,
+  html:not(.dark) .text-amber-900\/50,
+  html:not(.dark) .text-amber-900\/60 {
+    color: #57534e;
+  }
 
   /* Market gold → darker for readable contrast on white */
-  html:not(.dark) .text-market-400 { color: #b45309; }
-  html:not(.dark) .text-market-300 { color: #d97706; }
+  html:not(.dark) .text-market-500,
+  html:not(.dark) .text-market-500\/60,
+  html:not(.dark) .text-market-500\/80,
+  html:not(.dark) .text-market-400 { color: #92400e; }
+  html:not(.dark) .text-market-300 { color: #92400e; }
+  html:not(.dark) .text-green-400 { color: #166534; }
+  html:not(.dark) .text-red-400 { color: #991b1b; }
 
   /* Ink backgrounds → light surfaces */
   html:not(.dark) .bg-ink-900    { background-color: var(--bg); }
   html:not(.dark) .bg-ink-800    { background-color: var(--surface); }
   html:not(.dark) .bg-ink-700    { background-color: var(--surface-2); }
+  html:not(.dark) .bg-ink-900\/40,
+  html:not(.dark) .bg-ink-900\/60,
+  html:not(.dark) .bg-ink-800\/50 {
+    background-color: var(--surface-2);
+  }
 
   /* Hardcoded hex dark backgrounds */
   html:not(.dark) .bg-\[\#151208\]     { background-color: var(--surface); }
@@ -107,6 +137,73 @@
 
   /* Focus ring offset colour */
   html:not(.dark) .focus\:ring-offset-ink-900:focus { --tw-ring-offset-color: var(--surface); }
+}
+
+/* Final light-mode accessibility guardrails for dark-themed utility classes. */
+html:not(.dark) .text-amber-100,
+html:not(.dark) .text-amber-100\/70,
+html:not(.dark) .text-amber-100\/80,
+html:not(.dark) .text-amber-100\/90,
+html:not(.dark) .text-amber-200,
+html:not(.dark) .text-amber-200\/90 {
+  color: #1c1917 !important;
+}
+
+html:not(.dark) .text-amber-300,
+html:not(.dark) .text-amber-400,
+html:not(.dark) .text-amber-500,
+html:not(.dark) .text-amber-600,
+html:not(.dark) .text-market-300,
+html:not(.dark) .text-market-400,
+html:not(.dark) .text-market-500,
+html:not(.dark) .text-market-500\/60,
+html:not(.dark) .text-market-500\/80 {
+  color: #7c2d12 !important;
+}
+
+html:not(.dark) .text-amber-700,
+html:not(.dark) .text-amber-700\/60,
+html:not(.dark) .text-amber-700\/70,
+html:not(.dark) .text-amber-700\/80,
+html:not(.dark) .text-amber-700\/90,
+html:not(.dark) .text-amber-800,
+html:not(.dark) .text-amber-800\/50,
+html:not(.dark) .text-amber-800\/60,
+html:not(.dark) .text-amber-800\/70,
+html:not(.dark) .text-amber-800\/75,
+html:not(.dark) .text-amber-800\/80,
+html:not(.dark) .text-amber-900,
+html:not(.dark) .text-amber-900\/50,
+html:not(.dark) .text-amber-900\/60 {
+  color: #44403c !important;
+}
+
+html:not(.dark) .text-green-400 {
+  color: #166534 !important;
+}
+
+html:not(.dark) .text-red-400 {
+  color: #991b1b !important;
+}
+
+html:not(.dark) .bg-ink-700,
+html:not(.dark) .bg-ink-800,
+html:not(.dark) .bg-ink-800\/50,
+html:not(.dark) .bg-ink-900,
+html:not(.dark) .bg-ink-900\/40,
+html:not(.dark) .bg-ink-900\/60,
+html:not(.dark) .bg-market-900\/40 {
+  background-color: #ffffff !important;
+}
+
+html:not(.dark) .btn-primary {
+  color: #1c1917 !important;
+}
+
+html:not(.dark) .btn-secondary,
+html:not(.dark) .btn-ghost,
+html:not(.dark) .label {
+  color: #7c2d12 !important;
 }
 
 /* ─── Component layer ────────────────────────────────────────────────────── */
@@ -187,8 +284,12 @@
 
   .label {
     color: var(--gold);
-    opacity: 0.8;
+    opacity: 1;
     @apply block text-xs font-semibold uppercase tracking-widest mb-2;
+  }
+
+  html:not(.dark) .label {
+    color: #92400e;
   }
 
   .badge           { @apply text-xs font-medium px-2.5 py-1 rounded-full border; }
