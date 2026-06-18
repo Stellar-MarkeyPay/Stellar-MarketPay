@@ -42,9 +42,20 @@ jobs:
       - run: npm ci
 
       - name: Wait for PostgreSQL to be ready
+        shell: bash
         run: |
-          npm install -g wait-on
-          wait-on postgres://test:test@localhost:5432/marketpay_test --timeout 30000
+          echo "Waiting for PostgreSQL to be ready..."
+          for i in {1..60}; do
+            if timeout 2 bash -c "echo > /dev/tcp/localhost/5432" 2>/dev/null; then
+              echo "✅ PostgreSQL is responding on port 5432"
+              sleep 2  # Extra wait to ensure service is fully ready
+              exit 0
+            fi
+            echo "Attempt $i/60: PostgreSQL not ready yet..."
+            sleep 1
+          done
+          echo "❌ PostgreSQL failed to start within 60 seconds"
+          exit 1
 
       - name: Run database migrations
         env:
