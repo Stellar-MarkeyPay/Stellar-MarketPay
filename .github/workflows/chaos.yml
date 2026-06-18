@@ -57,7 +57,7 @@ jobs:
           DATABASE_URL: postgresql://test:test@localhost:5432/marketpay_test
           JWT_SECRET: chaos-test-jwt-secret-with-sufficient-length
           NODE_ENV: test
-        run: npm test -- tests/chaos.test.js --verbose --coverage
+        run: npm run test:chaos
 
       - name: Run lint checks
         run: npm run lint
