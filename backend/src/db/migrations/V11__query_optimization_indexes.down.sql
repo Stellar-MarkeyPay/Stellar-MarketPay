@@ -8,5 +8,8 @@ DROP INDEX IF EXISTS jobs_search_vector_idx;
 DROP INDEX IF EXISTS jobs_status_category_created_idx;
 DROP INDEX IF EXISTS jobs_open_public_created_idx;
 
+DROP TRIGGER IF EXISTS update_job_search_vector_trigger ON jobs;
+DROP FUNCTION IF EXISTS update_job_search_vector();
+
 ALTER TABLE jobs
   DROP COLUMN IF EXISTS job_search_vector;
