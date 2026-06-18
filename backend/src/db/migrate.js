@@ -54,7 +54,10 @@ async function migrate() {
     const applied = await getAppliedVersions(client);
 
     for (const migration of migrations) {
-      if (applied.has(migration.version)) continue;
+      if (applied.has(migration.version)) {
+        console.log(`⏭️  Skipping V${migration.version} (already applied)`);
+        continue;
+      }
 
       await client.query("BEGIN");
       try {
@@ -64,11 +67,19 @@ async function migrate() {
           [migration.version, migration.name]
         );
         await client.query("COMMIT");
+        console.log(`✅ Applied V${migration.version}`);
       } catch (err) {
         await client.query("ROLLBACK");
+        // Handle duplicate key error gracefully
+        if (err.code === "23505" && err.constraint === "schema_migrations_pkey") {
+          console.log(`⏭️  Skipping V${migration.version} (already applied, duplicate key)`);
+          applied.add(migration.version);
+          continue;
+        }
         throw err;
       }
     }
+    console.log("✅ All migrations completed successfully");
   } finally {
     client.release();
   }
