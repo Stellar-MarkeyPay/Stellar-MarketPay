@@ -57,6 +57,13 @@ jobs:
           echo "❌ PostgreSQL failed to start within 60 seconds"
           exit 1
 
+      - name: Reset database
+        run: |
+          echo "Resetting database..."
+          PGPASSWORD=test psql -h localhost -U test -d postgres -c "DROP DATABASE IF EXISTS marketpay_test;" || true
+          PGPASSWORD=test psql -h localhost -U test -d postgres -c "CREATE DATABASE marketpay_test;" || true
+          echo "Database reset complete"
+
       - name: Run database migrations
         env:
           DATABASE_URL: postgresql://test:test@localhost:5432/marketpay_test
