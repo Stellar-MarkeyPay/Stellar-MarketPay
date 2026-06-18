@@ -59,7 +59,6 @@ jobs:
 
       - name: Reset database
         run: |
-          cd backend
           node -e "
           const { Pool } = require('pg');
           const pool = new Pool({
@@ -91,7 +90,7 @@ jobs:
         env:
           DATABASE_URL: postgresql://test:test@localhost:5432/marketpay_test
           JWT_SECRET: chaos-test-jwt-secret-with-sufficient-length
-        run: cd backend && npm run migrate
+        run: npm run migrate
 
       - name: Run chaos engineering tests
         env:
