@@ -769,15 +769,19 @@ export async function upsertPriceAlertPreference(
  *
  * @param jobId Job identifier.
  * @param escrowContractId Soroban transaction hash returned after create_escrow().
+ * @param referrerAddress ISSUE-17: optional referrer captured from the
+ *   client's referral link (`smp_referrer` in localStorage), recorded for the
+ *   on-chain platform fee split.
  * @returns The updated job record.
  */
 export async function updateJobEscrowId(
   jobId: string,
   escrowContractId: string,
+  referrerAddress?: string | null,
 ) {
   const { data } = await api.patch<{ success: boolean; data: Job }>(
     `/api/jobs/${jobId}/escrow`,
-    { escrowContractId },
+    { escrowContractId, referrerAddress: referrerAddress || undefined },
   );
   return data.data;
 }

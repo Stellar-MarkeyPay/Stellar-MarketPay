@@ -306,6 +306,11 @@ export interface ReferralStats {
   totalEarnedXlm: string;
   treeEarnedXlm?: string;
   treePayoutCount?: number;
+  /** ISSUE-17: earnings from the on-chain platform fee split (escrows whose
+   *  freelancer had no multi-level tree registration). */
+  platformFeeEarnedXlm?: string;
+  platformFeePayoutCount?: number;
+  platformFeeBps?: number;
   bonusBps: number;
   levelBps?: number[];
   referees: ReferralReferee[];

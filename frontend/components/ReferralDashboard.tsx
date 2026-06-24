@@ -249,7 +249,7 @@ export default function ReferralDashboard({
       </div>
 
       {/* ── Summary stats ──────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         {[
           {
             label: "Total Invited",
@@ -269,6 +269,13 @@ export default function ReferralDashboard({
           {
             label: "Total Earned",
             value: `${parseFloat(stats?.totalEarnedXlm ?? "0").toLocaleString("en-US", { maximumFractionDigits: 4 })} XLM`,
+            color: "text-market-400",
+          },
+          {
+            // ISSUE-17: platform fee split — escrows where this user was set
+            // as the per-escrow referrer and the freelancer had no tree entry.
+            label: "Platform Fee Earned",
+            value: `${parseFloat(stats?.platformFeeEarnedXlm ?? "0").toLocaleString("en-US", { maximumFractionDigits: 4 })} XLM`,
             color: "text-market-400",
           },
         ].map((stat) => (

@@ -446,8 +446,8 @@ router.patch(
   generalJobRateLimiter,
   async (req, res, next) => {
     try {
-      const { escrowContractId } = req.body;
-      const job = await updateJobEscrowId(req.params.id, escrowContractId);
+      const { escrowContractId, referrerAddress } = req.body;
+      const job = await updateJobEscrowId(req.params.id, escrowContractId, referrerAddress);
       await logContractInteraction({
         functionName: "create_escrow",
         callerAddress: req.user.publicKey,

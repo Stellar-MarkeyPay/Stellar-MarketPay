@@ -17,6 +17,7 @@ const {
   getReferralTree,
   REFERRAL_BONUS_BPS,
   LEVEL_BPS,
+  PLATFORM_FEE_BPS,
 } = require("../services/referralService");
 
 const router = express.Router();
@@ -50,6 +51,11 @@ router.get("/info", (req, res) => {
           : "3rd-degree referral",
       })),
       description: `Earn up to ${LEVEL_BPS.reduce((a, b) => a + b, 0) / 100}% in multi-level referral bonuses`,
+      // ISSUE-17: platform fee split — applies to escrows whose freelancer has
+      // no multi-level tree registration. Routed to the escrow's referrer if
+      // one was set when the job was posted, otherwise to the platform.
+      platformFeeBps: PLATFORM_FEE_BPS,
+      platformFeePercent: (PLATFORM_FEE_BPS / 100).toFixed(0),
     },
   });
 });
