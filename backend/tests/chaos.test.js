@@ -407,7 +407,7 @@ describe("Chaos Engineering - Backend Resilience", () => {
           const injectedQuery = scenario.injector(originalPoolQuery);
 
           const results = [];
-          for (let i = 0; i < 50; i++) {
+          for (let i = 0; i < 200; i++) {
             try {
               await injectedQuery("SELECT 1");
               results.push(true);
