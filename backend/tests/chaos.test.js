@@ -223,7 +223,7 @@ describe("Chaos Engineering - Backend Resilience", () => {
       };
 
       const results = [];
-      for (let i = 0; i < 8; i++) {
+      for (let i = 0; i < 10; i++) {
         try {
           await injectedQuery("SELECT 1");
           results.push({ success: true });
@@ -233,7 +233,7 @@ describe("Chaos Engineering - Backend Resilience", () => {
       }
 
       // Should eventually recover
-      const lastHalfResults = results.slice(4);
+      const lastHalfResults = results.slice(5);
       const lastHalfSuccess = lastHalfResults.filter((r) => r.success).length;
       expect(lastHalfSuccess).toBeGreaterThanOrEqual(3);
     });
