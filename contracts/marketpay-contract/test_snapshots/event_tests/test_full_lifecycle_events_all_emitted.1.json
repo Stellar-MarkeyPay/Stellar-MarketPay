@@ -80,6 +80,12 @@
                     },
                     {
                       "key": {
+                        "symbol": "arbitrator"
+                      },
+                      "val": "void"
+                    },
+                    {
+                      "key": {
                         "symbol": "freelancer"
                       },
                       "val": {
@@ -364,6 +370,12 @@
                             },
                             {
                               "key": {
+                                "symbol": "arbitrator"
+                              },
+                              "val": "void"
+                            },
+                            {
+                              "key": {
                                 "symbol": "client"
                               },
                               "val": {
@@ -413,6 +425,22 @@
                                 "symbol": "referrer"
                               },
                               "val": "void"
+                            },
+                            {
+                              "key": {
+                                "symbol": "refund_approvals"
+                              },
+                              "val": {
+                                "u32": 0
+                              }
+                            },
+                            {
+                              "key": {
+                                "symbol": "release_approvals"
+                              },
+                              "val": {
+                                "u32": 0
+                              }
                             },
                             {
                               "key": {
