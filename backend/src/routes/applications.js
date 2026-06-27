@@ -69,7 +69,22 @@ router.get("/job/:jobId", generalApplicationRateLimiter, async (req, res, next) 
     }
 
     const applications = await getApplicationsForJob(req.params.jobId, { tier });
-    res.json({ success: true, data: applications });
+    
+    // Add prediction details for each application!
+    const { predictJobCompletion } = require("../services/analytics");
+    const job = await getJob(req.params.jobId);
+    
+    const applicationsWithPredictions = await Promise.all(
+      applications.map(async (app) => {
+        const prediction = await predictJobCompletion(job, app.freelancerAddress);
+        return {
+          ...app,
+          prediction,
+        };
+      })
+    );
+
+    res.json({ success: true, data: applicationsWithPredictions });
   } catch (e) {
     next(e);
   }

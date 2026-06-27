@@ -26,6 +26,9 @@ import { usePriceContext } from "@/contexts/PriceContext";
 interface Milestone {
   description: string;
   amount: string;
+  autoVerify?: boolean;
+  oracleType?: string | null;
+  oracleQuery?: string | null;
 }
 
 interface JobFormData {
@@ -235,7 +238,11 @@ export default function PostJobForm({
   }
 
 
-  function updateMilestone(index: number, field: "description" | "amount", value: string) {
+  function updateMilestone(
+    index: number,
+    field: keyof Milestone,
+    value: string | boolean,
+  ) {
     setForm((prev) => ({
       ...prev,
       milestones: prev.milestones.map((milestone, currentIndex) =>
@@ -560,6 +567,96 @@ export default function PostJobForm({
             disabled={isInProgress}
             className="w-full rounded-xl border border-gray-200 dark:border-market-500/20 bg-gray-50 dark:bg-ink-700 px-4 py-2.5 text-sm text-gray-900 dark:text-amber-100 focus:outline-none focus:ring-2 focus:ring-indigo-400 dark:focus:ring-market-500/40 focus:border-transparent disabled:opacity-60"
           />
+        </div>
+
+        {/* Milestones */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <label className="block text-sm font-medium text-gray-700 dark:text-amber-300">
+              Milestones
+            </label>
+            <button
+              type="button"
+              onClick={addMilestone}
+              disabled={isInProgress || form.milestones.length >= 10}
+              className="text-xs text-market-400 hover:text-market-300 disabled:opacity-50"
+            >
+              Add milestone
+            </button>
+          </div>
+
+          {form.milestones.map((milestone, index) => (
+            <div
+              key={index}
+              className="rounded-xl border border-gray-200 dark:border-market-500/20 bg-gray-50 dark:bg-ink-700 p-4 space-y-3"
+            >
+              <div className="grid gap-3 sm:grid-cols-2">
+                <input
+                  value={milestone.description}
+                  onChange={(e) => updateMilestone(index, "description", e.target.value)}
+                  disabled={isInProgress}
+                  placeholder={`Milestone ${index + 1} description`}
+                  className="w-full rounded-lg border border-gray-200 dark:border-market-500/20 bg-white dark:bg-ink-800 px-3 py-2 text-sm"
+                />
+                <input
+                  type="number"
+                  step="0.0000001"
+                  value={milestone.amount}
+                  onChange={(e) => updateMilestone(index, "amount", e.target.value)}
+                  disabled={isInProgress}
+                  placeholder="Amount"
+                  className="w-full rounded-lg border border-gray-200 dark:border-market-500/20 bg-white dark:bg-ink-800 px-3 py-2 text-sm"
+                />
+              </div>
+
+              <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-amber-300">
+                <input
+                  type="checkbox"
+                  checked={Boolean(milestone.autoVerify)}
+                  onChange={(e) => updateMilestone(index, "autoVerify", e.target.checked)}
+                  disabled={isInProgress}
+                />
+                Auto-verify with oracle
+              </label>
+
+              {milestone.autoVerify && (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <select
+                    value={milestone.oracleType || ""}
+                    onChange={(e) => updateMilestone(index, "oracleType", e.target.value)}
+                    disabled={isInProgress}
+                    className="w-full rounded-lg border border-gray-200 dark:border-market-500/20 bg-white dark:bg-ink-800 px-3 py-2 text-sm"
+                  >
+                    <option value="">Select oracle</option>
+                    <option value="github">GitHub commit</option>
+                    <option value="website">Website status</option>
+                  </select>
+                  <input
+                    value={milestone.oracleQuery || ""}
+                    onChange={(e) => updateMilestone(index, "oracleQuery", e.target.value)}
+                    disabled={isInProgress}
+                    placeholder="github:owner:repo:commit:sha"
+                    className="w-full rounded-lg border border-gray-200 dark:border-market-500/20 bg-white dark:bg-ink-800 px-3 py-2 text-sm"
+                  />
+                </div>
+              )}
+
+              {form.milestones.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => removeMilestone(index)}
+                  disabled={isInProgress}
+                  className="text-xs text-red-400 hover:text-red-300"
+                >
+                  Remove milestone
+                </button>
+              )}
+            </div>
+          ))}
+
+          {touched.milestones && fieldErrors.milestones && (
+            <p className="text-red-400 text-xs">{fieldErrors.milestones}</p>
+          )}
         </div>
 
         <button

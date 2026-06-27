@@ -103,6 +103,9 @@ function normalizeMilestoneRows(milestones, budget) {
         status: "pending",
         releasedAt: null,
         disputedAt: null,
+        autoVerify: false,
+        oracleType: null,
+        oracleQuery: null,
       },
     ];
   }
@@ -113,6 +116,9 @@ function normalizeMilestoneRows(milestones, budget) {
     status: milestone.status || "pending",
     releasedAt: milestone.releasedAt || milestone.released_at || null,
     disputedAt: milestone.disputedAt || milestone.disputed_at || null,
+    autoVerify: Boolean(milestone.autoVerify || milestone.auto_verify || false),
+    oracleType: milestone.oracleType || milestone.oracle_type || null,
+    oracleQuery: milestone.oracleQuery || milestone.oracle_query || null,
   }));
 }
 
@@ -149,6 +155,9 @@ function validateMilestones(milestones, budget) {
       status: "pending",
       releasedAt: null,
       disputedAt: null,
+      autoVerify: Boolean(milestone.autoVerify || milestone.auto_verify || false),
+      oracleType: milestone.oracleType || milestone.oracle_type || null,
+      oracleQuery: milestone.oracleQuery || milestone.oracle_query || null,
     };
   });
 
@@ -973,6 +982,7 @@ async function getJobAnalytics(jobId) {
     e.status = 404;
     throw e;
   }
+  const job = rowToJob(jobRows[0]);
 
   const { rows: appRows } = await pool.query(
     `SELECT
@@ -992,15 +1002,100 @@ async function getJobAnalytics(jobId) {
     [jobId]
   );
 
+  const { rows: dailyRows } = await pool.query(
+    `SELECT DATE(created_at) AS day, COUNT(*)::int AS count
+     FROM applications
+     WHERE job_id = $1
+     GROUP BY DATE(created_at)
+     ORDER BY day`,
+    [jobId]
+  );
+
+  const { rows: statusRows } = await pool.query(
+    `SELECT status, COUNT(*)::int AS count
+     FROM applications
+     WHERE job_id = $1
+     GROUP BY status`,
+    [jobId]
+  );
+
+  const { rows: skillRows } = await pool.query(
+    `SELECT skill, COUNT(*)::int AS count
+     FROM (
+       SELECT unnest(p.skills) AS skill
+       FROM applications a
+       JOIN profiles p ON a.freelancer_address = p.public_key
+       WHERE a.job_id = $1
+     ) skills
+     GROUP BY skill`,
+    [jobId]
+  );
+
+  const { rows: bidCurrencyRows } = await pool.query(
+    `SELECT currency,
+            ROUND(AVG(bid_amount)::numeric, 7) AS avg_bid,
+            COUNT(*)::int AS count
+     FROM applications
+     WHERE job_id = $1
+     GROUP BY currency`,
+    [jobId]
+  );
+
+  const { rows: hireRows } = await pool.query(
+    `SELECT MIN(accepted_at) AS hired_at
+     FROM applications
+     WHERE job_id = $1 AND status = 'accepted'`,
+    [jobId]
+  );
+
+  const applicationStatusCounts = { pending: 0, accepted: 0, rejected: 0 };
+  for (const row of statusRows) {
+    applicationStatusCounts[row.status] = row.count;
+  }
+
+  const skillDistribution = {};
+  for (const row of skillRows) {
+    if (row.skill) {
+      skillDistribution[row.skill] = row.count;
+    }
+  }
+
+  let daysToHire = null;
+  if (hireRows[0]?.hired_at) {
+    const hiredAt = new Date(hireRows[0].hired_at);
+    const postedAt = new Date(job.createdAt);
+    daysToHire = Math.max(0, (hiredAt - postedAt) / (1000 * 60 * 60 * 24));
+  }
+
+  const { predictJobCompletion } = require("./analytics");
+  const prediction = await predictJobCompletion(job, job.freelancerAddress);
+
   return {
     jobId,
+    title: job.title,
+    applicantCount: appRows[0]?.total_applications || 0,
     totalApplications: appRows[0]?.total_applications || 0,
     acceptedApplications: appRows[0]?.accepted_applications || 0,
+    averageBid: appRows[0]?.avg_bid || "0",
     avgBid: appRows[0]?.avg_bid || "0",
     minBid: appRows[0]?.min_bid || "0",
     maxBid: appRows[0]?.max_bid || "0",
+    views: viewRows[0]?.total_views || 0,
     totalViews: viewRows[0]?.total_views || 0,
     uniqueViews: viewRows[0]?.unique_views || 0,
+    applicationsPerDay: dailyRows.map((row) => ({
+      day: row.day instanceof Date ? row.day.toISOString().slice(0, 10) : String(row.day),
+      count: row.count,
+    })),
+    averageBidAmount: bidCurrencyRows.map((row) => ({
+      currency: row.currency,
+      avgBid: parseFloat(row.avg_bid) || 0,
+      count: row.count,
+    })),
+    applicationStatusCounts,
+    skillDistribution,
+    daysToHire,
+    prediction,
   };
 }
 

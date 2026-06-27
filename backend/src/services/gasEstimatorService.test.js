@@ -23,7 +23,6 @@ const {
   parseFee,
   stroopsToXlm,
   getGasEstimate,
-  SPIKE_MULTIPLIER,
 } = require("./gasEstimatorService");
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────

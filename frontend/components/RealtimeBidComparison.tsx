@@ -6,6 +6,7 @@ import { useEffect, useState, useRef } from "react";
 import { formatXLM, shortenAddress, timeAgo } from "@/utils/format";
 import { accountUrl } from "@/lib/stellar";
 import FreelancerTierBadge from "@/components/FreelancerTierBadge";
+import JobCompletionPredictionPanel from "@/components/JobCompletionPrediction";
 import type { Application, FreelancerTier } from "@/utils/types";
 
 interface RealtimeBidComparisonProps {
@@ -317,6 +318,15 @@ export default function RealtimeBidComparison({
                   <p className="text-xs text-amber-800 mb-3">
                     Estimated duration: {application.estimatedDuration}
                   </p>
+                )}
+
+                {application.prediction && (
+                  <div className="mb-3">
+                    <JobCompletionPredictionPanel
+                      prediction={application.prediction}
+                      compact
+                    />
+                  </div>
                 )}
 
                 <div className="flex items-center justify-between">

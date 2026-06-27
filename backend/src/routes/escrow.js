@@ -17,7 +17,7 @@ const {
   EVENT_TYPES,
 } = require("../services/notificationService");
 const { processReferralPayout } = require("../services/referralService");
-const { releaseMilestone, disputeMilestone } = require("../services/escrowService");
+const { releaseMilestone, disputeMilestone, verifyMilestoneViaOracle } = require("../services/escrowService");
 
 /**
  * POST /api/escrow/:jobId/release
@@ -181,6 +181,29 @@ router.post(
       }
 
       const result = await disputeMilestone(jobId, milestoneIndex, raisedBy);
+      res.json({ success: true, data: result });
+    } catch (e) {
+      next(e);
+    }
+  },
+);
+
+/**
+ * POST /api/escrow/:jobId/verify-milestone-oracle
+ */
+router.post(
+  "/:jobId/verify-milestone-oracle",
+  escrowActionRateLimiter,
+  async (req, res, next) => {
+    try {
+      const { jobId } = req.params;
+      const { contractTxHash, milestoneIndex } = req.body;
+
+      const result = await verifyMilestoneViaOracle(
+        jobId,
+        milestoneIndex,
+        contractTxHash,
+      );
       res.json({ success: true, data: result });
     } catch (e) {
       next(e);

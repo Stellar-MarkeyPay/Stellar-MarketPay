@@ -83,7 +83,7 @@ import { TransactionBuilder, BASE_FEE } from "@stellar/stellar-sdk";
 
 const mockFetchDynamicFeeTiers = fetchDynamicFeeTiers as jest.Mock;
 const mockPickTierFeeStroops = pickTierFeeStroops as jest.Mock;
-const MockTransactionBuilder = TransactionBuilder as jest.Mock;
+const MockTransactionBuilder = TransactionBuilder as unknown as jest.Mock;
 
 function makeEstimate(mediumFee = "1000") {
   return {
