@@ -4,15 +4,14 @@ version = "0.1.0"
 edition = "2021"
 description = "Stellar MarketPay — Soroban escrow smart contract for freelance payments"
 license = "MIT"
+resolver = "2"
 
 [lib]
 crate-type = ["cdylib"]
 
 [dependencies]
-soroban-sdk = "=22.0.0"
-soroban-env-common = "=22.1.0"
-soroban-env-host = "=22.1.0"
-stellar-xdr = "=22.0.0"
+soroban-sdk = { version = "=22.0.0", default-features = false }
+stellar-xdr = { version = "=22.0.0", default-features = false, features = ["curr"] }
 base64ct = "=1.6.0"
 zeroize_derive = "=1.4.2"
 time-core = "=0.1.2"
@@ -21,9 +20,10 @@ serde_with = "=3.6.1"
 ethnum = "=1.5.0"
 
 [dev-dependencies]
-soroban-sdk = { version = "=22.0.0", features = ["testutils"] }
+soroban-sdk = { version = "=22.0.0", default-features = false, features = ["testutils"] }
 
 [features]
+std = ["stellar-xdr/std"]
 testutils = ["soroban-sdk/testutils"]
 
 [profile.release]
