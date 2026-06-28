@@ -1,6 +1,6 @@
 {
   "generators": {
-    "address": 6,
+    "address": 5,
     "nonce": 0
   },
   "auth": [
@@ -40,7 +40,7 @@
                 {
                   "i128": {
                     "hi": 0,
-                    "lo": 1000
+                    "lo": 500
                   }
                 }
               ]
@@ -50,114 +50,11 @@
         }
       ]
     ],
-    [
-      [
-        "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M",
-        {
-          "function": {
-            "contract_fn": {
-              "contract_address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
-              "function_name": "create_escrow",
-              "args": [
-                {
-                  "string": "timeout_job_3"
-                },
-                {
-                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
-                },
-                {
-                  "map": [
-                    {
-                      "key": {
-                        "symbol": "amount"
-                      },
-                      "val": {
-                        "i128": {
-                          "hi": 0,
-                          "lo": 1000
-                        }
-                      }
-                    },
-                    {
-                      "key": {
-                        "symbol": "arbitrator"
-                      },
-                      "val": "void"
-                    },
-                    {
-                      "key": {
-                        "symbol": "freelancer"
-                      },
-                      "val": {
-                        "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAITA4"
-                      }
-                    },
-                    {
-                      "key": {
-                        "symbol": "milestones"
-                      },
-                      "val": "void"
-                    },
-                    {
-                      "key": {
-                        "symbol": "referrer"
-                      },
-                      "val": "void"
-                    },
-                    {
-                      "key": {
-                        "symbol": "timeout_ledgers"
-                      },
-                      "val": {
-                        "u32": 5
-                      }
-                    },
-                    {
-                      "key": {
-                        "symbol": "token"
-                      },
-                      "val": {
-                        "address": "CDLDVFKHEZ2RVB3NG4UQA4VPD3TSHV6XMHXMHP2BSGCJ2IIWVTOHGDSG"
-                      }
-                    }
-                  ]
-                }
-              ]
-            }
-          },
-          "sub_invocations": [
-            {
-              "function": {
-                "contract_fn": {
-                  "contract_address": "CDLDVFKHEZ2RVB3NG4UQA4VPD3TSHV6XMHXMHP2BSGCJ2IIWVTOHGDSG",
-                  "function_name": "transfer",
-                  "args": [
-                    {
-                      "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
-                    },
-                    {
-                      "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM"
-                    },
-                    {
-                      "i128": {
-                        "hi": 0,
-                        "lo": 1000
-                      }
-                    }
-                  ]
-                }
-              },
-              "sub_invocations": []
-            }
-          ]
-        }
-      ]
-    ],
     []
   ],
   "ledger": {
     "protocol_version": 22,
-    "sequence_number": 6,
+    "sequence_number": 0,
     "timestamp": 0,
     "network_id": "0000000000000000000000000000000000000000000000000000000000000000",
     "base_reserve": 0,
@@ -277,156 +174,12 @@
                         "key": {
                           "vec": [
                             {
-                              "symbol": "Escrow"
-                            },
-                            {
-                              "string": "timeout_job_3"
-                            }
-                          ]
-                        },
-                        "val": {
-                          "map": [
-                            {
-                              "key": {
-                                "symbol": "amount"
-                              },
-                              "val": {
-                                "i128": {
-                                  "hi": 0,
-                                  "lo": 1000
-                                }
-                              }
-                            },
-                            {
-                              "key": {
-                                "symbol": "arbitrator"
-                              },
-                              "val": "void"
-                            },
-                            {
-                              "key": {
-                                "symbol": "client"
-                              },
-                              "val": {
-                                "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
-                              }
-                            },
-                            {
-                              "key": {
-                                "symbol": "created_at"
-                              },
-                              "val": {
-                                "u32": 0
-                              }
-                            },
-                            {
-                              "key": {
-                                "symbol": "deliverable_hash"
-                              },
-                              "val": "void"
-                            },
-                            {
-                              "key": {
-                                "symbol": "freelancer"
-                              },
-                              "val": {
-                                "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAITA4"
-                              }
-                            },
-                            {
-                              "key": {
-                                "symbol": "job_id"
-                              },
-                              "val": {
-                                "string": "timeout_job_3"
-                              }
-                            },
-                            {
-                              "key": {
-                                "symbol": "milestones"
-                              },
-                              "val": {
-                                "vec": []
-                              }
-                            },
-                            {
-                              "key": {
-                                "symbol": "referrer"
-                              },
-                              "val": "void"
-                            },
-                            {
-                              "key": {
-                                "symbol": "refund_approvals"
-                              },
-                              "val": {
-                                "u32": 0
-                              }
-                            },
-                            {
-                              "key": {
-                                "symbol": "release_approvals"
-                              },
-                              "val": {
-                                "u32": 0
-                              }
-                            },
-                            {
-                              "key": {
-                                "symbol": "status"
-                              },
-                              "val": {
-                                "vec": [
-                                  {
-                                    "symbol": "Locked"
-                                  }
-                                ]
-                              }
-                            },
-                            {
-                              "key": {
-                                "symbol": "timeout_ledger"
-                              },
-                              "val": {
-                                "u32": 5
-                              }
-                            },
-                            {
-                              "key": {
-                                "symbol": "token"
-                              },
-                              "val": {
-                                "address": "CDLDVFKHEZ2RVB3NG4UQA4VPD3TSHV6XMHXMHP2BSGCJ2IIWVTOHGDSG"
-                              }
-                            }
-                          ]
-                        }
-                      },
-                      {
-                        "key": {
-                          "vec": [
-                            {
                               "symbol": "EscrowCount"
                             }
                           ]
                         },
                         "val": {
-                          "u32": 1
-                        }
-                      },
-                      {
-                        "key": {
-                          "vec": [
-                            {
-                              "symbol": "TimeoutTimestamp"
-                            },
-                            {
-                              "string": "timeout_job_3"
-                            }
-                          ]
-                        },
-                        "val": {
-                          "u32": 604800
+                          "u32": 0
                         }
                       },
                       {
@@ -487,112 +240,6 @@
       [
         {
           "contract_data": {
-            "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M",
-            "key": {
-              "ledger_key_nonce": {
-                "nonce": 1033654523790656264
-              }
-            },
-            "durability": "temporary"
-          }
-        },
-        [
-          {
-            "last_modified_ledger_seq": 0,
-            "data": {
-              "contract_data": {
-                "ext": "v0",
-                "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M",
-                "key": {
-                  "ledger_key_nonce": {
-                    "nonce": 1033654523790656264
-                  }
-                },
-                "durability": "temporary",
-                "val": "void"
-              }
-            },
-            "ext": "v0"
-          },
-          6311999
-        ]
-      ],
-      [
-        {
-          "contract_data": {
-            "contract": "CDLDVFKHEZ2RVB3NG4UQA4VPD3TSHV6XMHXMHP2BSGCJ2IIWVTOHGDSG",
-            "key": {
-              "vec": [
-                {
-                  "symbol": "Balance"
-                },
-                {
-                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM"
-                }
-              ]
-            },
-            "durability": "persistent"
-          }
-        },
-        [
-          {
-            "last_modified_ledger_seq": 0,
-            "data": {
-              "contract_data": {
-                "ext": "v0",
-                "contract": "CDLDVFKHEZ2RVB3NG4UQA4VPD3TSHV6XMHXMHP2BSGCJ2IIWVTOHGDSG",
-                "key": {
-                  "vec": [
-                    {
-                      "symbol": "Balance"
-                    },
-                    {
-                      "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM"
-                    }
-                  ]
-                },
-                "durability": "persistent",
-                "val": {
-                  "map": [
-                    {
-                      "key": {
-                        "symbol": "amount"
-                      },
-                      "val": {
-                        "i128": {
-                          "hi": 0,
-                          "lo": 1000
-                        }
-                      }
-                    },
-                    {
-                      "key": {
-                        "symbol": "authorized"
-                      },
-                      "val": {
-                        "bool": true
-                      }
-                    },
-                    {
-                      "key": {
-                        "symbol": "clawback"
-                      },
-                      "val": {
-                        "bool": false
-                      }
-                    }
-                  ]
-                }
-              }
-            },
-            "ext": "v0"
-          },
-          518400
-        ]
-      ],
-      [
-        {
-          "contract_data": {
             "contract": "CDLDVFKHEZ2RVB3NG4UQA4VPD3TSHV6XMHXMHP2BSGCJ2IIWVTOHGDSG",
             "key": {
               "vec": [
@@ -634,7 +281,7 @@
                       "val": {
                         "i128": {
                           "hi": 0,
-                          "lo": 0
+                          "lo": 500
                         }
                       }
                     },
