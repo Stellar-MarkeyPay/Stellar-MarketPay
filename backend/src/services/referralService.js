@@ -30,6 +30,11 @@ const MAX_DEPTH = 3;
 // Exposed for the /info endpoint
 const REFERRAL_BONUS_BPS = LEVEL_BPS[0]; // primary/direct bonus
 
+// ISSUE-17: platform fee charged on release, mirroring PLATFORM_FEE_BPS in
+// contracts/marketpay-contract/src/lib.rs. Routed entirely to the escrow's
+// referrer_address when one is set; otherwise it defaults to the admin.
+const PLATFORM_FEE_BPS = 100; // 1%
+
 /**
  * Validate a Stellar G-address.
  */
@@ -256,14 +261,65 @@ async function processMultiLevelPayout(jobId, refereeAddress, amountXlm, contrac
 }
 
 /**
+ * ISSUE-17: record the audit trail for the on-chain platform fee split.
+ *
+ * Mirrors release_escrow_core() in the Soroban contract: the multi-level
+ * referral tree takes priority (handled by processMultiLevelPayout); only
+ * when the freelancer has no tree registration does the contract charge the
+ * 1% platform fee, routing it to the escrow's referrer_address or, absent
+ * one, to the admin.
+ *
+ * @returns {Promise<{recipient: string, type: 'referrer'|'admin', feeXlm: string}|null>}
+ */
+async function processPlatformFeePayout(jobId, freelancerAddress, amountXlm, contractTxHash) {
+  validatePublicKey(freelancerAddress);
+
+  const escrowAmount = parseFloat(amountXlm);
+  if (isNaN(escrowAmount) || escrowAmount <= 0) return null;
+
+  const { rows: escrowRows } = await pool.query(
+    "SELECT referrer_address FROM escrows WHERE job_id = $1",
+    [jobId],
+  );
+  const referrerAddress = escrowRows.length ? escrowRows[0].referrer_address : null;
+
+  const adminAddress = process.env.ADMIN_PUBLIC_KEY || null;
+  const recipient = referrerAddress || adminAddress;
+  if (!recipient) return null;
+
+  const feeXlm = ((escrowAmount * PLATFORM_FEE_BPS) / BPS_DENOMINATOR).toFixed(7);
+  const recipientType = referrerAddress ? "referrer" : "admin";
+
+  await pool.query(
+    `INSERT INTO platform_fee_payouts
+       (job_id, freelancer_address, recipient_address, recipient_type, amount_xlm, contract_tx_hash)
+     VALUES ($1, $2, $3, $4, $5, $6)`,
+    [jobId, freelancerAddress, recipient, recipientType, feeXlm, contractTxHash || null],
+  );
+
+  return { recipient, type: recipientType, feeXlm };
+}
+
+/**
  * Back-compat shim: called from the old escrow release path.
- * Delegates to processMultiLevelPayout and returns the level-1 result.
+ *
+ * Mirrors the contract's branch: if the freelancer has a multi-level tree
+ * registration at all, that path owns the payout (even if this particular
+ * release doesn't trigger one, e.g. not the referee's first job — same as
+ * on-chain, which always takes the tree branch once registered). Only when
+ * there is no tree registration does the ISSUE-17 platform fee split apply.
  */
 async function processReferralPayout(jobId, refereeAddress, amountXlm, contractTxHash) {
-  const payouts = await processMultiLevelPayout(jobId, refereeAddress, amountXlm, contractTxHash);
-  const direct = payouts.find((p) => p.level === 1);
-  if (!direct) return null;
-  return { referrer: direct.recipient, bonusXlm: direct.bonusXlm };
+  const hasTreeParent = await getReferrerForReferee(refereeAddress);
+  if (hasTreeParent) {
+    const payouts = await processMultiLevelPayout(jobId, refereeAddress, amountXlm, contractTxHash);
+    const direct = payouts.find((p) => p.level === 1);
+    return direct ? { referrer: direct.recipient, bonusXlm: direct.bonusXlm } : null;
+  }
+
+  const feePayout = await processPlatformFeePayout(jobId, refereeAddress, amountXlm, contractTxHash);
+  if (!feePayout) return null;
+  return { referrer: feePayout.type === "referrer" ? feePayout.recipient : null, bonusXlm: feePayout.feeXlm };
 }
 
 // ── Queries ───────────────────────────────────────────────────────────────────
@@ -292,6 +348,16 @@ async function getReferralStats(publicKey) {
             COUNT(*) AS tree_payout_count
      FROM multi_level_payouts
      WHERE recipient_address = $1`,
+    [publicKey],
+  );
+
+  // ISSUE-17: platform fee earnings (escrows released with this user set as
+  // the per-escrow referrer, where the freelancer had no tree registration)
+  const { rows: feeEarnings } = await pool.query(
+    `SELECT COALESCE(SUM(amount_xlm), 0) AS fee_total_xlm,
+            COUNT(*) AS fee_payout_count
+     FROM platform_fee_payouts
+     WHERE recipient_address = $1 AND recipient_type = 'referrer'`,
     [publicKey],
   );
 
@@ -333,6 +399,7 @@ async function getReferralStats(publicKey) {
 
   const s = summary[0];
   const te = treeEarnings[0];
+  const fe = feeEarnings[0];
   return {
     totalReferrals: parseInt(s.total_referrals, 10),
     paidReferrals: parseInt(s.paid_referrals, 10),
@@ -340,8 +407,11 @@ async function getReferralStats(publicKey) {
     totalEarnedXlm: parseFloat(s.total_earned_xlm).toFixed(7),
     treeEarnedXlm: parseFloat(te.tree_total_xlm).toFixed(7),
     treePayoutCount: parseInt(te.tree_payout_count, 10),
+    platformFeeEarnedXlm: parseFloat(fe.fee_total_xlm).toFixed(7),
+    platformFeePayoutCount: parseInt(fe.fee_payout_count, 10),
     bonusBps: REFERRAL_BONUS_BPS,
     levelBps: LEVEL_BPS,
+    platformFeeBps: PLATFORM_FEE_BPS,
     referees: referees.map((r) => ({
       id: r.id,
       refereeAddress: r.referee_address,
@@ -468,9 +538,11 @@ module.exports = {
   getReferrerForReferee,
   processReferralPayout,
   processMultiLevelPayout,
+  processPlatformFeePayout,
   getReferralStats,
   getReferralTree,
   REFERRAL_BONUS_BPS,
+  PLATFORM_FEE_BPS,
   LEVEL_BPS,
   MAX_DEPTH,
 };
