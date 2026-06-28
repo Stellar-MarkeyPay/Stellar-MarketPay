@@ -625,15 +625,22 @@ async function assignFreelancer(jobId, freelancerAddress) {
  *
  * @param {number|string} jobId - The ID of the job.
  * @param {string} escrowContractId - The escrow contract ID.
+ * @param {string|null} [referrerAddress] - ISSUE-17: optional referrer captured
+ *   from the client's referral link, recorded for the on-chain platform fee split.
  * @returns {Promise<Object>} The updated job object.
  * @throws {Error} If the escrowContractId is invalid or the job is not found.
  */
-async function updateJobEscrowId(jobId, escrowContractId) {
+async function updateJobEscrowId(jobId, escrowContractId, referrerAddress = null) {
   if (!escrowContractId || typeof escrowContractId !== "string") {
     const e = new Error("Invalid escrow contract ID");
     e.status = 400;
     throw e;
   }
+
+  const referrer =
+    referrerAddress && /^G[A-Z0-9]{55}$/.test(referrerAddress)
+      ? referrerAddress
+      : null;
 
   const { rows } = await pool.query(
     "UPDATE jobs SET escrow_contract_id = $1, updated_at = NOW() WHERE id = $2 RETURNING *",
@@ -642,16 +649,35 @@ async function updateJobEscrowId(jobId, escrowContractId) {
 
   if (rows.length) {
     const job = rowToJob(rows[0]);
-    await pool.query(
-      `INSERT INTO escrows (job_id, contract_id, amount_xlm, milestones, status, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, 'funded', NOW(), NOW())
-       ON CONFLICT (job_id) DO UPDATE
-       SET contract_id = EXCLUDED.contract_id,
-           amount_xlm = EXCLUDED.amount_xlm,
-           milestones = EXCLUDED.milestones,
-           updated_at = NOW()`,
-      [job.id, escrowContractId, job.budget, JSON.stringify(job.milestones)],
-    );
+    try {
+      await pool.query(
+        `INSERT INTO escrows (job_id, contract_id, amount_xlm, milestones, status, referrer_address, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, 'funded', $5, NOW(), NOW())
+         ON CONFLICT (job_id) DO UPDATE
+         SET contract_id = EXCLUDED.contract_id,
+             amount_xlm = EXCLUDED.amount_xlm,
+             milestones = EXCLUDED.milestones,
+             referrer_address = COALESCE(EXCLUDED.referrer_address, escrows.referrer_address),
+             updated_at = NOW()`,
+        [job.id, escrowContractId, job.budget, JSON.stringify(job.milestones), referrer],
+      );
+    } catch (err) {
+      // Referrer has no profile yet (FK violation) — record the escrow without it.
+      if (err.code === "23503" && referrer) {
+        await pool.query(
+          `INSERT INTO escrows (job_id, contract_id, amount_xlm, milestones, status, created_at, updated_at)
+           VALUES ($1, $2, $3, $4, 'funded', NOW(), NOW())
+           ON CONFLICT (job_id) DO UPDATE
+           SET contract_id = EXCLUDED.contract_id,
+               amount_xlm = EXCLUDED.amount_xlm,
+               milestones = EXCLUDED.milestones,
+               updated_at = NOW()`,
+          [job.id, escrowContractId, job.budget, JSON.stringify(job.milestones)],
+        );
+      } else {
+        throw err;
+      }
+    }
     return job;
   }
 

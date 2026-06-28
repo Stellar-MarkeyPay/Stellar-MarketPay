@@ -41,6 +41,13 @@ const DEFAULT_TIMEOUT_SECONDS: u32 = 7 * 24 * 60 * 60;
 /// Legacy fallback used by the older ledger-sequence timeout path.
 const DEFAULT_TIMEOUT_LEDGERS: u32 = 120_960;
 
+/// ISSUE-17: Platform fee charged on release, in basis points (1%).
+/// Routed entirely to the escrow's `referrer` when one is set; otherwise it
+/// goes to the protocol admin. Only applies when the freelancer has no
+/// multi-level referral tree registration (that path has its own bonus model).
+const PLATFORM_FEE_BPS: i128 = 100;
+const FEE_BPS_DENOMINATOR: i128 = 10_000;
+
 // ─── Data structures ──────────────────────────────────────────────────────────
 #[contracttype]
 #[derive(Clone, Debug)]
@@ -710,27 +717,47 @@ impl MarketPayContract {
                     release_amount,
                     &job_id,
                 )
-            } else if let Some(ref referrer_addr) = escrow.referrer {
-                // Legacy single-level referral stored on the escrow struct
-                let bonus = release_amount
-                    .checked_mul(200)
-                    .expect("Arithmetic overflow")
-                    .checked_div(10_000)
-                    .expect("Arithmetic overflow");
-                if bonus > 0 {
-                    token_client.transfer(
-                        &env.current_contract_address(),
-                        referrer_addr,
-                        &bonus,
-                    );
-                    env.events().publish(
-                        (symbol_short!("ref_bon"), referrer_addr.clone()),
-                        (job_id.clone(), bonus),
-                    );
-                }
-                bonus
             } else {
-                0i128
+                // ISSUE-17: Platform fee, split between the protocol admin and
+                // the escrow's referrer (if one was set at creation time).
+                let fee = release_amount
+                    .checked_mul(PLATFORM_FEE_BPS)
+                    .expect("Arithmetic overflow")
+                    .checked_div(FEE_BPS_DENOMINATOR)
+                    .expect("Arithmetic overflow");
+
+                if fee > 0 {
+                    let admin: Address = env
+                        .storage()
+                        .instance()
+                        .get(&DataKey::Admin)
+                        .expect("Not initialized");
+
+                    if let Some(ref referrer_addr) = escrow.referrer {
+                        // Entire platform fee routed to the referrer.
+                        token_client.transfer(
+                            &env.current_contract_address(),
+                            referrer_addr,
+                            &fee,
+                        );
+                        env.events().publish(
+                            (symbol_short!("ref_bon"), referrer_addr.clone()),
+                            (job_id.clone(), fee),
+                        );
+                    } else {
+                        // No referrer — the entire fee defaults to the platform.
+                        token_client.transfer(
+                            &env.current_contract_address(),
+                            &admin,
+                            &fee,
+                        );
+                        env.events().publish(
+                            (symbol_short!("fee_adm"), admin.clone()),
+                            (job_id.clone(), fee),
+                        );
+                    }
+                }
+                fee
             };
 
             let freelancer_amount = release_amount
@@ -2539,7 +2566,42 @@ mod regression_tests {
 
         let escrow = contract_client.get_escrow(&job_id);
         assert_eq!(escrow.status, EscrowStatus::Released);
-        assert_eq!(token_client.balance(&freelancer), 1000);
+        // ISSUE-17: no referrer was set, so the 1% platform fee defaults to the admin.
+        assert_eq!(token_client.balance(&freelancer), 990);
+        assert_eq!(token_client.balance(&admin), 10);
+    }
+
+    #[test]
+    fn test_platform_fee_routed_to_referrer() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let id = env.register(MarketPayContract, ());
+        let contract_client = MarketPayContractClient::new(&env, &id);
+
+        let admin = Address::generate(&env);
+        contract_client.initialize(&admin);
+
+        let client = Address::generate(&env);
+        let freelancer = Address::generate(&env);
+        let referrer = Address::generate(&env);
+
+        let token_contract = env.register_stellar_asset_contract_v2(admin.clone());
+        let token_id = token_contract.address();
+        let token_client = token::Client::new(&env, &token_id);
+        let token_admin = token::StellarAssetClient::new(&env, &token_id);
+        token_admin.mint(&client, &1000);
+
+        let job_id = String::from_str(&env, "job_referrer");
+        contract_client.create_escrow(&job_id, &client.clone(), &CreateEscrowParams { freelancer: freelancer.clone(), token: token_id.clone(), amount: 1000, milestones: None, timeout_ledgers: None, referrer: Some(referrer.clone()) });
+        contract_client.start_work(&job_id, &client.clone());
+
+        contract_client.release_escrow(&job_id, &client.clone());
+
+        // ISSUE-17: with a referrer set, the entire 1% platform fee routes to
+        // the referrer instead of the admin.
+        assert_eq!(token_client.balance(&freelancer), 990);
+        assert_eq!(token_client.balance(&referrer), 10);
+        assert_eq!(token_client.balance(&admin), 0);
     }
 
     #[test]
@@ -2972,7 +3034,7 @@ mod deliverable_oracle_tests {
     #[test]
     fn test_submit_deliverable_match_auto_releases() {
         let env = Env::default();
-        let (contract, _admin, client, freelancer, token_id) = setup(&env);
+        let (contract, admin, client, freelancer, token_id) = setup(&env);
         let job_id = String::from_str(&env, "deliverable-match");
         let expected_hash = BytesN::from_array(&env, &[9u8; 32]);
 
@@ -2997,7 +3059,9 @@ mod deliverable_oracle_tests {
         assert_eq!(escrow.status, EscrowStatus::Released);
 
         let token_client = token::Client::new(&env, &token_id);
-        assert_eq!(token_client.balance(&freelancer), 1_000);
+        // ISSUE-17: no referrer was set, so the 1% platform fee defaults to the admin.
+        assert_eq!(token_client.balance(&freelancer), 990);
+        assert_eq!(token_client.balance(&admin), 10);
     }
 
     #[test]

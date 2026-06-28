@@ -318,8 +318,11 @@ export default function PostJobForm({
         budget: budgetValue,
         currency: form.currency,
       });
-      
-      await updateJobEscrowId(createdJobId, hash);
+
+      // ISSUE-17: attach the referral code captured by _app.tsx (if any) so
+      // the on-chain platform fee split routes to the referrer on release.
+      const referrerAddress = localStorage.getItem("smp_referrer");
+      await updateJobEscrowId(createdJobId, hash, referrerAddress);
       setTxHash(hash);
       setStep("complete");
       localStorage.removeItem(DRAFT_STORAGE_KEY);
@@ -344,7 +347,8 @@ export default function PostJobForm({
 
     try {
       const hash = await signAndSubmitSorobanTx(transaction.toXDR());
-      await updateJobEscrowId(jId, hash);
+      const referrerAddress = localStorage.getItem("smp_referrer");
+      await updateJobEscrowId(jId, hash, referrerAddress);
       setTxHash(hash);
       setStep("complete");
       localStorage.removeItem(DRAFT_STORAGE_KEY);
