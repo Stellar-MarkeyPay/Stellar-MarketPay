@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { fetchJobAnalytics, extendJobExpiry } from "@/lib/api";
 import { Job, JobAnalytics } from "@/utils/types";
+import JobCompletionPredictionPanel from "@/components/JobCompletionPrediction";
 import clsx from "clsx";
 
 interface JobAnalyticsProps {
@@ -257,6 +258,10 @@ export default function JobAnalyticsPanel({ job, onExtend }: JobAnalyticsProps) 
 
       {/* Analytics Grid */}
       <div className="grid gap-6">
+        {analytics?.prediction && (
+          <JobCompletionPredictionPanel prediction={analytics.prediction} />
+        )}
+
         {/* Applications Per Day */}
         <div className="card p-4">
           <div className="flex items-center justify-between mb-4">

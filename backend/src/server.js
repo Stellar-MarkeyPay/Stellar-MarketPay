@@ -444,6 +444,11 @@ async function bootstrap() {
   try {
   await migrate();
   await cleanupExpiredScopeSessions();
+
+  const { trainRegressionModel } = require("./services/analytics");
+  const trainingResult = await trainRegressionModel();
+  serviceLogger.info(trainingResult, "Predictive analytics model initialized");
+
   await indexerService.start();
   priceAlertService.start();
 

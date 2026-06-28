@@ -38,6 +38,9 @@ export interface JobMilestone {
   status: "pending" | "released" | "disputed";
   releasedAt?: string | null;
   disputedAt?: string | null;
+  autoVerify?: boolean;
+  oracleType?: string | null;
+  oracleQuery?: string | null;
 }
 
 export interface NotificationItem {
@@ -114,6 +117,7 @@ export interface Application {
   status: "pending" | "accepted" | "rejected";
   screeningAnswers?: Record<string, string>;
   estimatedDuration?: string;
+  prediction?: JobCompletionPrediction;
   bidCommitment?: string | null;
   bidRevealed?: boolean;
   revealedBidAmount?: string | null;
@@ -347,6 +351,17 @@ export interface TimeInvoice {
 
 // ─── Analytics ───────────────────────────────────────────────────────────────
 
+export interface JobCompletionPrediction {
+  estimatedDurationDays: number;
+  estimatedCompletionDate: string;
+  confidenceScore: number;
+  freelancerStats: {
+    completedJobs: number;
+    rating: number;
+    onTimeRate: number | null;
+  };
+}
+
 export interface JobAnalytics {
   jobId: string;
   title: string;
@@ -366,6 +381,7 @@ export interface JobAnalytics {
   skillDistribution: Record<string, number>;
   daysToHire: number | null;
   timeToHire?: number | null;
+  prediction?: JobCompletionPrediction | null;
 }
 
 // ─── Bulk Actions ────────────────────────────────────────────────────────────

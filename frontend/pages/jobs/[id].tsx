@@ -5,6 +5,7 @@ import { useRouter } from "next/router";
 import Link from "next/link";
 import Head from "next/head";
 import ApplicationForm from "@/components/ApplicationForm";
+import JobCompletionPredictionPanel from "@/components/JobCompletionPrediction";
 import WalletConnect from "@/components/WalletConnect";
 import RatingForm from "@/components/RatingForm";
 import ShareJobModal from "@/components/ShareJobModal";
@@ -356,6 +357,12 @@ export default function JobDetail({ publicKey, onConnect }: JobDetailProps) {
                   <p className="text-amber-700/80 text-xs sm:text-sm leading-relaxed mb-4 break-words">
                     {application.proposal}
                   </p>
+
+                  {application.prediction && (
+                    <div className="mb-4">
+                      <JobCompletionPredictionPanel prediction={application.prediction} />
+                    </div>
+                  )}
 
                   {application.status === "pending" && job.status === "open" && (
                     <button

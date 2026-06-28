@@ -30,6 +30,9 @@ function normalizeMilestones(milestones, fallbackAmount) {
     status: milestone.status || "pending",
     releasedAt: milestone.releasedAt || milestone.released_at || null,
     disputedAt: milestone.disputedAt || milestone.disputed_at || null,
+    autoVerify: Boolean(milestone.autoVerify || milestone.auto_verify || false),
+    oracleType: milestone.oracleType || milestone.oracle_type || null,
+    oracleQuery: milestone.oracleQuery || milestone.oracle_query || null,
   }));
 }
 
@@ -395,6 +398,93 @@ async function partialRelease(jobId, clientAddress, contractTxHash) {
   return releaseMilestone(jobId, 0, clientAddress, contractTxHash);
 }
 
+async function verifyMilestoneViaOracle(jobId, milestoneIndex, contractTxHash) {
+  const job = await getJob(jobId);
+
+  if (job.status !== "in_progress") {
+    const e = new Error("Job is not in progress");
+    e.status = 400;
+    throw e;
+  }
+
+  const milestones = await getMilestonesForJob(jobId, job);
+  const index = validateMilestoneIndex(milestones, milestoneIndex);
+  const milestone = milestones[index];
+
+  if (!milestone.autoVerify) {
+    const e = new Error("Milestone is not configured for auto-verification");
+    e.status = 400;
+    throw e;
+  }
+  if (!milestone.oracleType || !milestone.oracleQuery) {
+    const e = new Error("Milestone oracle configuration is incomplete");
+    e.status = 400;
+    throw e;
+  }
+  if (milestone.status === "released") {
+    const e = new Error("Milestone already released");
+    e.status = 400;
+    throw e;
+  }
+
+  const { verifyOracleQuery } = require("./github_oracle");
+  const proof = await verifyOracleQuery(
+    milestone.oracleType,
+    milestone.oracleQuery,
+  );
+
+  milestones[index] = {
+    ...milestone,
+    status: "released",
+    releasedAt: new Date().toISOString(),
+    oracleProof: proof.toString("hex"),
+  };
+  await persistMilestones(jobId, milestones);
+
+  await logContractInteraction({
+    functionName: "verify_milestone_oracle",
+    callerAddress: job.clientAddress,
+    jobId,
+    txHash: contractTxHash || `oracle-${Date.now()}`,
+  });
+
+  await notifyEscrowEvent({
+    eventType: EVENT_TYPES.ESCROW_RELEASED,
+    jobId,
+    clientAddress: job.clientAddress,
+    freelancerAddress: job.freelancerAddress,
+    data: {
+      jobTitle: job.title,
+      jobId,
+      milestoneIndex: index,
+      milestoneDescription: milestone.description,
+      amount: milestone.amount,
+      currency: job.currency,
+      autoVerified: true,
+      oracleType: milestone.oracleType,
+    },
+  });
+
+  const allReleased = milestones.every((item) => item.status === "released");
+  if (allReleased) {
+    await processReferralPayout(
+      jobId,
+      job.freelancerAddress,
+      milestones.reduce((sum, item) => sum + parseFloat(item.amount), 0).toFixed(7),
+      contractTxHash || null,
+    );
+  }
+
+  return {
+    success: true,
+    message: `Milestone ${index + 1} auto-verified by oracle`,
+    proof: proof.toString("hex"),
+    milestone: milestones[index],
+    milestones,
+    allReleased,
+  };
+}
+
 async function getEscrow(jobId) {
   const { rows } = await pool.query(
     "SELECT * FROM escrows WHERE job_id = $1",
@@ -416,6 +506,7 @@ module.exports = {
   partialRelease,
   releaseMilestone,
   disputeMilestone,
+  verifyMilestoneViaOracle,
   getEscrow,
   ESCROW_TIMEOUT_DAYS,
 };

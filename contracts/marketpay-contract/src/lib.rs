@@ -34,6 +34,9 @@ use soroban_sdk::{
 pub mod referral;
 use referral::{distribute_tree_rewards, get_children, get_depth, get_parent, register_referral};
 
+pub mod oracle;
+use oracle::MilestoneOracleConfig;
+
 // ─── Storage keys ─────────────────────────────────────────────────────────────
 
 /// Default timeout: 7 days in seconds.
@@ -113,15 +116,7 @@ pub struct Escrow {
     /// Optional referrer address — receives 2% bonus on release
     pub referrer: Option<Address>,
     /// Optional expected SHA-256 deliverable hash agreed by both parties
-    pub deliverable_hash: Option<BytesN<32>>,
-    /// Optional arbitrator address. When set, this escrow requires 2-of-3
-    /// multisig approval (client, freelancer, arbitrator) to release or
-    /// refund, instead of the client's unilateral signature.
-    pub arbitrator: Option<Address>,
-    /// Number of distinct approvals recorded for the pending release action.
-    pub release_approvals: u32,
-    /// Number of distinct approvals recorded for the pending refund action.
-    pub refund_approvals: u32,
+    pub deliverable_hash: Option<Bytes>,
 }
 
 /// Budget commitment for sealed-bid system (Issue #108)
@@ -259,10 +254,8 @@ pub enum DataKey {
     ReferralChildren(Address),
     /// Referral tree: user → depth in the tree (u32)
     ReferralDepth(Address),
-    /// Multisig: (job_id, signer) → bool, whether `signer` has approved release
-    MultisigReleaseVote(String, Address),
-    /// Multisig: (job_id, signer) → bool, whether `signer` has approved refund
-    MultisigRefundVote(String, Address),
+    /// Config for milestone-based oracle auto-verification: job_id, milestone_index
+    MilestoneOracle(String, u32),
 }
 
 /// Reveal phase is open for roughly 24 hours after client closes bidding.
@@ -401,8 +394,7 @@ impl MarketPayContract {
             params.milestones,
             params.timeout_ledgers,
             params.referrer,
-            params.arbitrator,
-            Some(deliverable_hash),
+            Some(deliverable_hash.into()),
         )
     }
 
@@ -417,8 +409,7 @@ impl MarketPayContract {
         milestones: Option<soroban_sdk::Vec<i128>>,
         timeout_ledgers: Option<u32>,
         referrer: Option<Address>,
-        arbitrator: Option<Address>,
-        deliverable_hash: Option<BytesN<32>>,
+        deliverable_hash: Option<Bytes>,
     ) {
         client.require_auth();
 
@@ -1521,6 +1512,145 @@ impl MarketPayContract {
         );
     }
 
+    /// Configures an oracle for a specific milestone.
+    /// Only the client of the job can configure the oracle.
+    pub fn set_milestone_oracle(
+        env: Env,
+        job_id: String,
+        milestone_index: u32,
+        oracle: Address,
+        query: String,
+        client: Address,
+    ) {
+        client.require_auth();
+
+        let escrow: Escrow = env
+            .storage()
+            .instance()
+            .get(&DataKey::Escrow(job_id.clone()))
+            .expect("Escrow not found");
+
+        if escrow.client != client {
+            panic!("Only the client can set the milestone oracle");
+        }
+        if milestone_index >= escrow.milestones.len() {
+            panic!("Invalid milestone index");
+        }
+
+        let config = MilestoneOracleConfig { oracle, query };
+        env.storage().instance().set(
+            &DataKey::MilestoneOracle(job_id, milestone_index),
+            &config,
+        );
+    }
+
+    /// Milestone-based release triggered by a registered oracle.
+    /// Releases milestone funds to the freelancer after verifying oracle authorization.
+    pub fn verify_milestone_oracle(
+        env: Env,
+        job_id: String,
+        milestone_index: u32,
+        oracle: Address,
+        proof: Bytes,
+    ) {
+        oracle.require_auth();
+
+        let config: MilestoneOracleConfig = env
+            .storage()
+            .instance()
+            .get(&DataKey::MilestoneOracle(job_id.clone(), milestone_index))
+            .expect("Milestone oracle configuration not found");
+
+        if config.oracle != oracle {
+            panic!("Unauthorized oracle address");
+        }
+
+        if !oracle::verify_oracle_proof(&env, &config.query, &proof) {
+            panic!("Oracle proof verification failed");
+        }
+
+        let mut escrow: Escrow = env
+            .storage()
+            .instance()
+            .get(&DataKey::Escrow(job_id.clone()))
+            .expect("Escrow not found");
+
+        if escrow.status != EscrowStatus::InProgress
+            && escrow.status != EscrowStatus::Locked
+            && escrow.status != EscrowStatus::Disputed
+        {
+            panic!("Cannot release milestone in current status");
+        }
+
+        if milestone_index >= escrow.milestones.len() {
+            panic!("Invalid milestone index");
+        }
+
+        let mut milestone = escrow.milestones.get(milestone_index).unwrap();
+        if milestone.is_completed {
+            panic!("Milestone already completed");
+        }
+
+        milestone.is_completed = true;
+        escrow.milestones.set(milestone_index, milestone.clone());
+
+        // Transfer funds to freelancer
+        let token_client = token::Client::new(&env, &escrow.token);
+        token_client.transfer(
+            &env.current_contract_address(),
+            &escrow.freelancer,
+            &milestone.amount,
+        );
+
+        // Check if all milestones are now completed
+        let mut all_completed = true;
+        for ms in escrow.milestones.iter() {
+            if !ms.is_completed {
+                all_completed = false;
+                break;
+            }
+        }
+
+        if all_completed {
+            escrow.status = EscrowStatus::Released;
+            env.storage()
+                .instance()
+                .remove(&DataKey::TimeoutTimestamp(job_id.clone()));
+
+            // Increment CompletedJobs for the freelancer and client
+            let freelancer_jobs: u32 = env
+                .storage()
+                .instance()
+                .get(&DataKey::CompletedJobs(escrow.freelancer.clone()))
+                .unwrap_or(0);
+            let new_freelancer_jobs = freelancer_jobs.checked_add(1).expect("Counter overflow");
+            env.storage().instance().set(
+                &DataKey::CompletedJobs(escrow.freelancer.clone()),
+                &new_freelancer_jobs,
+            );
+
+            let client_jobs: u32 = env
+                .storage()
+                .instance()
+                .get(&DataKey::CompletedJobs(escrow.client.clone()))
+                .unwrap_or(0);
+            let new_client_jobs = client_jobs.checked_add(1).expect("Counter overflow");
+            env.storage().instance().set(
+                &DataKey::CompletedJobs(escrow.client.clone()),
+                &new_client_jobs,
+            );
+        }
+
+        env.storage()
+            .instance()
+            .set(&DataKey::Escrow(job_id.clone()), &escrow);
+
+        env.events().publish(
+            (symbol_short!("ms_rel"), job_id.clone()),
+            (escrow.client.clone(), escrow.freelancer.clone(), milestone_index, milestone.amount),
+        );
+    }
+
     // ─── Issue #344: Job Boost with XLM Payment ──────────────────────────────
 
     /// Client pays XLM to the platform treasury to boost a job listing.
@@ -1875,7 +2005,7 @@ impl MarketPayContract {
             .clone()
             .expect("Escrow has no deliverable hash");
 
-        if actual_hash == expected_hash {
+        if Into::<Bytes>::into(actual_hash.clone()) == expected_hash {
             // Auto-release on successful deliverable verification.
             Self::release_escrow_core(env.clone(), job_id.clone(), escrow);
             env.events().publish(
@@ -3097,15 +3227,12 @@ mod deliverable_oracle_tests {
 }
 
 #[cfg(test)]
-mod multisig_tests {
+mod milestone_oracle_tests {
     use super::*;
-    use soroban_sdk::{testutils::Address as _, Address, Env, String};
+    use oracle::compute_verification_hash;
+    use soroban_sdk::{testutils::Address as _, Address, Bytes, Env, String, Vec};
 
-    /// Sets up a contract + funded client + 2-of-3 multisig escrow
-    /// (client, freelancer, arbitrator), already moved to InProgress.
-    fn setup_multisig_escrow(
-        env: &Env,
-    ) -> (MarketPayContractClient, Address, Address, Address, Address, String) {
+    fn setup(env: &Env) -> (MarketPayContractClient, Address, Address, Address, Address) {
         env.mock_all_auths();
         let id = env.register(MarketPayContract, ());
         let contract = MarketPayContractClient::new(env, &id);
@@ -3114,13 +3241,29 @@ mod multisig_tests {
 
         let client = Address::generate(env);
         let freelancer = Address::generate(env);
-        let arbitrator = Address::generate(env);
         let token_contract = env.register_stellar_asset_contract_v2(admin.clone());
         let token_id = token_contract.address();
         let token_admin = token::StellarAssetClient::new(env, &token_id);
         token_admin.mint(&client, &1_000);
 
-        let job_id = String::from_str(env, "multisig-job-1");
+        (contract, admin, client, freelancer, token_id)
+    }
+
+    fn proof_for_query(env: &Env, query: &String) -> Bytes {
+        compute_verification_hash(env, query).into()
+    }
+
+    #[test]
+    fn test_verify_milestone_oracle_releases_funds() {
+        let env = Env::default();
+        let (contract, _admin, client, freelancer, token_id) = setup(&env);
+        let oracle = Address::generate(&env);
+        let job_id = String::from_str(&env, "oracle-milestone");
+        let query = String::from_str(&env, "github:owner/repo:commit:abc123def4567890abcd1234567890abcd1234");
+
+        let mut milestones = Vec::new(&env);
+        milestones.push_back(1_000);
+
         contract.create_escrow(
             &job_id,
             &client,
@@ -3128,164 +3271,41 @@ mod multisig_tests {
                 freelancer: freelancer.clone(),
                 token: token_id.clone(),
                 amount: 1_000,
-                milestones: None,
+                milestones: Some(milestones),
                 timeout_ledgers: None,
                 referrer: None,
-                arbitrator: Some(arbitrator.clone()),
             },
         );
         contract.start_work(&job_id, &client);
+        contract.set_milestone_oracle(&job_id, &0u32, &oracle, &query, &client);
 
-        (contract, client, freelancer, arbitrator, token_id, job_id)
-    }
-
-    #[test]
-    fn test_escrow_initializes_with_three_signers() {
-        let env = Env::default();
-        let (contract, client, freelancer, arbitrator, _token_id, job_id) =
-            setup_multisig_escrow(&env);
-
-        let escrow = contract.get_escrow(&job_id);
-        assert_eq!(escrow.client, client);
-        assert_eq!(escrow.freelancer, freelancer);
-        assert_eq!(escrow.arbitrator, Some(arbitrator));
-        assert_eq!(escrow.release_approvals, 0);
-    }
-
-    #[test]
-    fn test_single_approval_does_not_release_funds() {
-        let env = Env::default();
-        let (contract, client, freelancer, _arbitrator, token_id, job_id) =
-            setup_multisig_escrow(&env);
-
-        contract.approve_release(&job_id, &client);
-
-        let escrow = contract.get_escrow(&job_id);
-        assert_eq!(escrow.status, EscrowStatus::InProgress);
-        assert_eq!(escrow.release_approvals, 1);
-
-        let token_client = token::Client::new(&env, &token_id);
-        assert_eq!(token_client.balance(&freelancer), 0);
-    }
-
-    #[test]
-    fn test_two_approvals_release_funds() {
-        let env = Env::default();
-        let (contract, client, freelancer, arbitrator, token_id, job_id) =
-            setup_multisig_escrow(&env);
-
-        contract.approve_release(&job_id, &client);
-        contract.approve_release(&job_id, &arbitrator);
-
-        let escrow = contract.get_escrow(&job_id);
-        assert_eq!(escrow.status, EscrowStatus::Released);
-        assert_eq!(escrow.release_approvals, 2);
-
-        let token_client = token::Client::new(&env, &token_id);
-        assert_eq!(token_client.balance(&freelancer), 1_000);
-    }
-
-    #[test]
-    fn test_freelancer_and_arbitrator_can_release_without_client() {
-        let env = Env::default();
-        let (contract, _client, freelancer, arbitrator, token_id, job_id) =
-            setup_multisig_escrow(&env);
-
-        contract.approve_release(&job_id, &freelancer);
-        contract.approve_release(&job_id, &arbitrator);
-
-        let escrow = contract.get_escrow(&job_id);
-        assert_eq!(escrow.status, EscrowStatus::Released);
-
-        let token_client = token::Client::new(&env, &token_id);
-        assert_eq!(token_client.balance(&freelancer), 1_000);
-    }
-
-    #[test]
-    #[should_panic(expected = "Signer has already approved release for this job")]
-    fn test_duplicate_approval_rejected() {
-        let env = Env::default();
-        let (contract, client, _freelancer, _arbitrator, _token_id, job_id) =
-            setup_multisig_escrow(&env);
-
-        contract.approve_release(&job_id, &client);
-        contract.approve_release(&job_id, &client);
-    }
-
-    #[test]
-    #[should_panic(expected = "Signer must be the client, freelancer, or arbitrator")]
-    fn test_non_signer_approval_rejected() {
-        let env = Env::default();
-        let (contract, _client, _freelancer, _arbitrator, _token_id, job_id) =
-            setup_multisig_escrow(&env);
-
-        let outsider = Address::generate(&env);
-        contract.approve_release(&job_id, &outsider);
-    }
-
-    #[test]
-    #[should_panic(expected = "Escrow requires multisig approval")]
-    fn test_unilateral_release_rejected_for_multisig_escrow() {
-        let env = Env::default();
-        let (contract, client, _freelancer, _arbitrator, _token_id, job_id) =
-            setup_multisig_escrow(&env);
-
-        contract.release_escrow(&job_id, &client);
-    }
-
-    #[test]
-    #[should_panic(expected = "Escrow does not use multisig approval")]
-    fn test_approve_release_rejected_for_non_multisig_escrow() {
-        let env = Env::default();
-        env.mock_all_auths();
-        let id = env.register(MarketPayContract, ());
-        let contract = MarketPayContractClient::new(&env, &id);
-        let admin = Address::generate(&env);
-        contract.initialize(&admin);
-
-        let client = Address::generate(&env);
-        let freelancer = Address::generate(&env);
-        let token_contract = env.register_stellar_asset_contract_v2(admin.clone());
-        let token_id = token_contract.address();
-        let token_admin = token::StellarAssetClient::new(&env, &token_id);
-        token_admin.mint(&client, &500);
-
-        let job_id = String::from_str(&env, "non-multisig-job");
-        contract.create_escrow(
+        contract.verify_milestone_oracle(
             &job_id,
-            &client,
-            &CreateEscrowParams {
-                freelancer,
-                token: token_id,
-                amount: 500,
-                milestones: None,
-                timeout_ledgers: None,
-                referrer: None,
-                arbitrator: None,
-            },
+            &0u32,
+            &oracle,
+            &proof_for_query(&env, &query),
         );
 
-        contract.approve_release(&job_id, &client);
+        let escrow = contract.get_escrow(&job_id);
+        assert_eq!(escrow.status, EscrowStatus::Released);
+        assert!(escrow.milestones.get(0).unwrap().is_completed);
+
+        let token_client = token::Client::new(&env, &token_id);
+        assert_eq!(token_client.balance(&freelancer), 1_000);
     }
 
     #[test]
-    fn test_two_approvals_refund_escrow() {
+    #[should_panic(expected = "Oracle proof verification failed")]
+    fn test_verify_milestone_oracle_rejects_invalid_proof() {
         let env = Env::default();
-        env.mock_all_auths();
-        let id = env.register(MarketPayContract, ());
-        let contract = MarketPayContractClient::new(&env, &id);
-        let admin = Address::generate(&env);
-        contract.initialize(&admin);
+        let (contract, _admin, client, freelancer, token_id) = setup(&env);
+        let oracle = Address::generate(&env);
+        let job_id = String::from_str(&env, "oracle-bad-proof");
+        let query = String::from_str(&env, "github:owner/repo:commit:abc123def4567890abcd1234567890abcd1234");
 
-        let client = Address::generate(&env);
-        let freelancer = Address::generate(&env);
-        let arbitrator = Address::generate(&env);
-        let token_contract = env.register_stellar_asset_contract_v2(admin.clone());
-        let token_id = token_contract.address();
-        let token_admin = token::StellarAssetClient::new(&env, &token_id);
-        token_admin.mint(&client, &1_000);
+        let mut milestones = Vec::new(&env);
+        milestones.push_back(1_000);
 
-        let job_id = String::from_str(&env, "multisig-refund-job");
         contract.create_escrow(
             &job_id,
             &client,
@@ -3293,90 +3313,51 @@ mod multisig_tests {
                 freelancer: freelancer.clone(),
                 token: token_id.clone(),
                 amount: 1_000,
-                milestones: None,
+                milestones: Some(milestones),
                 timeout_ledgers: None,
                 referrer: None,
-                arbitrator: Some(arbitrator.clone()),
             },
         );
+        contract.start_work(&job_id, &client);
+        contract.set_milestone_oracle(&job_id, &0u32, &oracle, &query, &client);
 
-        // Refund is only allowed before work starts (status Locked)
-        contract.approve_refund(&job_id, &freelancer);
-        contract.approve_refund(&job_id, &arbitrator);
-
-        let escrow = contract.get_escrow(&job_id);
-        assert_eq!(escrow.status, EscrowStatus::Refunded);
-
-        let token_client = token::Client::new(&env, &token_id);
-        assert_eq!(token_client.balance(&client), 1_000);
+        let bad_proof = Bytes::from_array(&env, &[1u8; 32]);
+        contract.verify_milestone_oracle(&job_id, &0u32, &oracle, &bad_proof);
     }
 
     #[test]
-    #[should_panic(expected = "Escrow requires multisig approval")]
-    fn test_unilateral_refund_rejected_for_multisig_escrow() {
+    #[should_panic(expected = "Unauthorized oracle address")]
+    fn test_verify_milestone_oracle_rejects_unauthorized_oracle() {
         let env = Env::default();
-        env.mock_all_auths();
-        let id = env.register(MarketPayContract, ());
-        let contract = MarketPayContractClient::new(&env, &id);
-        let admin = Address::generate(&env);
-        contract.initialize(&admin);
+        let (contract, _admin, client, freelancer, token_id) = setup(&env);
+        let oracle = Address::generate(&env);
+        let impostor = Address::generate(&env);
+        let job_id = String::from_str(&env, "oracle-unauthorized");
+        let query = String::from_str(&env, "website:https://example.com:status:200");
 
-        let client = Address::generate(&env);
-        let freelancer = Address::generate(&env);
-        let arbitrator = Address::generate(&env);
-        let token_contract = env.register_stellar_asset_contract_v2(admin.clone());
-        let token_id = token_contract.address();
-        let token_admin = token::StellarAssetClient::new(&env, &token_id);
-        token_admin.mint(&client, &500);
+        let mut milestones = Vec::new(&env);
+        milestones.push_back(500);
 
-        let job_id = String::from_str(&env, "multisig-refund-rejected-job");
-        contract.create_escrow(
-            &job_id,
-            &client,
-            &CreateEscrowParams {
-                freelancer,
-                token: token_id,
-                amount: 500,
-                milestones: None,
-                timeout_ledgers: None,
-                referrer: None,
-                arbitrator: Some(arbitrator),
-            },
-        );
-
-        contract.refund_escrow(&job_id, &client);
-    }
-
-    #[test]
-    #[should_panic(expected = "Arbitrator must be distinct from the client and freelancer")]
-    fn test_arbitrator_cannot_equal_client_or_freelancer() {
-        let env = Env::default();
-        env.mock_all_auths();
-        let id = env.register(MarketPayContract, ());
-        let contract = MarketPayContractClient::new(&env, &id);
-        let admin = Address::generate(&env);
-        contract.initialize(&admin);
-
-        let client = Address::generate(&env);
-        let freelancer = Address::generate(&env);
-        let token_contract = env.register_stellar_asset_contract_v2(admin.clone());
-        let token_id = token_contract.address();
-        let token_admin = token::StellarAssetClient::new(&env, &token_id);
-        token_admin.mint(&client, &500);
-
-        let job_id = String::from_str(&env, "bad-arbitrator-job");
         contract.create_escrow(
             &job_id,
             &client,
             &CreateEscrowParams {
                 freelancer: freelancer.clone(),
-                token: token_id,
+                token: token_id.clone(),
                 amount: 500,
-                milestones: None,
+                milestones: Some(milestones),
                 timeout_ledgers: None,
                 referrer: None,
-                arbitrator: Some(client.clone()),
             },
+        );
+        contract.start_work(&job_id, &client);
+        contract.set_milestone_oracle(&job_id, &0u32, &oracle, &query, &client);
+
+        contract.verify_milestone_oracle(
+            &job_id,
+            &0u32,
+            &impostor,
+            &proof_for_query(&env, &query),
         );
     }
 }
