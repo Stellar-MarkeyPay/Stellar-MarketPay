@@ -325,7 +325,7 @@ export default function RealtimeBidComparison({
                   </div>
                 </div>
 
-                <p className="text-amber-700/80 text-sm leading-relaxed mb-3">
+                <p className="text-amber-700/80 text-sm leading-relaxed mb-3 break-words whitespace-pre-wrap">
                   {application.proposal}
                 </p>
 

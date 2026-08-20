@@ -207,7 +207,7 @@ export default function JobTimeline({
                 >
                   {step.label}
                 </p>
-                <p className="text-[10px] text-amber-800/75 mt-0.5 max-w-[120px] leading-tight">
+                <p className="text-[10px] text-amber-800/75 mt-0.5 max-w-[120px] leading-tight break-words whitespace-normal">
                   {step.description}
                 </p>
                 {step.active && step.date && (
