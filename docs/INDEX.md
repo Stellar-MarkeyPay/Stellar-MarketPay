@@ -24,6 +24,7 @@ Welcome to Stellar MarketPay documentation. This index helps you find what you n
 - **[DR and Blue-Green Runbook](./dr/runbook.md)** - Failover, deployment rollback, failback, and game-day procedures
 - **[Latest DR Game-Day Report](./dr/game-day-report.md)** - Measured recovery evidence and qualification
 - **[Soroban Contract Deployment](./contract-deployment.md)** - Build, deploy, and configure the escrow contract
+- **[Contract Contributor Guide](./contract-contributor-guide.md)** - Local setup, test snapshots, fund-moving review bar, storage compatibility, and a worked entrypoint example
 - **[Environment Variables](./environment-variables.md)** - Single source of truth for runtime config
 - **[CDN Strategy](./CDN_STRATEGY.md)** - Multi-CDN edge caching, event-driven invalidation, cache-key/TTL strategy, stampede protection
 
@@ -248,6 +249,7 @@ stellar-marketpay/
 │   ├── ADR-001-soroban-escrow-design.md
 │   ├── ADR-002-horizon-api-indexing.md
 │   ├── ADR-003-database-schema-escrow.md
+│   ├── contract-contributor-guide.md
 │   ├── FAQ.md
 │   ├── PINATA_IPFS_SETUP.md
 │   ├── architecture.md
@@ -285,11 +287,12 @@ stellar-marketpay/
 
 1. [Architecture Overview](./architecture.md)
 2. [ADR-001: Escrow Design](./ADR-001-soroban-escrow-design.md)
-3. [ADR-002: Horizon API](./ADR-002-horizon-api-indexing.md)
-4. [ADR-003: Database Schema](./ADR-003-database-schema-escrow.md)
-5. [API Documentation](./API_DOCUMENTATION.md)
-6. [Pinata IPFS Setup](./PINATA_IPFS_SETUP.md)
-7. [Deployment Guide](./deployment.md)
+3. [Contract Contributor Guide](./contract-contributor-guide.md)
+4. [ADR-002: Horizon API](./ADR-002-horizon-api-indexing.md)
+5. [ADR-003: Database Schema](./ADR-003-database-schema-escrow.md)
+6. [API Documentation](./API_DOCUMENTATION.md)
+7. [Pinata IPFS Setup](./PINATA_IPFS_SETUP.md)
+8. [Deployment Guide](./deployment.md)
 
 ### For DevOps/Infrastructure
 

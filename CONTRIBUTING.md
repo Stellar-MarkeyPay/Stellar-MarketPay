@@ -126,3 +126,25 @@ npm run test:e2e
 ### Smart contract deployment
 
 See [docs/contract-deployment.md](docs/contract-deployment.md) for Soroban build, deploy, and env configuration steps.
+
+---
+
+## 🦀 Smart Contract Contributions
+
+The Soroban escrow contract (`contracts/marketpay-contract`) is the
+highest-risk component in the repository — bugs there can permanently lose user
+funds.
+
+Before opening a PR that touches `contracts/`, read the
+**[Contract Contributor Guide](docs/contract-contributor-guide.md)**. It covers:
+
+- Local toolchain setup, building the WASM, running tests, and clippy
+- The `test_snapshots/` mechanism and how to review a snapshot diff in a PR
+- The mandatory review bar for any change that moves funds (authorization
+  checks, arithmetic requirements, required test coverage)
+- Storage-compatibility rules for `DataKey` and `#[contracttype]` structs
+- A complete worked example of adding a new entrypoint with tests
+
+The PR checklist below applies to contract changes too, with the additional
+requirement that any fund-moving change must receive an explicit approval from
+a reviewer who has read the snapshot diff.
