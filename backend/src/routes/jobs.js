@@ -499,6 +499,10 @@ router.patch("/:id/escrow", verifyJWT, generalJobRateLimiter, async (req, res, n
       jobId: req.params.id,
       txHash: escrowContractId,
     });
+    const broadcastRealtime = req.app.locals.broadcastRealtime;
+    if (broadcastRealtime) {
+      broadcastRealtime(`job:${req.params.id}:updated`, { type: "escrow_updated" });
+    }
     res.json({ success: true, data: job });
   } catch (e) {
     next(e);
