@@ -51,10 +51,7 @@ export default function Tooltips({ tooltips, onDismiss, onDismissAll }: Tooltips
       {/* Dismiss all button */}
       {activeTooltips.length > 1 && (
         <div className="fixed bottom-6 right-6 z-50">
-          <button
-            onClick={onDismissAll}
-            className="btn-secondary text-sm py-2 px-4 shadow-lg"
-          >
+          <button onClick={onDismissAll} className="btn-secondary text-sm py-2 px-4 shadow-lg">
             Dismiss All Tips ({activeTooltips.length})
           </button>
         </div>
@@ -132,9 +129,12 @@ function TooltipOverlay({ tooltip, onDismiss }: TooltipOverlayProps) {
         <div
           className={clsx(
             "absolute w-3 h-3 bg-ink-800 border-market-500/30 transform rotate-45",
-            tooltip.position === "top" && "bottom-[-6px] left-1/2 -translate-x-1/2 border-b border-r",
-            tooltip.position === "bottom" && "top-[-6px] left-1/2 -translate-x-1/2 border-t border-l",
-            tooltip.position === "left" && "right-[-6px] top-1/2 -translate-y-1/2 border-r border-t",
+            tooltip.position === "top" &&
+              "bottom-[-6px] left-1/2 -translate-x-1/2 border-b border-r",
+            tooltip.position === "bottom" &&
+              "top-[-6px] left-1/2 -translate-x-1/2 border-t border-l",
+            tooltip.position === "left" &&
+              "right-[-6px] top-1/2 -translate-y-1/2 border-r border-t",
             tooltip.position === "right" && "left-[-6px] top-1/2 -translate-y-1/2 border-l border-b"
           )}
         />
@@ -142,22 +142,23 @@ function TooltipOverlay({ tooltip, onDismiss }: TooltipOverlayProps) {
         {/* Content */}
         <div className="relative">
           <div className="flex items-start justify-between gap-3 mb-2">
-            <h4 className="font-display font-semibold text-amber-100 text-sm">
-              {tooltip.title}
-            </h4>
+            <h4 className="font-display font-semibold text-amber-100 text-sm">{tooltip.title}</h4>
             <button
               onClick={onDismiss}
               className="text-amber-600 hover:text-amber-400 transition-colors flex-shrink-0"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
               </svg>
             </button>
           </div>
 
-          <p className="text-xs text-amber-800 mb-3">
-            {tooltip.description}
-          </p>
+          <p className="text-xs text-amber-800 mb-3">{tooltip.description}</p>
 
           {tooltip.action && (
             <button

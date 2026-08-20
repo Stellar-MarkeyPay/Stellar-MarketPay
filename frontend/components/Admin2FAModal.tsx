@@ -55,13 +55,18 @@ export default function Admin2FAModal({ mode, onComplete }: Admin2FAModalProps) 
       <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
         <div className="absolute inset-0 bg-ink-950/90 backdrop-blur-sm" />
         <div className="relative w-full max-w-md rounded-2xl border border-market-500/20 bg-ink-900 p-6 shadow-2xl">
-          <h2 className="font-display text-xl font-bold text-amber-100 mb-2">Save your backup codes</h2>
+          <h2 className="font-display text-xl font-bold text-amber-100 mb-2">
+            Save your backup codes
+          </h2>
           <p className="text-sm text-amber-800 mb-4">
             These codes are shown once. Store them securely — each code works only once.
           </p>
           <ul className="grid grid-cols-2 gap-2 mb-6 font-mono text-sm text-amber-200">
             {backupCodes.map((code) => (
-              <li key={code} className="rounded-lg bg-ink-800 px-3 py-2 border border-market-500/10">
+              <li
+                key={code}
+                className="rounded-lg bg-ink-800 px-3 py-2 border border-market-500/10"
+              >
                 {code}
               </li>
             ))}
@@ -88,7 +93,12 @@ export default function Admin2FAModal({ mode, onComplete }: Admin2FAModalProps) 
         </p>
 
         {mode === "setup" && !setupStarted && (
-          <button type="button" onClick={startSetup} disabled={loading} className="btn-primary w-full mb-4">
+          <button
+            type="button"
+            onClick={startSetup}
+            disabled={loading}
+            className="btn-primary w-full mb-4"
+          >
             {loading ? "Generating…" : "Generate QR code"}
           </button>
         )}
@@ -119,7 +129,11 @@ export default function Admin2FAModal({ mode, onComplete }: Admin2FAModalProps) 
               required
             />
             {error && <p className="text-sm text-red-400">{error}</p>}
-            <button type="submit" disabled={loading || token.length !== 6} className="btn-primary w-full">
+            <button
+              type="submit"
+              disabled={loading || token.length !== 6}
+              className="btn-primary w-full"
+            >
               {loading ? "Verifying…" : "Verify"}
             </button>
           </form>

@@ -5,7 +5,7 @@
 
 "use strict";
 const express = require("express");
-const router  = express.Router();
+const router = express.Router();
 const { createRateLimiter } = require("../middleware/rateLimiter");
 const { verifyJWT } = require("../middleware/auth");
 

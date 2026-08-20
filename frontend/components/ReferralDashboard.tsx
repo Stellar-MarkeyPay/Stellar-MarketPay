@@ -24,8 +24,7 @@ interface ReferralDashboardProps {
   publicKey: string;
 }
 
-const BASE_URL =
-  process.env.NEXT_PUBLIC_BASE_URL || "https://stellar-marketpay.com";
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://stellar-marketpay.com";
 
 function StatusBadge({ status }: { status: ReferralReferee["status"] }) {
   return (
@@ -36,31 +35,16 @@ function StatusBadge({ status }: { status: ReferralReferee["status"] }) {
           ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
           : status === "pending"
             ? "bg-amber-500/10 text-amber-400 border border-amber-500/20"
-            : "bg-ink-700 text-amber-700 border border-market-500/10",
+            : "bg-ink-700 text-amber-700 border border-market-500/10"
       )}
     >
       {status === "paid" && (
-        <svg
-          className="w-3 h-3"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2.5}
-            d="M5 13l4 4L19 7"
-          />
+        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
         </svg>
       )}
       {status === "pending" && (
-        <svg
-          className="w-3 h-3"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
+        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -74,18 +58,14 @@ function StatusBadge({ status }: { status: ReferralReferee["status"] }) {
   );
 }
 
-export default function ReferralDashboard({
-  publicKey,
-}: ReferralDashboardProps) {
+export default function ReferralDashboard({ publicKey }: ReferralDashboardProps) {
   const [stats, setStats] = useState<ReferralStats | null>(null);
   const [tree, setTree] = useState<ReferralTreeNode | null>(null);
   const [loading, setLoading] = useState(true);
   const [treeLoading, setTreeLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  const [activeTab, setActiveTab] = useState<"referees" | "payouts" | "tree">(
-    "referees",
-  );
+  const [activeTab, setActiveTab] = useState<"referees" | "payouts" | "tree">("referees");
 
   const referralLink = `${BASE_URL}/?ref=${publicKey}`;
 
@@ -170,11 +150,8 @@ export default function ReferralDashboard({
               </h2>
               <p className="text-sm text-amber-700">
                 Share your link. Earn{" "}
-                <span className="text-market-400 font-semibold">
-                  {bonusPercent}%
-                </span>{" "}
-                of your referee&apos;s first job earnings — paid automatically
-                on-chain.
+                <span className="text-market-400 font-semibold">{bonusPercent}%</span> of your
+                referee&apos;s first job earnings — paid automatically on-chain.
               </p>
             </div>
             <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-market-500/10 border border-market-500/20 flex items-center justify-center">
@@ -205,17 +182,12 @@ export default function ReferralDashboard({
                 "flex-shrink-0 flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-medium transition-all border",
                 copied
                   ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
-                  : "btn-primary border-transparent",
+                  : "btn-primary border-transparent"
               )}
             >
               {copied ? (
                 <>
-                  <svg
-                    className="w-4 h-4"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path
                       strokeLinecap="round"
                       strokeLinejoin="round"
@@ -227,12 +199,7 @@ export default function ReferralDashboard({
                 </>
               ) : (
                 <>
-                  <svg
-                    className="w-4 h-4"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path
                       strokeLinecap="round"
                       strokeLinejoin="round"
@@ -283,9 +250,7 @@ export default function ReferralDashboard({
             key={stat.label}
             className="card bg-gradient-to-br from-ink-800 to-ink-900 border-market-500/15 text-center py-4"
           >
-            <p className={clsx("font-display text-2xl font-bold", stat.color)}>
-              {stat.value}
-            </p>
+            <p className={clsx("font-display text-2xl font-bold", stat.color)}>{stat.value}</p>
             <p className="text-xs text-amber-700 mt-1">{stat.label}</p>
           </div>
         ))}
@@ -303,7 +268,7 @@ export default function ReferralDashboard({
                   "px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-all capitalize",
                   activeTab === t
                     ? "border-market-400 text-market-300"
-                    : "border-transparent text-amber-700 hover:text-amber-400",
+                    : "border-transparent text-amber-700 hover:text-amber-400"
                 )}
               >
                 {t === "referees"
@@ -328,8 +293,7 @@ export default function ReferralDashboard({
               <div className="text-center py-10">
                 <p className="text-amber-700 text-sm">No payouts yet.</p>
                 <p className="text-amber-800 text-xs mt-1">
-                  You&apos;ll earn {bonusPercent}% when a referee completes their
-                  first job.
+                  You&apos;ll earn {bonusPercent}% when a referee completes their first job.
                 </p>
               </div>
             ) : (
@@ -339,9 +303,7 @@ export default function ReferralDashboard({
                     <tr className="text-left text-xs text-amber-700 border-b border-market-500/10">
                       <th className="pb-2 pr-4 font-medium">Referee</th>
                       <th className="pb-2 pr-4 font-medium">Job</th>
-                      <th className="pb-2 pr-4 font-medium text-right">
-                        Bonus
-                      </th>
+                      <th className="pb-2 pr-4 font-medium text-right">Bonus</th>
                       <th className="pb-2 font-medium">Date</th>
                     </tr>
                   </thead>
@@ -364,14 +326,22 @@ export default function ReferralDashboard({
               ) : tree ? (
                 <div className="space-y-3">
                   <div className="flex items-center gap-2 mb-4 p-3 rounded-xl bg-ink-900/40 border border-market-500/10">
-                    <svg className="w-5 h-5 text-market-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    <svg
+                      className="w-5 h-5 text-market-400"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
                     </svg>
                     <p className="text-xs text-amber-700">
-                      <span className="font-semibold text-market-400">
-                        Multi-level rewards:
-                      </span>{" "}
-                      2% direct referrals, 0.75% level-2, 0.25% level-3
+                      <span className="font-semibold text-market-400">Multi-level rewards:</span> 2%
+                      direct referrals, 0.75% level-2, 0.25% level-3
                     </p>
                   </div>
                   <ReferralTreeView node={tree} isRoot={true} />
@@ -405,13 +375,10 @@ export default function ReferralDashboard({
               />
             </svg>
           </div>
-          <p className="font-display text-lg text-amber-100 mb-1">
-            No referrals yet
-          </p>
+          <p className="font-display text-lg text-amber-100 mb-1">No referrals yet</p>
           <p className="text-sm text-amber-700 max-w-xs mx-auto">
-            Share your referral link above. When someone signs up and completes
-            their first job, you&apos;ll automatically receive {bonusPercent}% of
-            their earnings.
+            Share your referral link above. When someone signs up and completes their first job,
+            you&apos;ll automatically receive {bonusPercent}% of their earnings.
           </p>
         </div>
       )}
@@ -440,8 +407,7 @@ function RefereeRow({ referee }: { referee: ReferralReferee }) {
         </div>
         <div className="min-w-0">
           <p className="text-sm font-medium text-amber-100 truncate">
-            {referee.refereeDisplayName ||
-              shortenAddress(referee.refereeAddress)}
+            {referee.refereeDisplayName || shortenAddress(referee.refereeAddress)}
           </p>
           <p className="text-xs text-amber-800 font-mono">
             {shortenAddress(referee.refereeAddress)}
@@ -472,9 +438,7 @@ function PayoutRow({ payout }: { payout: ReferralPayout }) {
           {shortenAddress(payout.refereeAddress)}
         </span>
       </td>
-      <td className="py-2.5 pr-4 text-amber-100 truncate max-w-[160px]">
-        {payout.jobTitle}
-      </td>
+      <td className="py-2.5 pr-4 text-amber-100 truncate max-w-[160px]">{payout.jobTitle}</td>
       <td className="py-2.5 pr-4 text-right font-mono font-semibold text-emerald-400">
         +
         {parseFloat(payout.amountXlm).toLocaleString("en-US", {
@@ -492,7 +456,6 @@ function PayoutRow({ payout }: { payout: ReferralPayout }) {
     </tr>
   );
 }
-
 
 /**
  * Recursive tree visualization component.
@@ -517,7 +480,7 @@ function ReferralTreeView({
           "flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl transition-all",
           isRoot
             ? "bg-market-500/10 border-2 border-market-500/30"
-            : "bg-ink-900/40 border border-market-500/10 hover:border-market-500/20",
+            : "bg-ink-900/40 border border-market-500/10 hover:border-market-500/20"
         )}
         style={{ marginLeft: `${level * 20}px` }}
       >
@@ -562,7 +525,12 @@ function ReferralTreeView({
 
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <p className={clsx("text-sm font-medium truncate", isRoot ? "text-amber-100" : "text-amber-200")}>
+              <p
+                className={clsx(
+                  "text-sm font-medium truncate",
+                  isRoot ? "text-amber-100" : "text-amber-200"
+                )}
+              >
                 {node.displayName || shortenAddress(node.address)}
               </p>
               {isRoot && (
@@ -583,7 +551,8 @@ function ReferralTreeView({
           )}
           {parseFloat(node.earnedXlm) > 0 && (
             <span className="text-sm font-mono font-semibold text-emerald-400">
-              +{parseFloat(node.earnedXlm).toLocaleString("en-US", { maximumFractionDigits: 4 })} XLM
+              +{parseFloat(node.earnedXlm).toLocaleString("en-US", { maximumFractionDigits: 4 })}{" "}
+              XLM
             </span>
           )}
           {node.depth > 0 && (
@@ -594,7 +563,7 @@ function ReferralTreeView({
                   ? "bg-market-500/20 text-market-300 border border-market-500/30"
                   : node.depth === 2
                     ? "bg-amber-500/10 text-amber-400 border border-amber-500/20"
-                    : "bg-ink-700 text-amber-700 border border-market-500/10",
+                    : "bg-ink-700 text-amber-700 border border-market-500/10"
               )}
             >
               L{node.depth}

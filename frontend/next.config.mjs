@@ -6,13 +6,13 @@ const nextConfig = {
     locales: ["en", "es", "fr", "pt"],
   },
   images: {
-    formats: ['image/webp'],
+    formats: ["image/webp"],
     remotePatterns: [
-      { protocol: 'https', hostname: 'ipfs.io' },
-      { protocol: 'https', hostname: 'gateway.pinata.cloud' },
-      { protocol: 'https', hostname: 'cloudflare-ipfs.com' },
-      { protocol: 'https', hostname: 'nftstorage.link' },
-      { protocol: 'https', hostname: 'w3s.link' },
+      { protocol: "https", hostname: "ipfs.io" },
+      { protocol: "https", hostname: "gateway.pinata.cloud" },
+      { protocol: "https", hostname: "cloudflare-ipfs.com" },
+      { protocol: "https", hostname: "nftstorage.link" },
+      { protocol: "https", hostname: "w3s.link" },
     ],
   },
   webpack: (config) => {

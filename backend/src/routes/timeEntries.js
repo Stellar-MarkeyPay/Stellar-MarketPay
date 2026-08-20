@@ -22,8 +22,8 @@ const {
   reviewInvoice,
 } = require("../services/timeTrackingService");
 
-const readLimiter   = createRateLimiter(60, 1);
-const writeLimiter  = createRateLimiter(30, 1);
+const readLimiter = createRateLimiter(60, 1);
+const writeLimiter = createRateLimiter(30, 1);
 
 /**
  * POST /api/time-entries

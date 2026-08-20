@@ -53,14 +53,7 @@ function ProgressBar({ step }: { step: Step }) {
         <div
           className="absolute left-0 top-1/2 -translate-y-1/2 h-0.5 bg-indigo-500 z-0 transition-all duration-700"
           style={{
-            width:
-              active < 0
-                ? "0%"
-                : active === 0
-                ? "0%"
-                : active === 1
-                ? "50%"
-                : "100%",
+            width: active < 0 ? "0%" : active === 0 ? "0%" : active === 1 ? "50%" : "100%",
           }}
         />
 
@@ -70,25 +63,27 @@ function ProgressBar({ step }: { step: Step }) {
           const errored = isError && current;
 
           return (
-            <div
-              key={s.id}
-              className="flex flex-col items-center gap-2 z-10"
-            >
+            <div key={s.id} className="flex flex-col items-center gap-2 z-10">
               <div
                 className={[
                   "w-9 h-9 rounded-full flex items-center justify-center border-2 text-sm font-bold transition-all duration-500",
                   done
                     ? "bg-indigo-500 border-indigo-500 text-white"
                     : current && !errored
-                    ? "bg-white border-indigo-500 text-indigo-600 animate-pulse"
-                    : errored
-                    ? "bg-red-500 border-red-500 text-white"
-                    : "bg-white border-gray-300 text-gray-400",
+                      ? "bg-white border-indigo-500 text-indigo-600 animate-pulse"
+                      : errored
+                        ? "bg-red-500 border-red-500 text-white"
+                        : "bg-white border-gray-300 text-gray-400",
                 ].join(" ")}
               >
                 {done ? (
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2.5}
+                      d="M5 13l4 4L19 7"
+                    />
                   </svg>
                 ) : errored ? (
                   "✕"
@@ -102,10 +97,10 @@ function ProgressBar({ step }: { step: Step }) {
                   done
                     ? "text-indigo-600"
                     : current && !errored
-                    ? "text-indigo-500"
-                    : errored
-                    ? "text-red-500"
-                    : "text-gray-400",
+                      ? "text-indigo-500"
+                      : errored
+                        ? "text-red-500"
+                        : "text-gray-400",
                 ].join(" ")}
               >
                 {s.label}
@@ -134,16 +129,13 @@ export default function PostJobForm() {
   const [stepState, setStepState] = useState<StepState>({ current: "idle" });
   const [submitting, setSubmitting] = useState(false);
 
-  const isInProgress =
-    stepState.current === "posting" || stepState.current === "escrow";
+  const isInProgress = stepState.current === "posting" || stepState.current === "escrow";
 
   // -------------------------------------------------------------------------
   // Handlers
   // -------------------------------------------------------------------------
 
-  function handleChange(
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) {
+  function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
     const { name, value } = e.target;
     setForm((prev) => ({
       ...prev,
@@ -168,8 +160,8 @@ export default function PostJobForm() {
         body: JSON.stringify({
           title: form.title,
           description: form.description,
-        budget: form.budgetXlm,
-        budgetXlm: form.budgetXlm,
+          budget: form.budgetXlm,
+          budgetXlm: form.budgetXlm,
           skills: form.skills
             .split(",")
             .map((s) => s.trim())
@@ -210,8 +202,7 @@ export default function PostJobForm() {
       // ── Step 3: Done ─────────────────────────────────────────────────────
       setStepState({ current: "complete", jobId, txHash });
     } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : "An unexpected error occurred.";
+      const message = err instanceof Error ? err.message : "An unexpected error occurred.";
 
       // Roll back the job if it was created but escrow failed
       if (jobId) {
@@ -254,17 +245,25 @@ export default function PostJobForm() {
 
         <div className="flex flex-col items-center gap-3 pt-2">
           <div className="w-16 h-16 rounded-full bg-indigo-100 flex items-center justify-center">
-            <svg className="w-8 h-8 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            <svg
+              className="w-8 h-8 text-indigo-500"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M5 13l4 4L19 7"
+              />
             </svg>
           </div>
           <h2 className="text-2xl font-bold text-gray-900">Job Posted!</h2>
           <p className="text-gray-500 text-sm">
             Your budget of{" "}
-            <span className="font-semibold text-indigo-600">
-              {form.budgetXlm} XLM
-            </span>{" "}
-            has been locked in the escrow contract.
+            <span className="font-semibold text-indigo-600">{form.budgetXlm} XLM</span> has been
+            locked in the escrow contract.
           </p>
         </div>
 
@@ -273,9 +272,7 @@ export default function PostJobForm() {
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
               Contract Transaction Hash
             </p>
-            <p className="text-xs font-mono text-gray-800 break-all">
-              {stepState.txHash}
-            </p>
+            <p className="text-xs font-mono text-gray-800 break-all">{stepState.txHash}</p>
             <a
               href={`https://stellar.expert/explorer/testnet/tx/${stepState.txHash}`}
               target="_blank"
@@ -284,7 +281,12 @@ export default function PostJobForm() {
             >
               View on Stellar Expert
               <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                />
               </svg>
             </a>
           </div>
@@ -318,9 +320,7 @@ export default function PostJobForm() {
       {stepState.current === "error" && (
         <div className="mb-5 rounded-xl bg-red-50 border border-red-200 p-4 space-y-1">
           <ProgressBar step={stepState.current} />
-          <p className="text-sm font-semibold text-red-700">
-            Something went wrong
-          </p>
+          <p className="text-sm font-semibold text-red-700">Something went wrong</p>
           <p className="text-xs text-red-600">{stepState.errorMessage}</p>
           {stepState.jobId && (
             <p className="text-xs text-red-500">
@@ -339,9 +339,7 @@ export default function PostJobForm() {
       <form onSubmit={handleSubmit} className="space-y-5">
         {/* Title */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Job Title
-          </label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Job Title</label>
           <input
             name="title"
             value={form.title}
@@ -355,9 +353,7 @@ export default function PostJobForm() {
 
         {/* Description */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Description
-          </label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
           <textarea
             name="description"
             value={form.description}
@@ -372,9 +368,7 @@ export default function PostJobForm() {
 
         {/* Budget */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Budget (XLM)
-          </label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Budget (XLM)</label>
           <div className="relative">
             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-indigo-500">
               XLM
@@ -398,9 +392,7 @@ export default function PostJobForm() {
 
         {/* Skills */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Required Skills
-          </label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Required Skills</label>
           <input
             name="skills"
             value={form.skills}
@@ -413,9 +405,7 @@ export default function PostJobForm() {
 
         {/* Deadline */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Deadline
-          </label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Deadline</label>
           <input
             name="deadline"
             type="date"
@@ -440,8 +430,8 @@ export default function PostJobForm() {
           {stepState.current === "posting"
             ? "Posting job…"
             : stepState.current === "escrow"
-            ? "Waiting for Freighter signature…"
-            : `Post Job & Lock ${form.budgetXlm} XLM Escrow`}
+              ? "Waiting for Freighter signature…"
+              : `Post Job & Lock ${form.budgetXlm} XLM Escrow`}
         </button>
 
         {isInProgress && (

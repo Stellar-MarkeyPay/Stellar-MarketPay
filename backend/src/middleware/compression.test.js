@@ -18,9 +18,7 @@ describe("compression middleware", () => {
       });
     });
 
-    const res = await request(app)
-      .get("/api/jobs")
-      .set("Accept-Encoding", "gzip");
+    const res = await request(app).get("/api/jobs").set("Accept-Encoding", "gzip");
 
     expect(res.status).toBe(200);
     expect(res.headers["content-encoding"]).toBe("gzip");

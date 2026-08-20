@@ -84,11 +84,11 @@ create_escrow()          start_work()         release_escrow()
 
 ## Security Model
 
-| Concern | Mitigation |
-|---------|-----------|
-| Payment disputes | Soroban contract enforces rules — no human intermediary |
-| Key exposure | Freighter signs locally — private key never leaves browser |
-| Fake job postings | Wallet signature required to post (v1.1) |
-| Double spending | Stellar sequence numbers prevent replay |
-| Sybil freelancers | Reputation system planned (v1.4) |
-| Backend trust | Backend is stateless helper — all payments are on-chain |
+| Concern           | Mitigation                                                 |
+| ----------------- | ---------------------------------------------------------- |
+| Payment disputes  | Soroban contract enforces rules — no human intermediary    |
+| Key exposure      | Freighter signs locally — private key never leaves browser |
+| Fake job postings | Wallet signature required to post (v1.1)                   |
+| Double spending   | Stellar sequence numbers prevent replay                    |
+| Sybil freelancers | Reputation system planned (v1.4)                           |
+| Backend trust     | Backend is stateless helper — all payments are on-chain    |

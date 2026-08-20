@@ -35,7 +35,10 @@ describe("CdnService", () => {
     const primary = fakeProvider("primary", () => Promise.resolve({ ok: true }));
     const service = new CdnService({ providers: [primary] });
 
-    const result = await service.purge({ urls: ["https://app.example/jobs/123"], tags: ["job-123"] });
+    const result = await service.purge({
+      urls: ["https://app.example/jobs/123"],
+      tags: ["job-123"],
+    });
 
     expect(result.success).toBe(true);
     expect(result.provider).toBe("primary");
@@ -58,7 +61,10 @@ describe("CdnService", () => {
   });
 
   test("fails over on a provider timeout", async () => {
-    const slowPrimary = fakeProvider("primary", () => new Promise((resolve) => setTimeout(resolve, 200)));
+    const slowPrimary = fakeProvider(
+      "primary",
+      () => new Promise((resolve) => setTimeout(resolve, 200))
+    );
     const secondary = fakeProvider("secondary", () => Promise.resolve({ ok: true }));
     const service = new CdnService({ providers: [slowPrimary, secondary], timeoutMs: 20 });
 

@@ -144,8 +144,7 @@ export default function JobCard({ job, isFocused = false, onFocus }: JobCardProp
   const hasValidDeadline = Boolean(job.deadline && formatDeadline(job.deadline));
   const formattedDeadline = job.deadline ? formatDeadline(job.deadline) : "";
   const deadlineState = getDeadlineState(job.deadline);
-  const isStatusClosed =
-    job.status === "cancelled" || job.status === "completed";
+  const isStatusClosed = job.status === "cancelled" || job.status === "completed";
   const showClosedBadge = isStatusClosed || deadlineState === "closed";
   const showClosingSoonBadge = !showClosedBadge && deadlineState === "closing_soon";
 
@@ -156,185 +155,186 @@ export default function JobCard({ job, isFocused = false, onFocus }: JobCardProp
   };
 
   return (
-      <div
-        className={[
-          "card-hover group animate-fade-in relative cursor-pointer outline-none",
-          isFocused ? "ring-2 ring-market-400/50" : "",
-        ].join(" ")}
-        tabIndex={0}
-        data-job-card-focus={isFocused ? "true" : undefined}
-        onFocus={onFocus}
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
-      >
-        {/* Header row */}
-        <div className="flex items-start justify-between gap-3 mb-3">
-          <Link href={`/jobs/${job.id}`}>
-            <h2 className="font-display font-semibold text-amber-100 text-base leading-snug group-hover:text-market-300 transition-colors line-clamp-2">
-                {job.title}
-            </h2>
-          </Link>
-          <div className="flex items-center gap-2">
-            {clientRepBadge && (
-              <span
-                className={`group/rep relative inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${clientRepBadge.className}`}
-              >
-                ★ {clientRepBadge.label}
-                <span className="pointer-events-none absolute bottom-full right-0 mb-1 hidden whitespace-nowrap rounded-md border border-market-500/20 bg-ink-900 px-2 py-1 text-[10px] text-amber-200 shadow-lg group-hover/rep:block">
-                  {clientRepBadge.hint}
-                </span>
-              </span>
-            )}
-            <span className={statusClass(job.status) + " flex-shrink-0 text-xs"}>
-              {statusLabel(job.status)}
-            </span>
-          </div>
-        </div>
-
-        {/* Description */}
-        <p className="text-amber-800/80 text-sm leading-relaxed line-clamp-3 mb-4">
-          {job.description}
-        </p>
-
-        {/* Skills */}
-        {job.skills.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 mb-4">
-            {job.skills.slice(0, 4).map((s) => (
-              <span
-                key={s}
-                className="text-xs bg-market-500/8 text-market-500/80 border border-market-500/15 px-2 py-0.5 rounded-md"
-              >
-                {s}
-              </span>
-            ))}
-            {job.skills.length > 4 && (
-              <span className="text-xs text-amber-800 px-2 py-0.5">
-                +{job.skills.length - 4} more
-              </span>
-            )}
-          </div>
-        )}
-
-        {/* Footer */}
-        <div className="flex items-center justify-between pt-3 border-t border-[rgba(251,191,36,0.07)] relative">
-          <div className="group/tooltip relative">
-            <p className="text-xs text-amber-800 mb-0.5">Budget</p>
-            <p className="font-mono font-semibold text-market-400 text-sm cursor-help">
-              {price.display}
-            </p>
-            {currencyMode === "XLM" && price.usdEquiv && (
-              <div className="absolute bottom-full left-0 mb-2 hidden group-hover/tooltip:block z-20">
-                <div className="bg-ink-800 border border-market-500/30 text-amber-100 text-[10px] py-1.5 px-2.5 rounded shadow-xl whitespace-nowrap backdrop-blur-md">
-                  <p className="font-semibold text-market-300">
-                    {price.usdEquiv}
-                  </p>
-                </div>
-                <div className="w-2 h-2 bg-ink-800 border-r border-b border-market-500/30 rotate-45 -mt-1 ml-3" />
-              </div>
-            )}
-            {priceLoading && (
-              <span className="inline-block ml-1 w-3 h-3 border border-market-400/40 border-t-transparent rounded-full animate-spin align-middle" />
-            )}
-          </div>
-          <div className="text-right flex items-center gap-2">
-            {/* Bookmark Button */}
-            <button
-              type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                toggleBookmark(job.id);
-              }}
-              className="p-2 sm:p-1.5 rounded-md transition-all flex items-center justify-center hover:bg-amber-500/10 group/bookmark min-h-[44px] min-w-[44px]"
-              title={saved ? "Remove bookmark" : "Save job"}
-              aria-label={saved ? "Remove bookmark" : "Save job"}
+    <div
+      className={[
+        "card-hover group animate-fade-in relative cursor-pointer outline-none",
+        isFocused ? "ring-2 ring-market-400/50" : "",
+      ].join(" ")}
+      tabIndex={0}
+      data-job-card-focus={isFocused ? "true" : undefined}
+      onFocus={onFocus}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
+      {/* Header row */}
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <Link href={`/jobs/${job.id}`}>
+          <h2 className="font-display font-semibold text-amber-100 text-base leading-snug group-hover:text-market-300 transition-colors line-clamp-2">
+            {job.title}
+          </h2>
+        </Link>
+        <div className="flex items-center gap-2">
+          {clientRepBadge && (
+            <span
+              className={`group/rep relative inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${clientRepBadge.className}`}
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill={isSaved(job.id) ? "currentColor" : "none"}
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className={`transition-colors group-hover/bookmark:text-amber-400 ${isSaved(job.id) ? 'text-amber-400' : 'text-amber-700/60 group-hover/bookmark:text-amber-400'}`}
-              >
-                <path d="m14 20 4-6H4l4 6z"/>
-                <path d="M18 8a4 4 0 1 0-8 0 4 4 0 0 0 8 0z"/>
-              </svg>
-            </button>
-            <div className="text-right">
-              <p className="text-xs text-amber-800 mb-0.5">
-                {job.applicantCount} applicant
-                {job.applicantCount !== 1 ? "s" : ""}
-                {hasValidDeadline ? ` | Due ${formattedDeadline}` : ""}
-              </p>
-            </div>
-            {showClosedBadge && (
-              <span className="inline-flex items-center px-2 py-0.5 rounded-full border text-[10px] font-semibold uppercase tracking-wide bg-slate-500/20 text-slate-300 border-slate-400/30 mb-0.5">
-                Closed
+              ★ {clientRepBadge.label}
+              <span className="pointer-events-none absolute bottom-full right-0 mb-1 hidden whitespace-nowrap rounded-md border border-market-500/20 bg-ink-900 px-2 py-1 text-[10px] text-amber-200 shadow-lg group-hover/rep:block">
+                {clientRepBadge.hint}
               </span>
-            )}
-            {!showClosedBadge && job.deadline && (
-              <CountdownTimer deadline={job.deadline} />
-            )}
-            {showClosingSoonBadge && !showClosedBadge && !job.deadline && (
-              <span className="inline-flex items-center px-2 py-0.5 rounded-full border text-[10px] font-semibold uppercase tracking-wide bg-red-500/20 text-red-300 border-red-400/40 mb-0.5">
-                Closing soon
-              </span>
-            )}
-            <p className="text-xs text-amber-800/60">
-              {timeAgo(job.createdAt)}
-            </p>
-          </div>
-        </div>
-
-        {/* Category pill */}
-        <div className="mt-3 flex items-center gap-2 flex-wrap">
-          <span className="text-xs text-amber-700 bg-ink-700 px-2.5 py-1 rounded-full border border-[rgba(251,191,36,0.08)]">
-            {job.category}
+            </span>
+          )}
+          <span className={statusClass(job.status) + " flex-shrink-0 text-xs"}>
+            {statusLabel(job.status)}
           </span>
-          {job.boosted && job.boostedUntil && new Date(job.boostedUntil) > new Date() && (
-            <span className="text-xs text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20 font-medium">
-              ⚡ Featured · until {new Date(job.boostedUntil).toLocaleDateString()}
+        </div>
+      </div>
+
+      {/* Description */}
+      <p className="text-amber-800/80 text-sm leading-relaxed line-clamp-3 mb-4">
+        {job.description}
+      </p>
+
+      {/* Skills */}
+      {job.skills.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mb-4">
+          {job.skills.slice(0, 4).map((s) => (
+            <span
+              key={s}
+              className="text-xs bg-market-500/8 text-market-500/80 border border-market-500/15 px-2 py-0.5 rounded-md"
+            >
+              {s}
+            </span>
+          ))}
+          {job.skills.length > 4 && (
+            <span className="text-xs text-amber-800 px-2 py-0.5">
+              +{job.skills.length - 4} more
             </span>
           )}
         </div>
+      )}
 
-        <JobStatusTimeline job={job} compact />
-
-        {/* ── ISSUE #78: Floating Hover Preview Card ── */}
-        {showPreview && (
-          <div className="absolute z-50 left-0 top-full mt-2 w-full md:left-full md:top-0 md:mt-0 md:ml-4 md:w-80 animate-in fade-in zoom-in duration-200">
-            <div className="bg-ink-900 border border-market-500/40 p-4 rounded-xl shadow-2xl backdrop-blur-lg">
-              <h4 className="text-market-300 font-semibold text-sm mb-2">Job Preview</h4>
-              <p className="text-amber-100/90 text-xs leading-relaxed mb-3">
-                {job.description.substring(0, 300)}
-                {job.description.length > 300 ? "..." : ""}
-              </p>
-              
-              <div className="mb-3">
-                <p className="text-[10px] text-amber-800 uppercase font-bold mb-1">Required Skills</p>
-                <div className="flex flex-wrap gap-1">
-                  {job.skills.map((s) => (
-                    <span key={s} className="text-[10px] bg-market-500/10 text-market-400 border border-market-500/20 px-1.5 py-0.5 rounded">
-                      {s}
-                    </span>
-                  ))}
-                </div>
+      {/* Footer */}
+      <div className="flex items-center justify-between pt-3 border-t border-[rgba(251,191,36,0.07)] relative">
+        <div className="group/tooltip relative">
+          <p className="text-xs text-amber-800 mb-0.5">Budget</p>
+          <p className="font-mono font-semibold text-market-400 text-sm cursor-help">
+            {price.display}
+          </p>
+          {currencyMode === "XLM" && price.usdEquiv && (
+            <div className="absolute bottom-full left-0 mb-2 hidden group-hover/tooltip:block z-20">
+              <div className="bg-ink-800 border border-market-500/30 text-amber-100 text-[10px] py-1.5 px-2.5 rounded shadow-xl whitespace-nowrap backdrop-blur-md">
+                <p className="font-semibold text-market-300">{price.usdEquiv}</p>
               </div>
+              <div className="w-2 h-2 bg-ink-800 border-r border-b border-market-500/30 rotate-45 -mt-1 ml-3" />
+            </div>
+          )}
+          {priceLoading && (
+            <span className="inline-block ml-1 w-3 h-3 border border-market-400/40 border-t-transparent rounded-full animate-spin align-middle" />
+          )}
+        </div>
+        <div className="text-right flex items-center gap-2">
+          {/* Bookmark Button */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              toggleBookmark(job.id);
+            }}
+            className="p-2 sm:p-1.5 rounded-md transition-all flex items-center justify-center hover:bg-amber-500/10 group/bookmark min-h-[44px] min-w-[44px]"
+            title={saved ? "Remove bookmark" : "Save job"}
+            aria-label={saved ? "Remove bookmark" : "Save job"}
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill={isSaved(job.id) ? "currentColor" : "none"}
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className={`transition-colors group-hover/bookmark:text-amber-400 ${isSaved(job.id) ? "text-amber-400" : "text-amber-700/60 group-hover/bookmark:text-amber-400"}`}
+            >
+              <path d="m14 20 4-6H4l4 6z" />
+              <path d="M18 8a4 4 0 1 0-8 0 4 4 0 0 0 8 0z" />
+            </svg>
+          </button>
+          <div className="text-right">
+            <p className="text-xs text-amber-800 mb-0.5">
+              {job.applicantCount} applicant
+              {job.applicantCount !== 1 ? "s" : ""}
+              {hasValidDeadline ? ` | Due ${formattedDeadline}` : ""}
+            </p>
+          </div>
+          {showClosedBadge && (
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full border text-[10px] font-semibold uppercase tracking-wide bg-slate-500/20 text-slate-300 border-slate-400/30 mb-0.5">
+              Closed
+            </span>
+          )}
+          {!showClosedBadge && job.deadline && <CountdownTimer deadline={job.deadline} />}
+          {showClosingSoonBadge && !showClosedBadge && !job.deadline && (
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full border text-[10px] font-semibold uppercase tracking-wide bg-red-500/20 text-red-300 border-red-400/40 mb-0.5">
+              Closing soon
+            </span>
+          )}
+          <p className="text-xs text-amber-800/60">{timeAgo(job.createdAt)}</p>
+        </div>
+      </div>
 
-              <div className="pt-2 border-t border-market-500/20">
-                <p className="text-[10px] text-amber-800 mb-0.5 font-bold uppercase">Client Address</p>
-                <p className="text-[10px] font-mono text-amber-100/70 truncate">{job.clientAddress || "Not specified"}</p>
+      {/* Category pill */}
+      <div className="mt-3 flex items-center gap-2 flex-wrap">
+        <span className="text-xs text-amber-700 bg-ink-700 px-2.5 py-1 rounded-full border border-[rgba(251,191,36,0.08)]">
+          {job.category}
+        </span>
+        {job.boosted && job.boostedUntil && new Date(job.boostedUntil) > new Date() && (
+          <span className="text-xs text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20 font-medium">
+            ⚡ Featured · until {new Date(job.boostedUntil).toLocaleDateString()}
+          </span>
+        )}
+      </div>
+
+      <JobStatusTimeline job={job} compact />
+
+      {/* ── ISSUE #78: Floating Hover Preview Card ── */}
+      {showPreview && (
+        <div className="absolute z-50 left-0 top-full mt-2 w-full md:left-full md:top-0 md:mt-0 md:ml-4 md:w-80 animate-in fade-in zoom-in duration-200">
+          <div className="bg-ink-900 border border-market-500/40 p-4 rounded-xl shadow-2xl backdrop-blur-lg">
+            <h4 className="text-market-300 font-semibold text-sm mb-2">Job Preview</h4>
+            <p className="text-amber-100/90 text-xs leading-relaxed mb-3">
+              {job.description.substring(0, 300)}
+              {job.description.length > 300 ? "..." : ""}
+            </p>
+
+            <div className="mb-3">
+              <p className="text-[10px] text-amber-800 uppercase font-bold mb-1">Required Skills</p>
+              <div className="flex flex-wrap gap-1">
+                {job.skills.map((s) => (
+                  <span
+                    key={s}
+                    className="text-[10px] bg-market-500/10 text-market-400 border border-market-500/20 px-1.5 py-0.5 rounded"
+                  >
+                    {s}
+                  </span>
+                ))}
               </div>
             </div>
+
+            <div className="pt-2 border-t border-market-500/20">
+              <p className="text-[10px] text-amber-800 mb-0.5 font-bold uppercase">
+                Client Address
+              </p>
+              <p className="text-[10px] font-mono text-amber-100/70 truncate">
+                {job.clientAddress || "Not specified"}
+              </p>
+            </div>
           </div>
-        )}
-        {/* ───────────────────────────────────────────── */}
-      </div>
+        </div>
+      )}
+      {/* ───────────────────────────────────────────── */}
+    </div>
   );
 }
 

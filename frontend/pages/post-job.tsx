@@ -14,8 +14,7 @@ interface PostJobProps {
 export default function PostJob({ publicKey, onConnect }: PostJobProps) {
   const router = useRouter();
 
-  const category =
-    typeof router.query.category === "string" ? router.query.category : "";
+  const category = typeof router.query.category === "string" ? router.query.category : "";
 
   const suggestedFreelancer =
     typeof router.query.freelancer === "string" ? router.query.freelancer : "";
@@ -25,9 +24,7 @@ export default function PostJob({ publicKey, onConnect }: PostJobProps) {
       {!publicKey ? (
         <div>
           <div className="text-center mb-10">
-            <h1 className="font-display text-3xl font-bold text-amber-100 mb-3">
-              Post a Job
-            </h1>
+            <h1 className="font-display text-3xl font-bold text-amber-100 mb-3">Post a Job</h1>
             <p className="text-amber-800">
               Connect your wallet to post a job and lock the budget in escrow
             </p>

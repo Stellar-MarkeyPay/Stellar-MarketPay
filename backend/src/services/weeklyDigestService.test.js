@@ -225,9 +225,7 @@ describe("sendWeeklyDigest()", () => {
     getRecommendations.mockResolvedValue([makeJob()]);
 
     // First send fails, second succeeds
-    sendEmailFn
-      .mockRejectedValueOnce(new Error("SMTP timeout"))
-      .mockResolvedValueOnce(undefined);
+    sendEmailFn.mockRejectedValueOnce(new Error("SMTP timeout")).mockResolvedValueOnce(undefined);
 
     const stats = await sendWeeklyDigest(sendEmailFn);
 

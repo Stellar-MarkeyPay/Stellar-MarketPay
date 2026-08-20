@@ -8,22 +8,22 @@
  */
 "use strict";
 
-const crypto  = require("crypto");
+const crypto = require("crypto");
 const express = require("express");
-const router  = express.Router();
-const pool    = require("../db/pool");
+const router = express.Router();
+const pool = require("../db/pool");
 const { verifyJWT } = require("../middleware/auth");
 const questions = require("../data/skillQuestions.json");
 
-const PASS_SCORE   = 70;   // percent
-const COOLDOWN_MS  = 30 * 24 * 60 * 60 * 1000; // 30 days
+const PASS_SCORE = 70; // percent
+const COOLDOWN_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
 // ─── GET /api/assessments/:skill ─────────────────────────────────────────────
 // Returns questions without answers. Also returns last attempt info if authed.
 router.get("/:skill", verifyJWT, async (req, res, next) => {
   try {
     const skill = req.params.skill.toLowerCase();
-    const bank  = questions[skill];
+    const bank = questions[skill];
     if (!bank) return res.status(404).json({ error: "Unknown skill" });
 
     const publicKey = req.user.publicKey;
@@ -37,13 +37,18 @@ router.get("/:skill", verifyJWT, async (req, res, next) => {
     );
 
     const last = rows[0] || null;
-    const canRetake = !last || (Date.now() - new Date(last.taken_at).getTime() >= COOLDOWN_MS);
-    const retakeAvailableAt = last && !canRetake
-      ? new Date(new Date(last.taken_at).getTime() + COOLDOWN_MS).toISOString()
-      : null;
+    const canRetake = !last || Date.now() - new Date(last.taken_at).getTime() >= COOLDOWN_MS;
+    const retakeAvailableAt =
+      last && !canRetake
+        ? new Date(new Date(last.taken_at).getTime() + COOLDOWN_MS).toISOString()
+        : null;
 
     // Strip answers before sending
-    const safeQuestions = bank.questions.map(({ id, question, options }) => ({ id, question, options }));
+    const safeQuestions = bank.questions.map(({ id, question, options }) => ({
+      id,
+      question,
+      options,
+    }));
 
     res.json({
       success: true,
@@ -58,7 +63,9 @@ router.get("/:skill", verifyJWT, async (req, res, next) => {
         lastAttempt: last,
       },
     });
-  } catch (e) { next(e); }
+  } catch (e) {
+    next(e);
+  }
 });
 
 // ─── POST /api/assessments/:skill/submit ─────────────────────────────────────
@@ -66,7 +73,7 @@ router.get("/:skill", verifyJWT, async (req, res, next) => {
 router.post("/:skill/submit", verifyJWT, async (req, res, next) => {
   try {
     const skill = req.params.skill.toLowerCase();
-    const bank  = questions[skill];
+    const bank = questions[skill];
     if (!bank) return res.status(404).json({ error: "Unknown skill" });
 
     const publicKey = req.user.publicKey;
@@ -84,7 +91,9 @@ router.post("/:skill/submit", verifyJWT, async (req, res, next) => {
     );
     if (prev.length && Date.now() - new Date(prev[0].taken_at).getTime() < COOLDOWN_MS) {
       const retakeAt = new Date(new Date(prev[0].taken_at).getTime() + COOLDOWN_MS).toISOString();
-      return res.status(429).json({ error: "Assessment cooldown active", retakeAvailableAt: retakeAt });
+      return res
+        .status(429)
+        .json({ error: "Assessment cooldown active", retakeAvailableAt: retakeAt });
     }
 
     // Grade
@@ -92,7 +101,7 @@ router.post("/:skill/submit", verifyJWT, async (req, res, next) => {
     for (const q of bank.questions) {
       if (parseInt(answers[q.id], 10) === q.answer) correct++;
     }
-    const score  = Math.round((correct / bank.questions.length) * 100);
+    const score = Math.round((correct / bank.questions.length) * 100);
     const passed = score >= PASS_SCORE;
 
     await pool.query(
@@ -136,7 +145,9 @@ router.post("/:skill/submit", verifyJWT, async (req, res, next) => {
       success: true,
       data: { skill, score, passed, correct, total: bank.questions.length, certificate },
     });
-  } catch (e) { next(e); }
+  } catch (e) {
+    next(e);
+  }
 });
 
 // ─── GET /api/assessments/results/:publicKey ─────────────────────────────────
@@ -151,7 +162,9 @@ router.get("/results/:publicKey", async (req, res, next) => {
       [req.params.publicKey]
     );
     res.json({ success: true, data: rows });
-  } catch (e) { next(e); }
+  } catch (e) {
+    next(e);
+  }
 });
 
 module.exports = router;

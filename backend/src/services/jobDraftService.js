@@ -5,7 +5,19 @@
 const pool = require("../db/pool");
 
 async function saveDraft(clientAddress, draftData) {
-  const { id, title, description, budget, category, skills, currency, timezone, visibility, screeningQuestions, deadline } = draftData;
+  const {
+    id,
+    title,
+    description,
+    budget,
+    category,
+    skills,
+    currency,
+    timezone,
+    visibility,
+    screeningQuestions,
+    deadline,
+  } = draftData;
 
   let query, values;
 
@@ -19,7 +31,20 @@ async function saveDraft(clientAddress, draftData) {
       WHERE id = $11 AND client_address = $12
       RETURNING *
     `;
-    values = [title, description, budget, category, skills || [], currency, timezone, visibility, screeningQuestions || [], deadline, id, clientAddress];
+    values = [
+      title,
+      description,
+      budget,
+      category,
+      skills || [],
+      currency,
+      timezone,
+      visibility,
+      screeningQuestions || [],
+      deadline,
+      id,
+      clientAddress,
+    ];
   } else {
     // Create new draft
     query = `
@@ -28,7 +53,19 @@ async function saveDraft(clientAddress, draftData) {
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
       RETURNING *
     `;
-    values = [clientAddress, title, description, budget, category, skills || [], currency, timezone, visibility, screeningQuestions || [], deadline];
+    values = [
+      clientAddress,
+      title,
+      description,
+      budget,
+      category,
+      skills || [],
+      currency,
+      timezone,
+      visibility,
+      screeningQuestions || [],
+      deadline,
+    ];
   }
 
   const result = await pool.query(query, values);
@@ -76,5 +113,5 @@ module.exports = {
   getDrafts,
   getDraft,
   deleteDraft,
-  deleteExpiredDrafts
+  deleteExpiredDrafts,
 };

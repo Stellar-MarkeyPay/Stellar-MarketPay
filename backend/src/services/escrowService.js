@@ -3,10 +3,7 @@
 const pool = require("../db/pool");
 const { getJob } = require("./jobService");
 const { logContractInteraction } = require("./contractAuditService");
-const {
-  notifyEscrowEvent,
-  EVENT_TYPES,
-} = require("./notificationService");
+const { notifyEscrowEvent, EVENT_TYPES } = require("./notificationService");
 const { processReferralPayout } = require("./referralService");
 
 const ESCROW_TIMEOUT_DAYS = 7;
@@ -39,13 +36,14 @@ function normalizeMilestones(milestones, fallbackAmount) {
 async function getMilestonesForJob(jobId, job) {
   const { rows } = await pool.query(
     "SELECT milestones, amount_xlm FROM escrows WHERE job_id = $1",
-    [jobId],
+    [jobId]
   );
 
   const escrow = rows[0];
-  const source = Array.isArray(escrow?.milestones) && escrow.milestones.length
-    ? escrow.milestones
-    : job.milestones;
+  const source =
+    Array.isArray(escrow?.milestones) && escrow.milestones.length
+      ? escrow.milestones
+      : job.milestones;
   return normalizeMilestones(source, escrow?.amount_xlm || job.budget);
 }
 
@@ -69,13 +67,13 @@ async function persistMilestones(jobId, milestones) {
            END,
            updated_at = NOW()
      WHERE job_id = $1`,
-    [jobId, JSON.stringify(milestones)],
+    [jobId, JSON.stringify(milestones)]
   );
 
-  await pool.query(
-    "UPDATE jobs SET milestones = $2, updated_at = NOW() WHERE id = $1",
-    [jobId, JSON.stringify(milestones)],
-  );
+  await pool.query("UPDATE jobs SET milestones = $2, updated_at = NOW() WHERE id = $1", [
+    jobId,
+    JSON.stringify(milestones),
+  ]);
 }
 
 function validateMilestoneIndex(milestones, milestoneIndex) {
@@ -104,7 +102,7 @@ async function releaseFunds(jobId, clientAddress, contractTxHash) {
 
   const { rows: existing } = await pool.query(
     "SELECT status FROM escrow_releases WHERE job_id = $1",
-    [jobId],
+    [jobId]
   );
   if (existing.length > 0) {
     const e = new Error("Escrow already released");
@@ -114,13 +112,13 @@ async function releaseFunds(jobId, clientAddress, contractTxHash) {
 
   const { rows: escrowRows } = await pool.query(
     "SELECT amount_xlm FROM escrows WHERE job_id = $1",
-    [jobId],
+    [jobId]
   );
 
   await pool.query(
     `INSERT INTO escrow_releases (job_id, released_by, tx_hash, released_at)
      VALUES ($1, $2, $3, NOW())`,
-    [jobId, clientAddress, contractTxHash || `offchain-${Date.now()}`],
+    [jobId, clientAddress, contractTxHash || `offchain-${Date.now()}`]
   );
 
   await logContractInteraction({
@@ -148,7 +146,7 @@ async function releaseFunds(jobId, clientAddress, contractTxHash) {
     jobId,
     job.freelancerAddress,
     amountXlm,
-    contractTxHash || null,
+    contractTxHash || null
   );
 
   return {
@@ -173,7 +171,7 @@ async function refundClient(jobId, clientAddress, contractTxHash) {
 
   const { rows: existing } = await pool.query(
     "SELECT status FROM escrow_releases WHERE job_id = $1",
-    [jobId],
+    [jobId]
   );
   if (existing.length > 0) {
     const e = new Error("Escrow already released");
@@ -214,7 +212,7 @@ async function timeoutRefund(jobId, clientAddress, contractTxHash) {
 
   const { rows: existing } = await pool.query(
     "SELECT status, released_at FROM escrow_releases WHERE job_id = $1",
-    [jobId],
+    [jobId]
   );
   if (existing.length > 0) {
     const e = new Error("Escrow already released");
@@ -227,7 +225,7 @@ async function timeoutRefund(jobId, clientAddress, contractTxHash) {
   const daysSinceCreation = (now - createdAt) / (1000 * 60 * 60 * 24);
   if (daysSinceCreation < ESCROW_TIMEOUT_DAYS) {
     const e = new Error(
-      `Escrow cannot be refunded yet. ${ESCROW_TIMEOUT_DAYS}-day timeout has not elapsed.`,
+      `Escrow cannot be refunded yet. ${ESCROW_TIMEOUT_DAYS}-day timeout has not elapsed.`
     );
     e.status = 400;
     throw e;
@@ -248,19 +246,13 @@ async function timeoutRefund(jobId, clientAddress, contractTxHash) {
 
 async function markDisputed(jobId, raisedBy) {
   const job = await getJob(jobId);
-  if (
-    job.clientAddress !== raisedBy &&
-    job.freelancerAddress !== raisedBy
-  ) {
+  if (job.clientAddress !== raisedBy && job.freelancerAddress !== raisedBy) {
     const e = new Error("Only the client or freelancer can raise a dispute");
     e.status = 403;
     throw e;
   }
 
-  const { rows: existing } = await pool.query(
-    "SELECT id FROM disputes WHERE job_id = $1",
-    [jobId],
-  );
+  const { rows: existing } = await pool.query("SELECT id FROM disputes WHERE job_id = $1", [jobId]);
   if (existing.length > 0) {
     const e = new Error("A dispute already exists for this job");
     e.status = 400;
@@ -271,7 +263,7 @@ async function markDisputed(jobId, raisedBy) {
     `INSERT INTO disputes (job_id, raised_by, status, created_at)
      VALUES ($1, $2, 'open', NOW())
      RETURNING *`,
-    [jobId, raisedBy],
+    [jobId, raisedBy]
   );
 
   return { success: true, dispute: result.rows[0] };
@@ -341,7 +333,7 @@ async function releaseMilestone(jobId, milestoneIndex, clientAddress, contractTx
       jobId,
       job.freelancerAddress,
       milestones.reduce((sum, item) => sum + parseFloat(item.amount), 0).toFixed(7),
-      contractTxHash || null,
+      contractTxHash || null
     );
   }
 
@@ -388,7 +380,7 @@ async function disputeMilestone(jobId, milestoneIndex, raisedBy) {
     `INSERT INTO disputes (job_id, raised_by, status, created_at)
      VALUES ($1, $2, 'open', NOW())
      RETURNING *`,
-    [jobId, raisedBy],
+    [jobId, raisedBy]
   );
 
   return { success: true, dispute: result.rows[0], milestone: milestones[index], milestones };
@@ -428,10 +420,7 @@ async function verifyMilestoneViaOracle(jobId, milestoneIndex, contractTxHash) {
   }
 
   const { verifyOracleQuery } = require("./github_oracle");
-  const proof = await verifyOracleQuery(
-    milestone.oracleType,
-    milestone.oracleQuery,
-  );
+  const proof = await verifyOracleQuery(milestone.oracleType, milestone.oracleQuery);
 
   milestones[index] = {
     ...milestone,
@@ -471,7 +460,7 @@ async function verifyMilestoneViaOracle(jobId, milestoneIndex, contractTxHash) {
       jobId,
       job.freelancerAddress,
       milestones.reduce((sum, item) => sum + parseFloat(item.amount), 0).toFixed(7),
-      contractTxHash || null,
+      contractTxHash || null
     );
   }
 
@@ -486,10 +475,7 @@ async function verifyMilestoneViaOracle(jobId, milestoneIndex, contractTxHash) {
 }
 
 async function getEscrow(jobId) {
-  const { rows } = await pool.query(
-    "SELECT * FROM escrows WHERE job_id = $1",
-    [jobId],
-  );
+  const { rows } = await pool.query("SELECT * FROM escrows WHERE job_id = $1", [jobId]);
   if (!rows.length) {
     const e = new Error("No escrow record found for this job");
     e.status = 404;

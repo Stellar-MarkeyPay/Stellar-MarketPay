@@ -26,11 +26,7 @@ const EVENT_TYPES = {
   JOB_INVITED: "job_invited",
 };
 
-
-const DECENTRALIZED_EVENT_TYPES = new Set([
-  EVENT_TYPES.ESCROW_CREATED,
-  EVENT_TYPES.DISPUTE_OPENED,
-]);
+const DECENTRALIZED_EVENT_TYPES = new Set([EVENT_TYPES.ESCROW_CREATED, EVENT_TYPES.DISPUTE_OPENED]);
 
 function getPushRecipient(address) {
   return process.env.PUSH_RECIPIENT_CHAIN
@@ -53,20 +49,25 @@ async function sendDecentralizedPush({ recipientAddress, eventType, jobId, paylo
   }
 
   const content = generateInAppContent(eventType, { ...payload, jobId });
-  const sdkEndpoint = process.env.PUSH_SDK_RELAY_URL || "https://backend-staging.epns.io/apis/v1/payloads";
-  await axios.post(sdkEndpoint, {
-    channel,
-    signer: signerPrivateKey,
-    recipients: [getPushRecipient(recipientAddress)],
-    env: process.env.PUSH_ENV || "staging",
-    notification: { title: content.title, body: content.body },
-    payload: {
-      title: content.title,
-      body: content.body,
-      cta: `${process.env.FRONTEND_URL || "http://localhost:3000"}${content.linkPath}`,
-      category: eventType,
+  const sdkEndpoint =
+    process.env.PUSH_SDK_RELAY_URL || "https://backend-staging.epns.io/apis/v1/payloads";
+  await axios.post(
+    sdkEndpoint,
+    {
+      channel,
+      signer: signerPrivateKey,
+      recipients: [getPushRecipient(recipientAddress)],
+      env: process.env.PUSH_ENV || "staging",
+      notification: { title: content.title, body: content.body },
+      payload: {
+        title: content.title,
+        body: content.body,
+        cta: `${process.env.FRONTEND_URL || "http://localhost:3000"}${content.linkPath}`,
+        category: eventType,
+      },
     },
-  }, { timeout: 10000 });
+    { timeout: 10000 }
+  );
 
   return true;
 }
@@ -109,7 +110,7 @@ function shortAddress(address) {
 
 /**
  * Queue a notification for a user
- * 
+ *
  * @param {Object} params
  * @param {string} params.recipientAddress - Stellar public key
  * @param {string} params.notificationType - 'email' or 'webhook'
@@ -118,7 +119,13 @@ function shortAddress(address) {
  * @param {Object} params.payload - Additional data for the notification
  * @returns {Promise<Object>} The queued notification
  */
-async function queueNotification({ recipientAddress, notificationType, eventType, jobId, payload }) {
+async function queueNotification({
+  recipientAddress,
+  notificationType,
+  eventType,
+  jobId,
+  payload,
+}) {
   const { rows } = await pool.query(
     `INSERT INTO notification_queue 
       (recipient_address, notification_type, event_type, job_id, payload, status, created_at)
@@ -132,7 +139,7 @@ async function queueNotification({ recipientAddress, notificationType, eventType
 
 async function createInAppNotification(
   { userAddress, type, title, body, jobId = null, linkPath = null },
-  queryRunner = pool,
+  queryRunner = pool
 ) {
   if (!userAddress) return null;
 
@@ -141,7 +148,7 @@ async function createInAppNotification(
       (user_address, type, title, body, read, job_id, link_path, created_at)
      VALUES ($1, $2, $3, $4, FALSE, $5, $6, NOW())
      RETURNING *`,
-    [userAddress, type, title, body, jobId, linkPath],
+    [userAddress, type, title, body, jobId, linkPath]
   );
 
   return rowToInAppNotification(rows[0]);
@@ -168,13 +175,13 @@ async function listInAppNotifications(userAddress, { limit = 20, cursor = null }
          ${cursorClause}
        ORDER BY created_at DESC, id DESC
        LIMIT ${limitPlaceholder}`,
-      params,
+      params
     ),
     pool.query(
       `SELECT COUNT(*)::int AS count
        FROM notifications
        WHERE user_address = $1 AND read = FALSE`,
-      [userAddress],
+      [userAddress]
     ),
   ]);
 
@@ -191,7 +198,7 @@ async function markInAppNotificationRead(id, userAddress) {
      SET read = TRUE
      WHERE id = $1 AND user_address = $2
      RETURNING *`,
-    [id, userAddress],
+    [id, userAddress]
   );
 
   if (!rows.length) {
@@ -208,20 +215,16 @@ async function markAllInAppNotificationsRead(userAddress) {
     `UPDATE notifications
      SET read = TRUE
      WHERE user_address = $1 AND read = FALSE`,
-    [userAddress],
+    [userAddress]
   );
 
   return { updatedCount: rowCount };
 }
 
-async function createJobNotification({
-  userAddress,
-  type,
-  title,
-  body,
-  jobId,
-  linkPath,
-}, queryRunner = pool) {
+async function createJobNotification(
+  { userAddress, type, title, body, jobId, linkPath },
+  queryRunner = pool
+) {
   return createInAppNotification(
     {
       userAddress,
@@ -231,13 +234,13 @@ async function createJobNotification({
       jobId,
       linkPath: linkPath || `/jobs/${jobId}`,
     },
-    queryRunner,
+    queryRunner
   );
 }
 
 /**
  * Get user notification preferences
- * 
+ *
  * @param {string} publicKey - Stellar public key
  * @returns {Promise<Object>} User preferences
  */
@@ -254,7 +257,7 @@ async function getUserPreferences(publicKey) {
 
 /**
  * Send an email notification
- * 
+ *
  * @param {Object} params
  * @param {string} params.to - Recipient email
  * @param {string} params.subject - Email subject
@@ -280,7 +283,7 @@ async function sendEmail({ to, subject, text, html }, sendEmailFn) {
 
 /**
  * Send a webhook notification
- * 
+ *
  * @param {Object} params
  * @param {string} params.url - Webhook URL
  * @param {string} params.secret - Webhook secret for HMAC signature
@@ -317,7 +320,7 @@ async function sendWebhook({ url, secret, payload }) {
 
 /**
  * Generate email content for an event
- * 
+ *
  * @param {string} eventType - Event type
  * @param {Object} data - Event data
  * @returns {Object} Email subject and body
@@ -370,11 +373,13 @@ function generateEmailContent(eventType, data) {
     },
   };
 
-  return templates[eventType] || {
-    subject: `Notification: ${jobTitle}`,
-    text: `An event occurred for "${jobTitle}".\n\nJob: ${jobUrl}`,
-    html: `<h2>Notification</h2><p>An event occurred for "<strong>${jobTitle}</strong>".</p><p><a href="${jobUrl}">View Job</a></p>`,
-  };
+  return (
+    templates[eventType] || {
+      subject: `Notification: ${jobTitle}`,
+      text: `An event occurred for "${jobTitle}".\n\nJob: ${jobUrl}`,
+      html: `<h2>Notification</h2><p>An event occurred for "<strong>${jobTitle}</strong>".</p><p><a href="${jobUrl}">View Job</a></p>`,
+    }
+  );
 }
 
 function generateInAppContent(eventType, data) {
@@ -436,7 +441,7 @@ function generateInAppContent(eventType, data) {
 
 /**
  * Process pending notifications
- * 
+ *
  * @param {Function} sendEmailFn - Function to send email
  * @returns {Promise<Object>} Processing stats
  */
@@ -455,7 +460,7 @@ async function processPendingNotifications(sendEmailFn) {
   for (const notification of pending) {
     try {
       const prefs = await getUserPreferences(notification.recipient_address);
-      
+
       if (!prefs) {
         // User not found, mark as failed
         await pool.query(
@@ -483,10 +488,7 @@ async function processPendingNotifications(sendEmailFn) {
           continue;
         }
 
-        const emailContent = generateEmailContent(
-          notification.event_type,
-          notification.payload
-        );
+        const emailContent = generateEmailContent(notification.event_type, notification.payload);
 
         success = await sendEmail(
           {
@@ -553,8 +555,11 @@ async function processPendingNotifications(sendEmailFn) {
         failed++;
       }
     } catch (error) {
-      console.error(`[notifications] Error processing notification ${notification.id}:`, error.message);
-      
+      console.error(
+        `[notifications] Error processing notification ${notification.id}:`,
+        error.message
+      );
+
       const newRetryCount = notification.retry_count + 1;
       const newStatus = newRetryCount >= MAX_RETRIES ? "failed" : "pending";
 
@@ -574,7 +579,7 @@ async function processPendingNotifications(sendEmailFn) {
 
 /**
  * Notify users about an escrow event
- * 
+ *
  * @param {Object} params
  * @param {string} params.eventType - Event type
  * @param {string} params.jobId - Job UUID

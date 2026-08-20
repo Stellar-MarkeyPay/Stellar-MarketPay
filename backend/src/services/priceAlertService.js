@@ -25,7 +25,8 @@ async function upsertPriceAlertPreference({
   const max = maxXlmPriceUsd == null || maxXlmPriceUsd === "" ? null : Number(maxXlmPriceUsd);
   if (min !== null && Number.isNaN(min)) throwBadRequest("minXlmPriceUsd must be a number");
   if (max !== null && Number.isNaN(max)) throwBadRequest("maxXlmPriceUsd must be a number");
-  if (min !== null && max !== null && min > max) throwBadRequest("minXlmPriceUsd must be less than maxXlmPriceUsd");
+  if (min !== null && max !== null && min > max)
+    throwBadRequest("minXlmPriceUsd must be less than maxXlmPriceUsd");
 
   const { rows } = await pool.query(
     `INSERT INTO price_alert_preferences (
@@ -85,12 +86,14 @@ class PriceAlertService {
       const shouldTriggerMin =
         pref.min_xlm_price_usd !== null &&
         currentPriceUsd < Number(pref.min_xlm_price_usd) &&
-        (!pref.last_min_alert_at || Date.now() - new Date(pref.last_min_alert_at).getTime() > 60 * 60 * 1000);
+        (!pref.last_min_alert_at ||
+          Date.now() - new Date(pref.last_min_alert_at).getTime() > 60 * 60 * 1000);
 
       const shouldTriggerMax =
         pref.max_xlm_price_usd !== null &&
         currentPriceUsd > Number(pref.max_xlm_price_usd) &&
-        (!pref.last_max_alert_at || Date.now() - new Date(pref.last_max_alert_at).getTime() > 60 * 60 * 1000);
+        (!pref.last_max_alert_at ||
+          Date.now() - new Date(pref.last_max_alert_at).getTime() > 60 * 60 * 1000);
 
       if (shouldTriggerMin) {
         await this.handleTrigger(pref, "min", currentPriceUsd, Number(pref.min_xlm_price_usd));
@@ -103,9 +106,10 @@ class PriceAlertService {
 
   async handleTrigger(pref, kind, currentPriceUsd, threshold) {
     const field = kind === "min" ? "last_min_alert_at" : "last_max_alert_at";
-    await pool.query(`UPDATE price_alert_preferences SET ${field} = NOW(), updated_at = NOW() WHERE freelancer_address = $1`, [
-      pref.freelancer_address,
-    ]);
+    await pool.query(
+      `UPDATE price_alert_preferences SET ${field} = NOW(), updated_at = NOW() WHERE freelancer_address = $1`,
+      [pref.freelancer_address]
+    );
 
     this.broadcast("price:alert", {
       recipientAddress: pref.freelancer_address,

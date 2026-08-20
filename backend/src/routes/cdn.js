@@ -18,7 +18,10 @@ function verifyWebhookSignature(req) {
   if (!secret) return true; // not configured — allow (local/dev)
 
   const signature = req.get("X-Webhook-Signature") || "";
-  const expected = crypto.createHmac("sha256", secret).update(JSON.stringify(req.body || {})).digest("hex");
+  const expected = crypto
+    .createHmac("sha256", secret)
+    .update(JSON.stringify(req.body || {}))
+    .digest("hex");
 
   if (signature.length !== expected.length) return false;
   return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected));
@@ -36,7 +39,8 @@ router.post("/webhook", async (req, res) => {
   }
 
   const cdnInvalidation = req.app.locals.cdnInvalidation;
-  if (!cdnInvalidation) return res.status(500).json({ error: "Invalidation service not available" });
+  if (!cdnInvalidation)
+    return res.status(500).json({ error: "Invalidation service not available" });
 
   const { eventType, jobId } = req.body || {};
   if (!eventType || !jobId) {
@@ -44,7 +48,9 @@ router.post("/webhook", async (req, res) => {
   }
 
   try {
-    const result = await cdnInvalidation.handleContractEvent(eventType, jobId, { receivedAt: Date.now() });
+    const result = await cdnInvalidation.handleContractEvent(eventType, jobId, {
+      receivedAt: Date.now(),
+    });
     res.json({ success: true, result });
   } catch (error) {
     res.status(502).json({ error: error.message });

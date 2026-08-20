@@ -50,7 +50,8 @@ class CdnInvalidationService extends EventEmitter {
     super();
     if (!cdnService) throw new Error("CdnInvalidationService requires a cdnService");
     this.cdnService = cdnService;
-    this.publicBaseUrl = publicBaseUrl || process.env.PUBLIC_BASE_URL || "https://app.stellar-marketpay.example";
+    this.publicBaseUrl =
+      publicBaseUrl || process.env.PUBLIC_BASE_URL || "https://app.stellar-marketpay.example";
     this._registerMetrics(metricsRegistry);
   }
 
@@ -139,13 +140,27 @@ class CdnInvalidationService extends EventEmitter {
       const result = await this.cdnService.purge({ urls, tags });
       const latencySeconds = (Date.now() - receivedAt) / 1000;
       this.purgeLatency?.observe({ event_type: eventType }, latencySeconds);
-      this.emit("invalidation:completed", { jobId, eventType, urls, tags, latencySeconds, provider: result.provider });
+      this.emit("invalidation:completed", {
+        jobId,
+        eventType,
+        urls,
+        tags,
+        latencySeconds,
+        provider: result.provider,
+      });
       return { urls, tags, latencySeconds, ...result };
     } catch (err) {
       const latencySeconds = (Date.now() - receivedAt) / 1000;
       this.purgeLatency?.observe({ event_type: eventType }, latencySeconds);
       this.purgeFailures?.inc({ event_type: eventType });
-      this.emit("invalidation:failed", { jobId, eventType, urls, tags, latencySeconds, error: err.message });
+      this.emit("invalidation:failed", {
+        jobId,
+        eventType,
+        urls,
+        tags,
+        latencySeconds,
+        error: err.message,
+      });
       throw err;
     }
   }

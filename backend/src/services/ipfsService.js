@@ -17,13 +17,13 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB in bytes
 const MAX_FILES_PER_PROFILE = 5;
 const ALLOWED_MIME_TYPES = [
   "image/jpeg",
-  "image/png", 
+  "image/png",
   "image/gif",
   "image/webp",
   "application/pdf",
   "text/plain",
   "application/msword",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 ];
 
 /**
@@ -55,7 +55,7 @@ async function uploadFile(fileBuffer, fileName, mimeType) {
     const formData = new FormData();
     formData.append("file", fileBuffer, {
       filename: fileName,
-      contentType: mimeType
+      contentType: mimeType,
     });
 
     // Add Pinata metadata
@@ -63,25 +63,21 @@ async function uploadFile(fileBuffer, fileName, mimeType) {
       name: fileName,
       keyvalues: {
         app: "stellar-marketpay",
-        uploadedAt: new Date().toISOString()
-      }
+        uploadedAt: new Date().toISOString(),
+      },
     };
 
     formData.append("pinataMetadata", JSON.stringify(metadata));
 
-    const response = await axios.post(
-      `${PINATA_API_URL}/pinning/pinFileToIPFS`,
-      formData,
-      {
-        headers: {
-          "pinata_api_key": PINATA_API_KEY,
-          "pinata_secret_api_key": PINATA_SECRET_KEY,
-          ...formData.getHeaders()
-        },
-        maxContentLength: MAX_FILE_SIZE + 1024, // Add some buffer
-        timeout: 30000 // 30 seconds timeout
-      }
-    );
+    const response = await axios.post(`${PINATA_API_URL}/pinning/pinFileToIPFS`, formData, {
+      headers: {
+        pinata_api_key: PINATA_API_KEY,
+        pinata_secret_api_key: PINATA_SECRET_KEY,
+        ...formData.getHeaders(),
+      },
+      maxContentLength: MAX_FILE_SIZE + 1024, // Add some buffer
+      timeout: 30000, // 30 seconds timeout
+    });
 
     if (!response.data.IpfsHash) {
       throw new Error("Invalid response from Pinata");
@@ -92,11 +88,11 @@ async function uploadFile(fileBuffer, fileName, mimeType) {
       size: fileBuffer.length,
       fileName: fileName,
       mimeType: mimeType,
-      uploadedAt: new Date().toISOString()
+      uploadedAt: new Date().toISOString(),
     };
   } catch (error) {
     console.error("IPFS upload error:", error.response?.data || error.message);
-    
+
     // Handle specific error cases
     if (error.response?.status === 429) {
       const e = new Error("Upload service rate limit exceeded. Please try again in a few minutes.");
@@ -104,21 +100,25 @@ async function uploadFile(fileBuffer, fileName, mimeType) {
       e.code = "RATE_LIMIT_EXCEEDED";
       throw e;
     }
-    
+
     if (error.response?.status === 401 || error.response?.status === 403) {
-      const e = new Error("IPFS upload service is temporarily unavailable due to authentication issues. Please contact support.");
+      const e = new Error(
+        "IPFS upload service is temporarily unavailable due to authentication issues. Please contact support."
+      );
       e.status = 503;
       e.code = "PINATA_AUTH_FAILED";
       throw e;
     }
-    
+
     if (error.code === "ECONNREFUSED" || error.code === "ETIMEDOUT" || error.code === "ENOTFOUND") {
-      const e = new Error("IPFS upload service is temporarily unavailable. Please try again later.");
+      const e = new Error(
+        "IPFS upload service is temporarily unavailable. Please try again later."
+      );
       e.status = 503;
       e.code = "PINATA_UNAVAILABLE";
       throw e;
     }
-    
+
     const e = new Error(`Failed to upload file to IPFS: ${error.message}`);
     e.status = 503;
     e.code = "IPFS_UPLOAD_FAILED";
@@ -133,7 +133,7 @@ async function uploadFile(fileBuffer, fileName, mimeType) {
  */
 function validatePortfolioFiles(portfolioFiles) {
   if (!portfolioFiles) return [];
-  
+
   if (!Array.isArray(portfolioFiles)) {
     const e = new Error("portfolio_files must be an array");
     e.status = 400;
@@ -182,7 +182,7 @@ function validatePortfolioFiles(portfolioFiles) {
       fileName: file.fileName.trim(),
       mimeType: file.mimeType.trim(),
       size: file.size || 0,
-      uploadedAt: file.uploadedAt
+      uploadedAt: file.uploadedAt,
     };
   });
 }
@@ -231,19 +231,15 @@ async function uploadMessage(messagePayload) {
     };
     formData.append("pinataMetadata", JSON.stringify(metadata));
 
-    const response = await axios.post(
-      `${PINATA_API_URL}/pinning/pinFileToIPFS`,
-      formData,
-      {
-        headers: {
-          "pinata_api_key": PINATA_API_KEY,
-          "pinata_secret_api_key": PINATA_SECRET_KEY,
-          ...formData.getHeaders(),
-        },
-        maxContentLength: 1024 * 1024, // 1MB for messages
-        timeout: 15000,
+    const response = await axios.post(`${PINATA_API_URL}/pinning/pinFileToIPFS`, formData, {
+      headers: {
+        pinata_api_key: PINATA_API_KEY,
+        pinata_secret_api_key: PINATA_SECRET_KEY,
+        ...formData.getHeaders(),
       },
-    );
+      maxContentLength: 1024 * 1024, // 1MB for messages
+      timeout: 15000,
+    });
 
     if (!response.data.IpfsHash) {
       throw new Error("Invalid response from Pinata");
@@ -256,28 +252,32 @@ async function uploadMessage(messagePayload) {
     };
   } catch (error) {
     console.error("IPFS message upload error:", error.response?.data || error.message);
-    
+
     if (error.response?.status === 429) {
       const e = new Error("Upload service rate limit exceeded. Please try again in a few minutes.");
       e.status = 503;
       e.code = "RATE_LIMIT_EXCEEDED";
       throw e;
     }
-    
+
     if (error.response?.status === 401 || error.response?.status === 403) {
-      const e = new Error("IPFS upload service is temporarily unavailable due to authentication issues.");
+      const e = new Error(
+        "IPFS upload service is temporarily unavailable due to authentication issues."
+      );
       e.status = 503;
       e.code = "PINATA_AUTH_FAILED";
       throw e;
     }
-    
+
     if (error.code === "ECONNREFUSED" || error.code === "ETIMEDOUT" || error.code === "ENOTFOUND") {
-      const e = new Error("IPFS upload service is temporarily unavailable. Please try again later.");
+      const e = new Error(
+        "IPFS upload service is temporarily unavailable. Please try again later."
+      );
       e.status = 503;
       e.code = "PINATA_UNAVAILABLE";
       throw e;
     }
-    
+
     const e = new Error(`Failed to upload message to IPFS: ${error.message}`);
     e.status = 503;
     e.code = "IPFS_UPLOAD_FAILED";
@@ -301,5 +301,5 @@ module.exports = {
   isConfigured,
   MAX_FILE_SIZE,
   MAX_FILES_PER_PROFILE,
-  ALLOWED_MIME_TYPES
+  ALLOWED_MIME_TYPES,
 };

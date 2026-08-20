@@ -43,7 +43,9 @@ export default function CertificatePage() {
       }
     })();
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [router.isReady, id]);
 
   const title =
@@ -84,9 +86,7 @@ export default function CertificatePage() {
         {state.status === "not_found" && (
           <div className="card border-amber-900/30 text-center py-12">
             <p className="text-4xl mb-4">🔍</p>
-            <p className="font-display text-xl text-amber-100 mb-2">
-              Certificate not found
-            </p>
+            <p className="font-display text-xl text-amber-100 mb-2">Certificate not found</p>
             <p className="text-amber-800 text-sm">
               This certificate does not exist or has been removed.
             </p>
@@ -95,9 +95,7 @@ export default function CertificatePage() {
 
         {state.status === "error" && (
           <div className="card border-red-500/20 text-center py-12">
-            <p className="font-display text-xl text-amber-100 mb-2">
-              Something went wrong
-            </p>
+            <p className="font-display text-xl text-amber-100 mb-2">Something went wrong</p>
             <p className="text-red-400/90 text-sm">{state.message}</p>
           </div>
         )}
@@ -113,9 +111,7 @@ export default function CertificatePage() {
               <h1 className="font-display text-2xl sm:text-3xl font-bold text-amber-100 mb-2">
                 {state.cert.skill.charAt(0).toUpperCase() + state.cert.skill.slice(1)}
               </h1>
-              <p className="text-amber-700/90 text-sm">
-                Issued by Stellar MarketPay
-              </p>
+              <p className="text-amber-700/90 text-sm">Issued by Stellar MarketPay</p>
             </div>
 
             {/* Certificate body */}
@@ -145,9 +141,7 @@ export default function CertificatePage() {
                 </div>
                 <div className="rounded-xl bg-ink-900/50 border border-market-500/10 p-4">
                   <p className="label text-xs mb-1">Certificate ID</p>
-                  <p className="text-amber-700/90 text-xs font-mono break-all">
-                    {state.cert.id}
-                  </p>
+                  <p className="text-amber-700/90 text-xs font-mono break-all">{state.cert.id}</p>
                 </div>
               </div>
 
@@ -194,12 +188,19 @@ export default function CertificatePage() {
 
               {/* Actions */}
               <div className="flex flex-col sm:flex-row gap-3 pt-2">
-                <button
-                  onClick={() => window.print()}
-                  className="btn-primary text-sm flex-1"
-                >
-                  <svg className="w-4 h-4 mr-2 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                <button onClick={() => window.print()} className="btn-primary text-sm flex-1">
+                  <svg
+                    className="w-4 h-4 mr-2 inline"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"
+                    />
                   </svg>
                   Print / Save PDF
                 </button>

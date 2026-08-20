@@ -44,11 +44,11 @@ export default function FaucetButton({ publicKey, currentBalance, onBalanceUpdat
 
     try {
       const result = await fundTestnetWallet(publicKey);
-      
+
       if (result.success) {
         setSuccessMsg(`Successfully funded with ${result.fundedAmount} XLM!`);
         setNeedsFunding(false);
-        
+
         // Update parent component with new balance
         if (onBalanceUpdate && result.newBalance) {
           onBalanceUpdate(result.newBalance);

@@ -34,7 +34,7 @@ export function useBookmarks() {
     (jobId: string) => {
       return bookmarks.includes(jobId);
     },
-    [bookmarks],
+    [bookmarks]
   );
 
   const toggleBookmark = useCallback(
@@ -46,7 +46,7 @@ export function useBookmarks() {
       setBookmarks(newBookmarks);
       setStoredBookmarks(newBookmarks);
     },
-    [bookmarks, isSaved],
+    [bookmarks, isSaved]
   );
 
   const savedCount = bookmarks.length;
@@ -54,10 +54,7 @@ export function useBookmarks() {
   const getSavedJobs = useCallback(async (): Promise<Job[]> => {
     const jobs = await Promise.allSettled(bookmarks.map((id) => fetchJob(id)));
     return jobs
-      .filter(
-        (result): result is PromiseFulfilledResult<Job> =>
-          result.status === "fulfilled",
-      )
+      .filter((result): result is PromiseFulfilledResult<Job> => result.status === "fulfilled")
       .map((result) => result.value);
   }, [bookmarks]);
 

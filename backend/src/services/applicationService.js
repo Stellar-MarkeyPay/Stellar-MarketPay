@@ -67,9 +67,7 @@ function rowToApp(row) {
   const completedJobs = row.completed_jobs ?? 0;
   const totalJobs = row.total_jobs ?? completedJobs;
   const freelancerRating =
-    row.avg_rating !== null && row.avg_rating !== undefined
-      ? parseFloat(row.avg_rating)
-      : null;
+    row.avg_rating !== null && row.avg_rating !== undefined ? parseFloat(row.avg_rating) : null;
   const totalEarnedXlm = row.total_earned_xlm ?? 0;
 
   return {
@@ -164,7 +162,7 @@ async function submitApplication({
   if (job.visibility === "invite_only") {
     const { rows: inviteRows } = await pool.query(
       "SELECT 1 FROM job_invitations WHERE job_id = $1 AND freelancer_address = $2",
-      [jobId, freelancerAddress],
+      [jobId, freelancerAddress]
     );
     if (!inviteRows.length) {
       const e = new Error("You are not invited to this job");
@@ -177,11 +175,7 @@ async function submitApplication({
     e.status = 400;
     throw e;
   }
-  if (
-    !bidAmount ||
-    isNaN(parseFloat(bidAmount)) ||
-    parseFloat(bidAmount) <= 0
-  ) {
+  if (!bidAmount || isNaN(parseFloat(bidAmount)) || parseFloat(bidAmount) <= 0) {
     const e = new Error("Bid must be a positive number");
     e.status = 400;
     throw e;
@@ -194,10 +188,7 @@ async function submitApplication({
       throw e;
     }
     for (const question of job.screeningQuestions) {
-      if (
-        !screeningAnswers[question] ||
-        screeningAnswers[question].trim().length === 0
-      ) {
+      if (!screeningAnswers[question] || screeningAnswers[question].trim().length === 0) {
         const e = new Error("All screening questions must be answered");
         e.status = 400;
         throw e;
@@ -229,7 +220,7 @@ async function submitApplication({
         referredBy || null,
         bidCommitment || null,
         bidNonce || null,
-      ],
+      ]
     );
     appRow = rows[0];
   } catch (err) {
@@ -243,7 +234,7 @@ async function submitApplication({
 
   await pool.query(
     "UPDATE jobs SET applicant_count = applicant_count + 1, updated_at = NOW() WHERE id = $1",
-    [jobId],
+    [jobId]
   );
 
   await createJobNotification({
@@ -278,7 +269,7 @@ async function closeBiddingForJob(jobId, clientAddress) {
 
   const { rows } = await pool.query(
     "UPDATE jobs SET bidding_closed_at = NOW(), updated_at = NOW() WHERE id = $1 RETURNING bidding_closed_at",
-    [jobId],
+    [jobId]
   );
   return { jobId, biddingClosedAt: rows[0]?.bidding_closed_at || null };
 }
@@ -353,7 +344,7 @@ async function revealApplicationBid(applicationId, freelancerAddress, bidAmount,
          revealed_at = NOW()
      WHERE id = $1
      RETURNING *`,
-    [applicationId, parseFloat(bidAmount).toFixed(7)],
+    [applicationId, parseFloat(bidAmount).toFixed(7)]
   );
   return rowToApp(updatedRows[0]);
 }
@@ -384,7 +375,7 @@ async function getApplicationsForJob(jobId, filters = {}) {
        )
      GROUP BY a.id, p.completed_jobs, p.total_earned_xlm, p.created_at
      ORDER BY a.created_at ASC`,
-    [jobId],
+    [jobId]
   );
   const applications = rows.map(rowToApp);
   if (!filters.tier) return applications;
@@ -414,7 +405,7 @@ async function getApplicationsForFreelancer(freelancerAddress) {
      WHERE a.freelancer_address = $1
      GROUP BY a.id, p.completed_jobs, p.total_earned_xlm, p.created_at
      ORDER BY a.created_at DESC`,
-    [freelancerAddress],
+    [freelancerAddress]
   );
   return rows.map(rowToApp);
 }
@@ -430,10 +421,9 @@ async function getApplicationsForFreelancer(freelancerAddress) {
 async function acceptApplication(applicationId, clientAddress) {
   validatePublicKey(clientAddress);
 
-  const { rows: appRows } = await pool.query(
-    "SELECT * FROM applications WHERE id = $1",
-    [applicationId],
-  );
+  const { rows: appRows } = await pool.query("SELECT * FROM applications WHERE id = $1", [
+    applicationId,
+  ]);
   if (!appRows.length) {
     const e = new Error("Application not found");
     e.status = 404;
@@ -459,7 +449,7 @@ async function acceptApplication(applicationId, clientAddress) {
 
     const { rows: updated } = await client.query(
       "UPDATE applications SET status = 'accepted', accepted_at = NOW() WHERE id = $1 RETURNING *",
-      [applicationId],
+      [applicationId]
     );
 
     const { rows: rejectedApplications } = await client.query(
@@ -467,7 +457,7 @@ async function acceptApplication(applicationId, clientAddress) {
        SET status = 'rejected'
        WHERE job_id = $1 AND id <> $2 AND status = 'pending'
        RETURNING freelancer_address`,
-      [app.job_id, applicationId],
+      [app.job_id, applicationId]
     );
 
     await createJobNotification(
@@ -478,7 +468,7 @@ async function acceptApplication(applicationId, clientAddress) {
         body: `Your application for "${job.title}" was accepted.`,
         jobId: app.job_id,
       },
-      client,
+      client
     );
 
     for (const rejected of rejectedApplications) {
@@ -490,7 +480,7 @@ async function acceptApplication(applicationId, clientAddress) {
           body: `Your application for "${job.title}" was not selected.`,
           jobId: app.job_id,
         },
-        client,
+        client
       );
     }
 
@@ -523,10 +513,9 @@ async function acceptApplication(applicationId, clientAddress) {
 async function withdrawApplication(applicationId, freelancerAddress) {
   validatePublicKey(freelancerAddress);
 
-  const { rows: appRows } = await pool.query(
-    "SELECT * FROM applications WHERE id = $1",
-    [applicationId],
-  );
+  const { rows: appRows } = await pool.query("SELECT * FROM applications WHERE id = $1", [
+    applicationId,
+  ]);
   if (!appRows.length) {
     const e = new Error("Application not found");
     e.status = 404;
@@ -535,9 +524,7 @@ async function withdrawApplication(applicationId, freelancerAddress) {
   const app = appRows[0];
 
   if (app.freelancer_address !== freelancerAddress) {
-    const e = new Error(
-      "Only the freelancer who submitted can withdraw this application",
-    );
+    const e = new Error("Only the freelancer who submitted can withdraw this application");
     e.status = 403;
     throw e;
   }
@@ -554,12 +541,12 @@ async function withdrawApplication(applicationId, freelancerAddress) {
 
   const { rows: updated } = await pool.query(
     "UPDATE applications SET withdrawn_at = NOW() WHERE id = $1 RETURNING *",
-    [applicationId],
+    [applicationId]
   );
 
   await pool.query(
     "UPDATE jobs SET applicant_count = GREATEST(applicant_count - 1, 0), updated_at = NOW() WHERE id = $1",
-    [app.job_id],
+    [app.job_id]
   );
 
   return rowToApp(updated[0]);

@@ -3,7 +3,14 @@
  * Browse all open jobs with category filtering and search autocomplete.
  */
 import JobCard, { JobCardSkeleton } from "@/components/JobCard";
-import { fetchJobs, fetchMlRankedJobs, fetchRecommendedJobs, fetchJobSuggestions, type JobSuggestion as APISuggestion, type RankedJob } from "@/lib/api";
+import {
+  fetchJobs,
+  fetchMlRankedJobs,
+  fetchRecommendedJobs,
+  fetchJobSuggestions,
+  type JobSuggestion as APISuggestion,
+  type RankedJob,
+} from "@/lib/api";
 import StateMessage from "@/components/StateMessage";
 import { JOB_CATEGORIES, CATEGORY_ICONS, categoryToSlug } from "@/utils/format";
 import type { Job } from "@/utils/types";
@@ -32,8 +39,11 @@ const ALERT_KEY = "marketpay_job_alerts";
 
 function getAlerts(): string[] {
   if (typeof window === "undefined") return [];
-  try { return JSON.parse(localStorage.getItem(ALERT_KEY) ?? "[]"); }
-  catch { return []; }
+  try {
+    return JSON.parse(localStorage.getItem(ALERT_KEY) ?? "[]");
+  } catch {
+    return [];
+  }
 }
 
 function saveAlerts(cats: string[]): void {
@@ -49,7 +59,6 @@ function addAlert(cat: string): void {
 function removeAlert(cat: string): void {
   saveAlerts(getAlerts().filter((c) => c !== cat));
 }
-
 
 export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
   const router = useRouter();
@@ -131,8 +140,8 @@ export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
     }
 
     // Check if already saved
-    const alreadySaved = savedSearches.some((s) =>
-      JSON.stringify(s.query_params) === JSON.stringify(queryParams)
+    const alreadySaved = savedSearches.some(
+      (s) => JSON.stringify(s.query_params) === JSON.stringify(queryParams)
     );
     if (alreadySaved) {
       setSaveSearchMsg("This search is already saved.");
@@ -159,7 +168,12 @@ export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
   };
 
   const hasActiveFilters = Boolean(
-    search.trim() || category || (status && status !== "open") || minBudget || maxBudget || activeTimezone
+    search.trim() ||
+    category ||
+    (status && status !== "open") ||
+    minBudget ||
+    maxBudget ||
+    activeTimezone
   );
 
   useEffect(() => {
@@ -214,10 +228,7 @@ export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
     maxApplications: (router.query.maxApplications as string) || undefined,
   };
 
-  const updateFilters = (
-    patch: Partial<JobFilterQuery>,
-    removeKeys?: string[],
-  ) => {
+  const updateFilters = (patch: Partial<JobFilterQuery>, removeKeys?: string[]) => {
     const next: Record<string, any> = { ...router.query, ...patch, page: undefined };
     for (const key of removeKeys || []) {
       delete next[key];
@@ -232,14 +243,20 @@ export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
   useEffect(() => {
     const detectedTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
     setUserTimezone(detectedTz);
-    getConnectedPublicKey().then((publicKey) => {
-      if (publicKey) setViewerAddress(publicKey);
-    }).catch(() => {});
+    getConnectedPublicKey()
+      .then((publicKey) => {
+        if (publicKey) setViewerAddress(publicKey);
+      })
+      .catch(() => {});
   }, []);
 
   // Fetch ML-ranked jobs when wallet is connected (fallback to legacy recommendations)
   useEffect(() => {
-    if (!publicKey) { setRecommended([]); setRankingSource(null); return; }
+    if (!publicKey) {
+      setRecommended([]);
+      setRankingSource(null);
+      return;
+    }
     setRecLoading(true);
     fetchMlRankedJobs(publicKey, 6)
       .then(({ jobs, meta }) => {
@@ -255,7 +272,7 @@ export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
           .catch(() => {
             setRecommended([]);
             setRankingSource(null);
-          }),
+          })
       )
       .finally(() => setRecLoading(false));
   }, [publicKey]);
@@ -345,7 +362,9 @@ export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
 
     loadJobs();
 
-    return () => { isCancelled = true; };
+    return () => {
+      isCancelled = true;
+    };
   }, [
     category,
     status,
@@ -365,32 +384,34 @@ export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
   ]);
 
   // Fetch suggestions with debounce
-  const fetchSuggestions = useCallback(async (query: string) => {
-    if (query.length < 2) {
-      setSuggestions([]);
-      setShowSuggestions(false);
-      return;
-    }
+  const fetchSuggestions = useCallback(
+    async (query: string) => {
+      if (query.length < 2) {
+        setSuggestions([]);
+        setShowSuggestions(false);
+        return;
+      }
 
-    setIsLoadingSuggestions(true);
-    const q = query.toLowerCase();
-    const fromCategories: Suggestion[] = JOB_CATEGORIES.filter((c) => c.toLowerCase().includes(q))
-      .slice(0, 3)
-      .map((c) => ({ type: "category", value: c }));
-    const fromJobs: Suggestion[] = jobs
-      .filter(
-        (j) =>
-          j.title.toLowerCase().includes(q) ||
-          j.skills.some((s) => s.toLowerCase().includes(q))
-      )
-      .slice(0, 5)
-      .map((j) => ({ type: "job", value: j.title }));
-    const combined = [...fromCategories, ...fromJobs];
-    setSuggestions(combined);
-    setShowSuggestions(combined.length > 0);
-    setActiveSuggestion(0);
-    setIsLoadingSuggestions(false);
-  }, [jobs]);
+      setIsLoadingSuggestions(true);
+      const q = query.toLowerCase();
+      const fromCategories: Suggestion[] = JOB_CATEGORIES.filter((c) => c.toLowerCase().includes(q))
+        .slice(0, 3)
+        .map((c) => ({ type: "category", value: c }));
+      const fromJobs: Suggestion[] = jobs
+        .filter(
+          (j) =>
+            j.title.toLowerCase().includes(q) || j.skills.some((s) => s.toLowerCase().includes(q))
+        )
+        .slice(0, 5)
+        .map((j) => ({ type: "job", value: j.title }));
+      const combined = [...fromCategories, ...fromJobs];
+      setSuggestions(combined);
+      setShowSuggestions(combined.length > 0);
+      setActiveSuggestion(0);
+      setIsLoadingSuggestions(false);
+    },
+    [jobs]
+  );
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -408,7 +429,7 @@ export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
   const handleSuggestionClick = (suggestion: Suggestion) => {
     setSearch(suggestion.value);
     setShowSuggestions(false);
-    if (suggestion.type === 'category') {
+    if (suggestion.type === "category") {
       router.push(`/jobs/category/${categoryToSlug(suggestion.value)}`);
     }
   };
@@ -417,21 +438,21 @@ export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
     if (!showSuggestions) return;
 
     switch (e.key) {
-      case 'ArrowDown':
+      case "ArrowDown":
         e.preventDefault();
-        setActiveSuggestion(prev => Math.min(prev + 1, suggestions.length - 1));
+        setActiveSuggestion((prev) => Math.min(prev + 1, suggestions.length - 1));
         break;
-      case 'ArrowUp':
+      case "ArrowUp":
         e.preventDefault();
-        setActiveSuggestion(prev => Math.max(prev - 1, 0));
+        setActiveSuggestion((prev) => Math.max(prev - 1, 0));
         break;
-      case 'Enter':
+      case "Enter":
         e.preventDefault();
         if (suggestions[activeSuggestion]) {
           handleSuggestionClick(suggestions[activeSuggestion]);
         }
         break;
-      case 'Escape':
+      case "Escape":
         setShowSuggestions(false);
         break;
     }
@@ -439,22 +460,27 @@ export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (suggestionsRef.current && !suggestionsRef.current.contains(e.target as Node) &&
-          searchRef.current && !searchRef.current.contains(e.target as Node)) {
+      if (
+        suggestionsRef.current &&
+        !suggestionsRef.current.contains(e.target as Node) &&
+        searchRef.current &&
+        !searchRef.current.contains(e.target as Node)
+      ) {
         setShowSuggestions(false);
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   const searchFiltered = search.trim()
-    ? jobs.filter((j) =>
-      j.title.toLowerCase().includes(search.toLowerCase()) ||
-      j.description.toLowerCase().includes(search.toLowerCase()) ||
-      j.skills.some((s) => s.toLowerCase().includes(search.toLowerCase()))
-    )
+    ? jobs.filter(
+        (j) =>
+          j.title.toLowerCase().includes(search.toLowerCase()) ||
+          j.description.toLowerCase().includes(search.toLowerCase()) ||
+          j.skills.some((s) => s.toLowerCase().includes(search.toLowerCase()))
+      )
     : jobs;
 
   activeTimezone = manualTimezone || (useGeolocation ? userTimezone : "");
@@ -517,28 +543,36 @@ export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
   };
 
   const setBudgetRange = (min: string, max: string) => {
-    router.push({
-      pathname: "/jobs",
-      query: { ...router.query, minBudget: min || undefined, maxBudget: max || undefined }
-    }, undefined, { shallow: true });
+    router.push(
+      {
+        pathname: "/jobs",
+        query: { ...router.query, minBudget: min || undefined, maxBudget: max || undefined },
+      },
+      undefined,
+      { shallow: true }
+    );
   };
 
-  const groupedSuggestions = suggestions.reduce((acc, s) => {
-    if (!acc[s.type]) acc[s.type] = [];
-    acc[s.type].push(s);
-    return acc;
-  }, {} as Record<string, Suggestion[]>);
+  const groupedSuggestions = suggestions.reduce(
+    (acc, s) => {
+      if (!acc[s.type]) acc[s.type] = [];
+      acc[s.type].push(s);
+      return acc;
+    },
+    {} as Record<string, Suggestion[]>
+  );
 
   const [showMobileFilters, setShowMobileFilters] = useState(false);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10 animate-fade-in">
-
       {/* Recommended for you */}
       {publicKey && (recLoading || recommended.length > 0) && (
         <div className="mb-10">
           <div className="flex items-center gap-3 mb-4">
-            <h2 className="font-display text-xl font-bold text-amber-100">{t("jobs.recommended")}</h2>
+            <h2 className="font-display text-xl font-bold text-amber-100">
+              {t("jobs.recommended")}
+            </h2>
             {rankingSource === "ml" && (
               <span className="text-[10px] uppercase tracking-wider text-market-400/80 border border-market-500/20 px-2 py-0.5 rounded-full">
                 ML ranked
@@ -547,7 +581,9 @@ export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
           </div>
           {recLoading ? (
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {Array.from({ length: 3 }).map((_, i) => <JobCardSkeleton key={`rec-skeleton-${i}`} />)}
+              {Array.from({ length: 3 }).map((_, i) => (
+                <JobCardSkeleton key={`rec-skeleton-${i}`} />
+              ))}
             </div>
           ) : (
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -570,7 +606,11 @@ export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div>
           <h1 className="font-display text-3xl font-bold text-amber-100 mb-1">{t("jobs.title")}</h1>
-          <p className="text-amber-800 text-sm">{loading ? t("jobs.loading") : `${filtered.length} ${filtered.length !== 1 ? t("jobs.foundPlural") : t("jobs.found")}`}</p>
+          <p className="text-amber-800 text-sm">
+            {loading
+              ? t("jobs.loading")
+              : `${filtered.length} ${filtered.length !== 1 ? t("jobs.foundPlural") : t("jobs.found")}`}
+          </p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           {publicKey && hasActiveFilters && (
@@ -583,14 +623,26 @@ export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
               {savingSearch ? (
                 <span className="w-3.5 h-3.5 border border-current border-t-transparent rounded-full animate-spin" />
               ) : (
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                <svg
+                  className="w-4 h-4"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                 </svg>
               )}
               Save Search
             </button>
           )}
-          <Link href="/post-job" locale={false} className="btn-primary text-sm py-2.5 px-5 min-h-[44px] flex items-center">+ {t("nav.postJob")}</Link>
+          <Link
+            href="/post-job"
+            locale={false}
+            className="btn-primary text-sm py-2.5 px-5 min-h-[44px] flex items-center"
+          >
+            + {t("nav.postJob")}
+          </Link>
         </div>
       </div>
       {saveSearchMsg && (
@@ -605,20 +657,26 @@ export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
         <input
           ref={searchRef}
           data-job-search
-          type="text" value={search} onChange={handleSearchChange} onKeyDown={handleKeyDown}
+          type="text"
+          value={search}
+          onChange={handleSearchChange}
+          onKeyDown={handleKeyDown}
           placeholder={t("jobs.searchPlaceholder")}
           className="input-field pl-10"
           onFocus={() => search.length >= 2 && setShowSuggestions(suggestions.length > 0)}
         />
         {showSuggestions && (
-          <div ref={suggestionsRef} className="absolute z-10 w-full mt-1 bg-ink-800 border border-amber-900/30 rounded-lg shadow-xl max-h-60 overflow-y-auto">
+          <div
+            ref={suggestionsRef}
+            className="absolute z-10 w-full mt-1 bg-ink-800 border border-amber-900/30 rounded-lg shadow-xl max-h-60 overflow-y-auto"
+          >
             {isLoadingSuggestions ? (
               <div className="px-4 py-3 text-sm text-amber-800">{t("jobs.loading")}</div>
             ) : (
               Object.entries(groupedSuggestions).map(([type, items]) => (
                 <div key={type}>
                   <div className="px-4 py-1 text-xs font-semibold text-amber-700 uppercase bg-ink-900/50">
-                    {type === 'title' ? 'Job Titles' : type === 'skill' ? 'Skills' : 'Categories'}
+                    {type === "title" ? "Job Titles" : type === "skill" ? "Skills" : "Categories"}
                   </div>
                   {(items as Suggestion[]).map((s, idx) => {
                     const globalIdx = suggestions.indexOf(s);
@@ -628,7 +686,9 @@ export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
                         onClick={() => handleSuggestionClick(s)}
                         className={clsx(
                           "px-4 py-2 text-sm cursor-pointer flex items-center gap-2",
-                          globalIdx === activeSuggestion ? "bg-market-500/20 text-market-300" : "text-amber-100 hover:bg-market-500/10"
+                          globalIdx === activeSuggestion
+                            ? "bg-market-500/20 text-market-300"
+                            : "text-amber-100 hover:bg-market-500/10"
                         )}
                       >
                         <span className="text-amber-800 w-4 text-center">
@@ -651,8 +711,18 @@ export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
         className="lg:hidden mb-4 w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl border border-market-500/30 text-market-400 text-sm font-medium hover:bg-market-500/10 transition-colors min-h-[44px]"
         aria-label="Open filters"
       >
-        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
+        <svg
+          className="w-4 h-4"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={2}
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75"
+          />
         </svg>
         Filters
         {(category || status !== "open" || minBudget || maxBudget || activeTimezone) && (
@@ -663,7 +733,10 @@ export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
       {/* Mobile filter overlay */}
       {showMobileFilters && (
         <div className="fixed inset-0 z-50 lg:hidden">
-          <div className="absolute inset-0 bg-ink-950/80 backdrop-blur-sm" onClick={() => setShowMobileFilters(false)} />
+          <div
+            className="absolute inset-0 bg-ink-950/80 backdrop-blur-sm"
+            onClick={() => setShowMobileFilters(false)}
+          />
           <div className="absolute bottom-0 left-0 right-0 max-h-[80vh] overflow-y-auto bg-ink-900 border-t border-market-500/20 rounded-t-2xl p-6 space-y-6 animate-slide-up">
             <div className="flex items-center justify-between mb-2">
               <h3 className="font-display text-lg font-bold text-amber-100">Filters</h3>
@@ -672,7 +745,13 @@ export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
                 className="p-2 rounded-lg text-amber-700 hover:text-amber-300 hover:bg-market-500/10 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
                 aria-label="Close filters"
               >
-                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                <svg
+                  className="w-5 h-5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
@@ -683,13 +762,26 @@ export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
               <p className="label">{t("jobs.status.all")}</p>
               <div className="grid grid-cols-2 gap-2">
                 {["open", "in_progress", "completed", ""].map((s) => (
-                  <button key={s}
-                    onClick={() => { setFilter("status", s); setShowMobileFilters(false); }}
+                  <button
+                    key={s}
+                    onClick={() => {
+                      setFilter("status", s);
+                      setShowMobileFilters(false);
+                    }}
                     className={clsx(
                       "w-full text-left px-4 py-3 rounded-lg text-sm transition-colors font-body min-h-[44px]",
-                      status === s ? "bg-market-500/15 text-market-300 font-medium" : "text-amber-700 hover:text-amber-400 hover:bg-market-500/8"
-                    )}>
-                    {s === "" ? t("jobs.status.all") : s === "open" ? t("jobs.status.open") : s === "in_progress" ? t("jobs.status.inProgress") : t("jobs.status.completed")}
+                      status === s
+                        ? "bg-market-500/15 text-market-300 font-medium"
+                        : "text-amber-700 hover:text-amber-400 hover:bg-market-500/8"
+                    )}
+                  >
+                    {s === ""
+                      ? t("jobs.status.all")
+                      : s === "open"
+                        ? t("jobs.status.open")
+                        : s === "in_progress"
+                          ? t("jobs.status.inProgress")
+                          : t("jobs.status.completed")}
                   </button>
                 ))}
               </div>
@@ -700,23 +792,47 @@ export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
               <p className="label mb-2">{t("jobs.budget")}</p>
               <div className="flex gap-2 items-center mb-3">
                 <input
-                  type="number" placeholder="Min" value={minBudget}
+                  type="number"
+                  placeholder="Min"
+                  value={minBudget}
                   onChange={(e) => setFilter("minBudget", e.target.value)}
                   className="w-full bg-market-900/40 border border-amber-900/30 rounded-lg px-3 py-2.5 text-sm text-amber-100 placeholder:text-amber-900/50 min-h-[44px]"
                 />
                 <span className="text-amber-900 text-xs font-bold">TO</span>
                 <input
-                  type="number" placeholder="Max" value={maxBudget}
+                  type="number"
+                  placeholder="Max"
+                  value={maxBudget}
                   onChange={(e) => setFilter("maxBudget", e.target.value)}
                   className="w-full bg-market-900/40 border border-amber-900/30 rounded-lg px-3 py-2.5 text-sm text-amber-100 placeholder:text-amber-900/50 min-h-[44px]"
                 />
               </div>
               <div className="grid grid-cols-4 gap-2">
-                <button onClick={() => setBudgetRange("", "100")} className="text-xs py-2.5 rounded-lg bg-market-500/5 border border-amber-900/20 text-amber-800 hover:border-amber-700/50 transition-colors min-h-[44px]">&lt; 100</button>
-                <button onClick={() => setBudgetRange("100", "500")} className="text-xs py-2.5 rounded-lg bg-market-500/5 border border-amber-900/20 text-amber-800 hover:border-amber-700/50 transition-colors min-h-[44px]">100-500</button>
-                <button onClick={() => setBudgetRange("500", "")} className="text-xs py-2.5 rounded-lg bg-market-500/5 border border-amber-900/20 text-amber-800 hover:border-amber-700/50 transition-colors min-h-[44px]">500+</button>
+                <button
+                  onClick={() => setBudgetRange("", "100")}
+                  className="text-xs py-2.5 rounded-lg bg-market-500/5 border border-amber-900/20 text-amber-800 hover:border-amber-700/50 transition-colors min-h-[44px]"
+                >
+                  &lt; 100
+                </button>
+                <button
+                  onClick={() => setBudgetRange("100", "500")}
+                  className="text-xs py-2.5 rounded-lg bg-market-500/5 border border-amber-900/20 text-amber-800 hover:border-amber-700/50 transition-colors min-h-[44px]"
+                >
+                  100-500
+                </button>
+                <button
+                  onClick={() => setBudgetRange("500", "")}
+                  className="text-xs py-2.5 rounded-lg bg-market-500/5 border border-amber-900/20 text-amber-800 hover:border-amber-700/50 transition-colors min-h-[44px]"
+                >
+                  500+
+                </button>
                 {(minBudget || maxBudget) && (
-                  <button onClick={() => setBudgetRange("", "")} className="text-xs py-2.5 rounded-lg bg-market-900/40 border border-market-500/30 text-market-400 hover:text-market-300 font-bold min-h-[44px]">CLEAR</button>
+                  <button
+                    onClick={() => setBudgetRange("", "")}
+                    className="text-xs py-2.5 rounded-lg bg-market-900/40 border border-market-500/30 text-market-400 hover:text-market-300 font-bold min-h-[44px]"
+                  >
+                    CLEAR
+                  </button>
                 )}
               </div>
             </div>
@@ -726,20 +842,31 @@ export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
               <p className="label">{t("jobs.category")}</p>
               <div className="grid grid-cols-2 gap-2">
                 <button
-                  onClick={() => { setFilter("category", ""); setShowMobileFilters(false); }}
+                  onClick={() => {
+                    setFilter("category", "");
+                    setShowMobileFilters(false);
+                  }}
                   className={clsx(
                     "w-full text-left px-3 py-2.5 rounded-lg text-sm font-body min-h-[44px]",
-                    !category ? "bg-market-500/20 text-market-300 font-medium" : "text-amber-700 hover:text-amber-400"
+                    !category
+                      ? "bg-market-500/20 text-market-300 font-medium"
+                      : "text-amber-700 hover:text-amber-400"
                   )}
                 >
                   🗂️ All
                 </button>
                 {JOB_CATEGORIES.map((cat) => (
-                  <button key={cat}
-                    onClick={() => { setFilter("category", cat); setShowMobileFilters(false); }}
+                  <button
+                    key={cat}
+                    onClick={() => {
+                      setFilter("category", cat);
+                      setShowMobileFilters(false);
+                    }}
                     className={clsx(
                       "w-full text-left px-3 py-2.5 rounded-lg text-sm font-body min-h-[44px]",
-                      category === cat ? "bg-market-500/20 text-market-300 font-medium" : "text-amber-700 hover:text-amber-400"
+                      category === cat
+                        ? "bg-market-500/20 text-market-300 font-medium"
+                        : "text-amber-700 hover:text-amber-400"
                     )}
                   >
                     {CATEGORY_ICONS[cat] ?? ""} {cat}
@@ -774,13 +901,23 @@ export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
             <p className="label">{t("jobs.status.all")}</p>
             <div className="space-y-1">
               {["open", "in_progress", "completed", ""].map((s) => (
-                <button key={s}
+                <button
+                  key={s}
                   onClick={() => setFilter("status", s)}
                   className={clsx(
                     "w-full text-left px-3 py-2 rounded-lg text-sm transition-colors font-body",
-                    status === s ? "bg-market-500/15 text-market-300 font-medium" : "text-amber-700 hover:text-amber-400 hover:bg-market-500/8"
-                  )}>
-                  {s === "" ? t("jobs.status.all") : s === "open" ? t("jobs.status.open") : s === "in_progress" ? t("jobs.status.inProgress") : t("jobs.status.completed")}
+                    status === s
+                      ? "bg-market-500/15 text-market-300 font-medium"
+                      : "text-amber-700 hover:text-amber-400 hover:bg-market-500/8"
+                  )}
+                >
+                  {s === ""
+                    ? t("jobs.status.all")
+                    : s === "open"
+                      ? t("jobs.status.open")
+                      : s === "in_progress"
+                        ? t("jobs.status.inProgress")
+                        : t("jobs.status.completed")}
                 </button>
               ))}
             </div>
@@ -791,13 +928,17 @@ export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
             <p className="label mb-2">{t("jobs.budget")}</p>
             <div className="flex gap-2 items-center mb-3">
               <input
-                type="number" placeholder="Min" value={minBudget}
+                type="number"
+                placeholder="Min"
+                value={minBudget}
                 onChange={(e) => setFilter("minBudget", e.target.value)}
                 className="w-full bg-market-900/40 border border-amber-900/30 rounded px-2 py-1 text-xs text-amber-100 placeholder:text-amber-900/50"
               />
               <span className="text-amber-900 text-[10px] font-bold">TO</span>
               <input
-                type="number" placeholder="Max" value={maxBudget}
+                type="number"
+                placeholder="Max"
+                value={maxBudget}
                 onChange={(e) => setFilter("maxBudget", e.target.value)}
                 className="w-full bg-market-900/40 border border-amber-900/30 rounded px-2 py-1 text-xs text-amber-100 placeholder:text-amber-900/50"
               />
@@ -838,13 +979,16 @@ export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
           <div>
             <p className="label">{t("jobs.category")}</p>
             <div className="space-y-1">
-              <Link href="/jobs" locale={false}
+              <Link
+                href="/jobs"
+                locale={false}
                 className={clsx(
                   "w-full text-left px-3 py-2 rounded-lg text-sm font-body transition-all duration-200 block",
                   !category
                     ? "bg-market-500/20 text-market-300 font-medium ring-1 ring-market-500/30"
                     : "text-amber-700 hover:text-amber-400 hover:bg-market-500/8 hover:translate-x-0.5"
-                )}>
+                )}
+              >
                 🗂️ {t("jobs.allCategories")}
                 <span className="ml-1 text-xs text-amber-800">({jobs.length})</span>
               </Link>
@@ -853,13 +997,15 @@ export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
                 const isAlerted = alertedCategories.includes(cat);
                 return (
                   <div key={cat} className="flex items-center gap-1 group/catrow">
-                    <button onClick={() => setFilter("category", cat)}
+                    <button
+                      onClick={() => setFilter("category", cat)}
                       className={clsx(
                         "flex-1 text-left px-3 py-2 rounded-lg text-sm font-body transition-all duration-200",
                         category === cat
                           ? "bg-market-500/20 text-market-300 font-medium ring-1 ring-market-500/30"
                           : "text-amber-700 hover:text-amber-400 hover:bg-market-500/8 hover:translate-x-0.5"
-                      )}>
+                      )}
+                    >
                       {CATEGORY_ICONS[cat] ?? ""} {cat}
                       <span className="ml-1 text-xs text-amber-800">({count})</span>
                     </button>
@@ -883,34 +1029,36 @@ export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
               })}
             </div>
 
-          {/* Alert permission denied warning */}
-          {alertStatus === "denied" && (
-            <div className="px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-red-400">
-              Notifications blocked. Enable them in browser settings to use job alerts.
-            </div>
-          )}
+            {/* Alert permission denied warning */}
+            {alertStatus === "denied" && (
+              <div className="px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-red-400">
+                Notifications blocked. Enable them in browser settings to use job alerts.
+              </div>
+            )}
 
-          {/* Active alerts summary */}
-          {alertedCategories.length > 0 && (
-            <div className="px-3 py-2 rounded-lg bg-market-500/8 border border-market-500/20 text-xs text-market-400 space-y-1">
-              <p className="font-semibold flex items-center gap-1">
-                <BellIcon className="w-3 h-3" filled />
-                Active alerts ({alertedCategories.length})
-              </p>
-              {alertedCategories.map((c) => (
-                <div key={c} className="flex items-center justify-between">
-                  <span className="text-amber-700 truncate">{CATEGORY_ICONS[c] ?? ""} {c}</span>
-                  <button
-                    onClick={() => removeAlert(c)}
-                    className="text-amber-900 hover:text-red-400 transition-colors ml-1 flex-shrink-0"
-                    title={`Remove "${c}" alert`}
-                  >
-                    ✕
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
+            {/* Active alerts summary */}
+            {alertedCategories.length > 0 && (
+              <div className="px-3 py-2 rounded-lg bg-market-500/8 border border-market-500/20 text-xs text-market-400 space-y-1">
+                <p className="font-semibold flex items-center gap-1">
+                  <BellIcon className="w-3 h-3" filled />
+                  Active alerts ({alertedCategories.length})
+                </p>
+                {alertedCategories.map((c) => (
+                  <div key={c} className="flex items-center justify-between">
+                    <span className="text-amber-700 truncate">
+                      {CATEGORY_ICONS[c] ?? ""} {c}
+                    </span>
+                    <button
+                      onClick={() => removeAlert(c)}
+                      className="text-amber-900 hover:text-red-400 transition-colors ml-1 flex-shrink-0"
+                      title={`Remove "${c}" alert`}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Timezone Filter */}
@@ -922,24 +1070,42 @@ export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
                 disabled={geoLoading}
                 className={clsx(
                   "w-full text-left px-3 py-2 rounded-lg text-sm transition-colors font-body flex items-center gap-2",
-                  useGeolocation ? "bg-market-500/15 text-market-300 font-medium" : "text-amber-700 hover:text-amber-400 hover:bg-market-500/8",
+                  useGeolocation
+                    ? "bg-market-500/15 text-market-300 font-medium"
+                    : "text-amber-700 hover:text-amber-400 hover:bg-market-500/8",
                   geoLoading && "opacity-50 cursor-not-allowed"
                 )}
               >
                 {geoLoading ? (
                   <SpinnerIcon className="w-3 h-3 animate-spin" />
                 ) : (
-                  <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <svg
+                    className="w-3 h-3"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+                    />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+                    />
                   </svg>
                 )}
-                {geoLoading ? t("jobs.detecting") : useGeolocation ? `${t("jobs.myLocation")} (${userTimezone})` : t("jobs.useMyLocation")}
+                {geoLoading
+                  ? t("jobs.detecting")
+                  : useGeolocation
+                    ? `${t("jobs.myLocation")} (${userTimezone})`
+                    : t("jobs.useMyLocation")}
               </button>
 
-              {geoError && (
-                <p className="text-xs text-red-400 px-1">{geoError}</p>
-              )}
+              {geoError && <p className="text-xs text-red-400 px-1">{geoError}</p>}
 
               <select
                 value={manualTimezone}
@@ -966,7 +1132,7 @@ export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
                 <option value="Pacific/Auckland">Pacific/Auckland</option>
               </select>
 
-              {(activeTimezone) && (
+              {activeTimezone && (
                 <button
                   onClick={() => {
                     setManualTimezone("");
@@ -978,9 +1144,7 @@ export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
                 </button>
               )}
 
-              <p className="text-[10px] text-amber-800/60 px-1">
-                {t("jobs.withinTimezone")}
-              </p>
+              <p className="text-[10px] text-amber-800/60 px-1">{t("jobs.withinTimezone")}</p>
             </div>
           </div>
         </aside>
@@ -1004,8 +1168,12 @@ export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
           ) : filtered.length === 0 ? (
             <div className="card text-center py-16 border border-amber-500 bg-amber-500/10">
               <h2 className="font-display text-xl mb-2 text-amber-100">No jobs found</h2>
-              <p className="text-sm text-amber-800 mb-6 max-w-xs mx-auto">No jobs are currently available.</p>
-              <Link href="/post-job" className="btn-primary text-sm">Post the first job</Link>
+              <p className="text-sm text-amber-800 mb-6 max-w-xs mx-auto">
+                No jobs are currently available.
+              </p>
+              <Link href="/post-job" className="btn-primary text-sm">
+                Post the first job
+              </Link>
             </div>
           ) : (
             <>
@@ -1043,15 +1211,31 @@ export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
 
 function SearchIcon({ className }: { className?: string }) {
   return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
+      />
     </svg>
   );
 }
 
 function SpinnerIcon({ className }: { className?: string }) {
   return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+    >
       <path strokeLinecap="round" strokeLinejoin="round" d="M12 3a9 9 0 109 9" />
     </svg>
   );
@@ -1059,8 +1243,18 @@ function SpinnerIcon({ className }: { className?: string }) {
 
 function BellIcon({ className, filled = false }: { className?: string; filled?: boolean }) {
   return (
-    <svg className={className} viewBox="0 0 24 24" fill={filled ? "currentColor" : "none"} stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill={filled ? "currentColor" : "none"}
+      stroke="currentColor"
+      strokeWidth={2}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0"
+      />
     </svg>
   );
 }
@@ -1068,7 +1262,11 @@ function BellIcon({ className, filled = false }: { className?: string; filled?: 
 function BriefcaseMiniIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 20 20" fill="currentColor" width={20} height={20}>
-      <path fillRule="evenodd" d="M6 3.5A1.5 1.5 0 017.5 2h5A1.5 1.5 0 0114 3.5v1.5h2.5A1.5 1.5 0 0118 6.5v10a1.5 1.5 0 01-1.5 1.5h-13A1.5 1.5 0 012 16.5v-10A1.5 1.5 0 013.5 5H6V3.5zM8 7a1 1 0 00-1 1v2a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z" clipRule="evenodd" />
+      <path
+        fillRule="evenodd"
+        d="M6 3.5A1.5 1.5 0 017.5 2h5A1.5 1.5 0 0114 3.5v1.5h2.5A1.5 1.5 0 0118 6.5v10a1.5 1.5 0 01-1.5 1.5h-13A1.5 1.5 0 012 16.5v-10A1.5 1.5 0 013.5 5H6V3.5zM8 7a1 1 0 00-1 1v2a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z"
+        clipRule="evenodd"
+      />
     </svg>
   );
 }
@@ -1076,7 +1274,11 @@ function BriefcaseMiniIcon({ className }: { className?: string }) {
 function TagMiniIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 20 20" fill="currentColor" width={20} height={20}>
-      <path fillRule="evenodd" d="M5.5 3A2.5 2.5 0 003 5.5v2.879a2.5 2.5 0 00.732 1.767l6.5 6.5a2.5 2.5 0 003.536 0l2.878-2.878a2.5 2.5 0 000-3.536l-6.5-6.5A2.5 2.5 0 008.38 3H5.5zM6 7a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+      <path
+        fillRule="evenodd"
+        d="M5.5 3A2.5 2.5 0 003 5.5v2.879a2.5 2.5 0 00.732 1.767l6.5 6.5a2.5 2.5 0 003.536 0l2.878-2.878a2.5 2.5 0 000-3.536l-6.5-6.5A2.5 2.5 0 008.38 3H5.5zM6 7a1 1 0 100-2 1 1 0 000 2z"
+        clipRule="evenodd"
+      />
     </svg>
   );
 }
@@ -1084,7 +1286,11 @@ function TagMiniIcon({ className }: { className?: string }) {
 function CategoryMiniIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 20 20" fill="currentColor" width={20} height={20}>
-      <path fillRule="evenodd" d="M2 6a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1H8a3 3 0 00-3 3v1.5a1.5 1.5 0 01-3 0V6z" clipRule="evenodd" />
+      <path
+        fillRule="evenodd"
+        d="M2 6a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1H8a3 3 0 00-3 3v1.5a1.5 1.5 0 01-3 0V6z"
+        clipRule="evenodd"
+      />
       <path d="M6 12a2 2 0 012-2h8a2 2 0 012 2v2a2 2 0 01-2 2H8a2 2 0 01-2-2v-2z" />
     </svg>
   );

@@ -4,14 +4,22 @@
  */
 "use strict";
 
-const { CONTENT_TYPES, TTL_SECONDS, cacheControlFor, surrogateKeysForJob, surrogateKeysForProfile } = require("./cacheStrategy");
+const {
+  CONTENT_TYPES,
+  TTL_SECONDS,
+  cacheControlFor,
+  surrogateKeysForJob,
+  surrogateKeysForProfile,
+} = require("./cacheStrategy");
 
 describe("cacheStrategy", () => {
   test("static assets get a long, immutable TTL", () => {
     expect(cacheControlFor(CONTENT_TYPES.STATIC_ASSET)).toBe(
       `public, max-age=${TTL_SECONDS[CONTENT_TYPES.STATIC_ASSET]}, immutable`
     );
-    expect(TTL_SECONDS[CONTENT_TYPES.STATIC_ASSET]).toBeGreaterThan(TTL_SECONDS[CONTENT_TYPES.SEMI_DYNAMIC]);
+    expect(TTL_SECONDS[CONTENT_TYPES.STATIC_ASSET]).toBeGreaterThan(
+      TTL_SECONDS[CONTENT_TYPES.SEMI_DYNAMIC]
+    );
   });
 
   test("semi-dynamic content gets a short edge TTL with stale-while-revalidate", () => {

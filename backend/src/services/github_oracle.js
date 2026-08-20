@@ -81,7 +81,7 @@ async function verifyGitHubCommit(query, httpClient = axios) {
         "User-Agent": "Stellar-MarketPay-Oracle",
       },
       validateStatus: (status) => status < 500,
-    },
+    }
   );
 
   if (response.status !== 200) {

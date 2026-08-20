@@ -4,12 +4,21 @@
  */
 "use strict";
 
-const { createCloudflareProvider, createFastlyProvider, createMockProvider, createProvidersFromEnv } = require("./providers");
+const {
+  createCloudflareProvider,
+  createFastlyProvider,
+  createMockProvider,
+  createProvidersFromEnv,
+} = require("./providers");
 
 describe("createCloudflareProvider", () => {
   test("sends files + tags and resolves on success:true", async () => {
     const post = jest.fn().mockResolvedValue({ data: { success: true } });
-    const provider = createCloudflareProvider({ zoneId: "zone1", apiToken: "tok", axiosInstance: { post } });
+    const provider = createCloudflareProvider({
+      zoneId: "zone1",
+      apiToken: "tok",
+      axiosInstance: { post },
+    });
 
     await provider.purge({ urls: ["https://app.example/jobs/1"], tags: ["job-1"] });
 
@@ -22,9 +31,15 @@ describe("createCloudflareProvider", () => {
 
   test("throws when Cloudflare reports success:false", async () => {
     const post = jest.fn().mockResolvedValue({ data: { success: false, errors: ["bad zone"] } });
-    const provider = createCloudflareProvider({ zoneId: "zone1", apiToken: "tok", axiosInstance: { post } });
+    const provider = createCloudflareProvider({
+      zoneId: "zone1",
+      apiToken: "tok",
+      axiosInstance: { post },
+    });
 
-    await expect(provider.purge({ urls: ["https://app.example/jobs/1"] })).rejects.toThrow(/Cloudflare purge failed/);
+    await expect(provider.purge({ urls: ["https://app.example/jobs/1"] })).rejects.toThrow(
+      /Cloudflare purge failed/
+    );
   });
 
   test("requires zoneId and apiToken", () => {
@@ -35,7 +50,11 @@ describe("createCloudflareProvider", () => {
 describe("createFastlyProvider", () => {
   test("purges by surrogate key", async () => {
     const post = jest.fn().mockResolvedValue({ data: { status: "ok" } });
-    const provider = createFastlyProvider({ serviceId: "svc1", apiToken: "tok", axiosInstance: { post, request: jest.fn() } });
+    const provider = createFastlyProvider({
+      serviceId: "svc1",
+      apiToken: "tok",
+      axiosInstance: { post, request: jest.fn() },
+    });
 
     await provider.purge({ tags: ["job-1"] });
 
@@ -48,7 +67,11 @@ describe("createFastlyProvider", () => {
 
   test("falls back to per-URL PURGE when no surrogate key is given", async () => {
     const request = jest.fn().mockResolvedValue({ data: { status: "ok" } });
-    const provider = createFastlyProvider({ serviceId: "svc1", apiToken: "tok", axiosInstance: { post: jest.fn(), request } });
+    const provider = createFastlyProvider({
+      serviceId: "svc1",
+      apiToken: "tok",
+      axiosInstance: { post: jest.fn(), request },
+    });
 
     await provider.purge({ urls: ["https://app.example/jobs/1"] });
 
@@ -58,7 +81,11 @@ describe("createFastlyProvider", () => {
   });
 
   test("rejects an unscoped purge", async () => {
-    const provider = createFastlyProvider({ serviceId: "svc1", apiToken: "tok", axiosInstance: { post: jest.fn(), request: jest.fn() } });
+    const provider = createFastlyProvider({
+      serviceId: "svc1",
+      apiToken: "tok",
+      axiosInstance: { post: jest.fn(), request: jest.fn() },
+    });
     await expect(provider.purge({})).rejects.toThrow(/at least one URL or surrogate key/);
   });
 });

@@ -41,10 +41,10 @@ export default i18next;
 export function useTranslation(ns = "common") {
   const i18n = i18next;
   const t = (key, options) => {
-      if (typeof i18n.getFixedT === 'function') {
-          return i18n.getFixedT(null, ns)(key, options);
-      }
-      return key;
+    if (typeof i18n.getFixedT === "function") {
+      return i18n.getFixedT(null, ns)(key, options);
+    }
+    return key;
   };
   return { t, i18n, ready: i18n.isInitialized };
 }

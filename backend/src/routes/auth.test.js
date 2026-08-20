@@ -1,10 +1,13 @@
 "use strict";
 
 beforeAll(() => {
-  process.env.CONTRACT_ID = process.env.CONTRACT_ID || "CCONTRACTID123456789012345678901234567890123456789012";
+  process.env.CONTRACT_ID =
+    process.env.CONTRACT_ID || "CCONTRACTID123456789012345678901234567890123456789012";
   process.env.STELLAR_NETWORK = process.env.STELLAR_NETWORK || "testnet";
   process.env.HORIZON_URL = process.env.HORIZON_URL || "https://horizon-testnet.stellar.org";
-  process.env.PLATFORM_WALLET_ADDRESS = process.env.PLATFORM_WALLET_ADDRESS || "GPLATFORMWALLET1234567890123456789012345678901234567890";
+  process.env.PLATFORM_WALLET_ADDRESS =
+    process.env.PLATFORM_WALLET_ADDRESS ||
+    "GPLATFORMWALLET1234567890123456789012345678901234567890";
 });
 
 jest.mock("../db/pool", () => {
@@ -80,9 +83,7 @@ describe("SEP-10 Authentication Flow", () => {
     it("returns a challenge transaction for a valid account", async () => {
       Utils.buildChallengeTx.mockReturnValue(CHALLENGE_XDR);
 
-      const res = await request(app)
-        .get("/api/auth")
-        .query({ account: TEST_KEYPAIR.publicKey() });
+      const res = await request(app).get("/api/auth").query({ account: TEST_KEYPAIR.publicKey() });
 
       expect(res.status).toBe(200);
       expect(res.body.transaction).toBe(CHALLENGE_XDR);
@@ -91,7 +92,7 @@ describe("SEP-10 Authentication Flow", () => {
         TEST_KEYPAIR.publicKey(),
         expect.any(String),
         300,
-        expect.any(String),
+        expect.any(String)
       );
     });
 
@@ -107,9 +108,7 @@ describe("SEP-10 Authentication Flow", () => {
     it("valid flow: returns JWT with correct public key", async () => {
       Utils.verifyChallengeTx.mockReturnValue(TEST_KEYPAIR.publicKey());
 
-      const res = await request(app)
-        .post("/api/auth")
-        .send({ transaction: SIGNED_XDR });
+      const res = await request(app).post("/api/auth").send({ transaction: SIGNED_XDR });
 
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
@@ -124,14 +123,10 @@ describe("SEP-10 Authentication Flow", () => {
     it("refreshes and rotates access tokens", async () => {
       Utils.verifyChallengeTx.mockReturnValue(TEST_KEYPAIR.publicKey());
 
-      const loginRes = await request(app)
-        .post("/api/auth")
-        .send({ transaction: SIGNED_XDR });
+      const loginRes = await request(app).post("/api/auth").send({ transaction: SIGNED_XDR });
       const refreshCookie = getCookie(loginRes, "refreshToken");
 
-      const refreshRes = await request(app)
-        .post("/api/auth/refresh")
-        .set("Cookie", refreshCookie);
+      const refreshRes = await request(app).post("/api/auth/refresh").set("Cookie", refreshCookie);
 
       expect(refreshRes.status).toBe(200);
       expect(refreshRes.body.success).toBe(true);
@@ -141,9 +136,7 @@ describe("SEP-10 Authentication Flow", () => {
       expect(decoded.exp - decoded.iat).toBe(15 * 60);
       expect(getCookie(refreshRes, "refreshToken")).not.toBe(refreshCookie);
 
-      const reusedRes = await request(app)
-        .post("/api/auth/refresh")
-        .set("Cookie", refreshCookie);
+      const reusedRes = await request(app).post("/api/auth/refresh").set("Cookie", refreshCookie);
 
       expect(reusedRes.status).toBe(401);
     });
@@ -151,21 +144,15 @@ describe("SEP-10 Authentication Flow", () => {
     it("logout invalidates the refresh token", async () => {
       Utils.verifyChallengeTx.mockReturnValue(TEST_KEYPAIR.publicKey());
 
-      const loginRes = await request(app)
-        .post("/api/auth")
-        .send({ transaction: SIGNED_XDR });
+      const loginRes = await request(app).post("/api/auth").send({ transaction: SIGNED_XDR });
       const refreshCookie = getCookie(loginRes, "refreshToken");
 
-      const logoutRes = await request(app)
-        .post("/api/auth/logout")
-        .set("Cookie", refreshCookie);
+      const logoutRes = await request(app).post("/api/auth/logout").set("Cookie", refreshCookie);
 
       expect(logoutRes.status).toBe(200);
       expect(logoutRes.body.success).toBe(true);
 
-      const refreshRes = await request(app)
-        .post("/api/auth/refresh")
-        .set("Cookie", refreshCookie);
+      const refreshRes = await request(app).post("/api/auth/refresh").set("Cookie", refreshCookie);
 
       expect(refreshRes.status).toBe(401);
     });
@@ -199,9 +186,7 @@ describe("SEP-10 Authentication Flow", () => {
     it("wrong account: returns 200 with different public key in JWT", async () => {
       Utils.verifyChallengeTx.mockReturnValue(WRONG_KEYPAIR.publicKey());
 
-      const res = await request(app)
-        .post("/api/auth")
-        .send({ transaction: SIGNED_XDR });
+      const res = await request(app).post("/api/auth").send({ transaction: SIGNED_XDR });
 
       expect(res.status).toBe(200);
       const decoded = jwt.verify(res.body.token, process.env.JWT_SECRET);
@@ -211,8 +196,7 @@ describe("SEP-10 Authentication Flow", () => {
 
   describe("Protected endpoint — missing/invalid JWT", () => {
     it("missing JWT: returns 401 for protected endpoint", async () => {
-      const res = await request(app)
-        .post("/api/disputes/job-123/evidence");
+      const res = await request(app).post("/api/disputes/job-123/evidence");
 
       expect(res.status).toBe(401);
       expect(res.body.error).toContain("Missing or invalid token");

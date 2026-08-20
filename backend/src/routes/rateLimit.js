@@ -41,14 +41,14 @@ const statusRateLimiter = createRateLimiter(200, 1);
 router.get("/", statusRateLimiter, (req, res) => {
   // express-rate-limit attaches rate limit info to req.rateLimit
   const { limit, remaining, resetTime } = req.rateLimit || {};
-  
+
   res.json({
     success: true,
     data: {
       limit: limit || 200,
       remaining: remaining || 199,
-      reset: resetTime ? resetTime.toISOString() : new Date(Date.now() + 60000).toISOString()
-    }
+      reset: resetTime ? resetTime.toISOString() : new Date(Date.now() + 60000).toISOString(),
+    },
   });
 });
 

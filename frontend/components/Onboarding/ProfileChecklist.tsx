@@ -45,10 +45,9 @@ export default function ProfileChecklist({ items, onItemClick, onDismiss }: Prof
               {isComplete ? "Profile Complete! 🎉" : "Complete Your Profile"}
             </h3>
             <p className="text-sm text-amber-800">
-              {isComplete 
+              {isComplete
                 ? "You're all set to start using the platform"
-                : "Finish these steps to get the most out of MarketPay"
-              }
+                : "Finish these steps to get the most out of MarketPay"}
             </p>
           </div>
           {onDismiss && (
@@ -58,7 +57,12 @@ export default function ProfileChecklist({ items, onItemClick, onDismiss }: Prof
               title="Dismiss checklist"
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
               </svg>
             </button>
           )}
@@ -78,7 +82,7 @@ export default function ProfileChecklist({ items, onItemClick, onDismiss }: Prof
             <div
               className={clsx(
                 "h-full transition-all duration-500 rounded-full",
-                isComplete 
+                isComplete
                   ? "bg-gradient-to-r from-emerald-500 to-emerald-400"
                   : "bg-gradient-to-r from-market-500 to-market-400"
               )}
@@ -112,7 +116,12 @@ export default function ProfileChecklist({ items, onItemClick, onDismiss }: Prof
               >
                 {item.completed ? (
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M5 13l4 4L19 7"
+                    />
                   </svg>
                 ) : (
                   item.icon
@@ -139,7 +148,12 @@ export default function ProfileChecklist({ items, onItemClick, onDismiss }: Prof
                   viewBox="0 0 24 24"
                   stroke="currentColor"
                 >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 5l7 7-7 7"
+                  />
                 </svg>
               )}
             </button>
@@ -151,8 +165,18 @@ export default function ProfileChecklist({ items, onItemClick, onDismiss }: Prof
           <div className="mt-6 p-4 rounded-xl bg-gradient-to-r from-emerald-500/10 to-market-500/10 border border-emerald-500/20">
             <div className="flex items-center gap-3">
               <div className="flex-shrink-0 w-12 h-12 rounded-full bg-emerald-500/20 flex items-center justify-center">
-                <svg className="w-6 h-6 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <svg
+                  className="w-6 h-6 text-emerald-400"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
                 </svg>
               </div>
               <div>

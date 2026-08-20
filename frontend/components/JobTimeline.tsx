@@ -29,7 +29,9 @@ export default function JobTimeline({
 
   // Determine active steps
   const isPosted = true;
-  const isHired = ["in_progress", "completed", "disputed"].includes(status) || (status === "cancelled" && !!hiredDate);
+  const isHired =
+    ["in_progress", "completed", "disputed"].includes(status) ||
+    (status === "cancelled" && !!hiredDate);
   const isInProgress = ["in_progress", "completed", "disputed"].includes(status);
   const isCompleted = status === "completed";
   const isDisputed = status === "disputed";
@@ -138,12 +140,18 @@ export default function JobTimeline({
       className="w-full bg-ink-950/40 backdrop-blur-md border border-market-500/12 rounded-2xl p-6 my-6 shadow-xl"
       aria-labelledby="job-status-progression-heading"
     >
-      <h3 id="job-status-progression-heading" className="font-display font-bold text-sm text-amber-200 uppercase tracking-wider mb-6">
+      <h3
+        id="job-status-progression-heading"
+        className="font-display font-bold text-sm text-amber-200 uppercase tracking-wider mb-6"
+      >
         Job Status Progression
       </h3>
 
       {/* Responsive timeline layout: Horizontal on Desktop, Vertical on Mobile */}
-      <ol className="flex flex-col md:flex-row items-stretch md:items-start justify-between gap-6 md:gap-4" aria-label="Job lifecycle steps">
+      <ol
+        className="flex flex-col md:flex-row items-stretch md:items-start justify-between gap-6 md:gap-4"
+        aria-label="Job lifecycle steps"
+      >
         {steps.map((step, idx) => {
           const isLast = idx === steps.length - 1;
           const nextActive = !isLast && steps[idx + 1].active;
@@ -152,7 +160,9 @@ export default function JobTimeline({
             <li
               key={step.label}
               className="flex flex-row md:flex-col items-start md:items-center flex-1 relative group"
-              aria-current={step.active && (!steps[idx + 1] || !steps[idx + 1].active) ? "step" : undefined}
+              aria-current={
+                step.active && (!steps[idx + 1] || !steps[idx + 1].active) ? "step" : undefined
+              }
             >
               {/* Connector line for vertical layout (mobile) */}
               {!isLast && (
@@ -201,7 +211,10 @@ export default function JobTimeline({
                   {step.description}
                 </p>
                 {step.active && step.date && (
-                  <time dateTime={step.date} className="text-[9px] font-mono text-market-400 mt-1.5 bg-market-500/5 border border-market-500/10 px-1.5 py-0.5 rounded-full inline-block">
+                  <time
+                    dateTime={step.date}
+                    className="text-[9px] font-mono text-market-400 mt-1.5 bg-market-500/5 border border-market-500/10 px-1.5 py-0.5 rounded-full inline-block"
+                  >
                     {formatDate(step.date)}
                   </time>
                 )}

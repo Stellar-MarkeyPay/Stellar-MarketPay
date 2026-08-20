@@ -109,9 +109,13 @@ function sanitizeObject(obj, options = {}, visited = new WeakSet(), depth = 0) {
     for (const [key, value] of Object.entries(obj)) {
       // Sanitize the key as well to prevent prototype pollution
       const sanitizedKey = sanitizeString(key, { strict: false });
-      
+
       // Skip dangerous keys
-      if (sanitizedKey === "__proto__" || sanitizedKey === "constructor" || sanitizedKey === "prototype") {
+      if (
+        sanitizedKey === "__proto__" ||
+        sanitizedKey === "constructor" ||
+        sanitizedKey === "prototype"
+      ) {
         console.warn("[sanitize] Blocked dangerous key:", sanitizedKey);
         continue;
       }
@@ -137,12 +141,7 @@ function sanitizeObject(obj, options = {}, visited = new WeakSet(), depth = 0) {
  * @returns {Function} Express middleware function
  */
 function sanitizeMiddleware(options = {}) {
-  const {
-    body = true,
-    query = true,
-    params = true,
-    strict = false,
-  } = options;
+  const { body = true, query = true, params = true, strict = false } = options;
 
   return (req, res, next) => {
     try {

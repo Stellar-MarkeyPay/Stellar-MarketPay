@@ -32,7 +32,9 @@ const tomlCache = new Map<string, AnchorEndpoints>();
  * Uses a tiny line-based parser — enough for the keys we need without pulling
  * in a TOML library.
  */
-export async function fetchAnchorEndpoints(homeDomain = ANCHOR_HOME_DOMAIN): Promise<AnchorEndpoints> {
+export async function fetchAnchorEndpoints(
+  homeDomain = ANCHOR_HOME_DOMAIN
+): Promise<AnchorEndpoints> {
   if (!homeDomain) throw new Error("No anchor configured. Set NEXT_PUBLIC_ANCHOR_HOME_DOMAIN.");
   const cached = tomlCache.get(homeDomain);
   if (cached) return cached;
@@ -87,7 +89,8 @@ export async function getAnchorJwt(homeDomain: string, account: string): Promise
   const challengeUrl = `${endpoints.webAuthEndpoint}?account=${encodeURIComponent(account)}&home_domain=${encodeURIComponent(homeDomain)}`;
 
   const challengeResponse = await fetch(challengeUrl);
-  if (!challengeResponse.ok) throw new Error(`Anchor auth challenge failed (${challengeResponse.status}).`);
+  if (!challengeResponse.ok)
+    throw new Error(`Anchor auth challenge failed (${challengeResponse.status}).`);
   const { transaction } = (await challengeResponse.json()) as { transaction: string };
   if (!transaction) throw new Error("Anchor did not return a challenge transaction.");
 
@@ -147,14 +150,17 @@ async function startInteractive(
     lang: params.lang || "en",
   }).toString();
 
-  const response = await fetch(`${endpoints.transferServerSep24}/transactions/${flow}/interactive`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${jwt}`,
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: formBody,
-  });
+  const response = await fetch(
+    `${endpoints.transferServerSep24}/transactions/${flow}/interactive`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${jwt}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: formBody,
+    }
+  );
 
   if (!response.ok) {
     const detail = await response.text().catch(() => "");
@@ -169,7 +175,10 @@ export function startInteractiveDeposit(params: {
   assetCode: string;
   lang?: string;
 }) {
-  return startInteractive("deposit", { ...params, homeDomain: params.homeDomain || ANCHOR_HOME_DOMAIN });
+  return startInteractive("deposit", {
+    ...params,
+    homeDomain: params.homeDomain || ANCHOR_HOME_DOMAIN,
+  });
 }
 
 export function startInteractiveWithdraw(params: {
@@ -178,7 +187,10 @@ export function startInteractiveWithdraw(params: {
   assetCode: string;
   lang?: string;
 }) {
-  return startInteractive("withdraw", { ...params, homeDomain: params.homeDomain || ANCHOR_HOME_DOMAIN });
+  return startInteractive("withdraw", {
+    ...params,
+    homeDomain: params.homeDomain || ANCHOR_HOME_DOMAIN,
+  });
 }
 
 export async function fetchAnchorTransaction(params: {
@@ -191,9 +203,12 @@ export async function fetchAnchorTransaction(params: {
   if (!endpoints.transferServerSep24) return null;
   const jwt = await getAnchorJwt(homeDomain, params.account);
 
-  const response = await fetch(`${endpoints.transferServerSep24}/transaction?id=${encodeURIComponent(params.id)}`, {
-    headers: { Authorization: `Bearer ${jwt}` },
-  });
+  const response = await fetch(
+    `${endpoints.transferServerSep24}/transaction?id=${encodeURIComponent(params.id)}`,
+    {
+      headers: { Authorization: `Bearer ${jwt}` },
+    }
+  );
   if (!response.ok) return null;
   const data = (await response.json()) as { transaction?: AnchorTransactionRecord };
   return data.transaction || null;
@@ -247,7 +262,10 @@ export interface Sep31Info {
       enabled: boolean;
       min_amount?: number;
       max_amount?: number;
-      sep12: { sender?: { types?: Record<string, unknown> }; receiver?: { types?: Record<string, unknown> } };
+      sep12: {
+        sender?: { types?: Record<string, unknown> };
+        receiver?: { types?: Record<string, unknown> };
+      };
       fields?: { transaction?: Record<string, { description?: string; optional?: boolean }> };
     }
   >;

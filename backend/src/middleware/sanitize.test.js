@@ -58,7 +58,7 @@ describe("Input Sanitization", () => {
     });
 
     test("should handle nested HTML tags", () => {
-      const input = '<div><span><b>Bold</b></span></div>';
+      const input = "<div><span><b>Bold</b></span></div>";
       const result = sanitizeString(input);
       expect(result).toBe("Bold");
       expect(result).not.toContain("<");
@@ -127,7 +127,7 @@ describe("Input Sanitization", () => {
     test("should sanitize nested objects", () => {
       const input = {
         user: {
-          name: '<script>alert(1)</script>John',
+          name: "<script>alert(1)</script>John",
           profile: {
             bio: '<iframe src="evil.com"></iframe>Developer',
           },
@@ -141,9 +141,9 @@ describe("Input Sanitization", () => {
     test("should sanitize arrays of strings", () => {
       const input = {
         skills: [
-          '<script>alert(1)</script>JavaScript',
+          "<script>alert(1)</script>JavaScript",
           '<img src="x" onerror="alert(1)">React',
-          'Node.js',
+          "Node.js",
         ],
       };
       const result = sanitizeObject(input);
@@ -183,7 +183,7 @@ describe("Input Sanitization", () => {
     test("should handle arrays of objects", () => {
       const input = {
         users: [
-          { name: '<script>alert(1)</script>Alice' },
+          { name: "<script>alert(1)</script>Alice" },
           { name: '<img src="x" onerror="alert(1)">Bob' },
         ],
       };
@@ -211,8 +211,8 @@ describe("Input Sanitization", () => {
     test("should sanitize req.body", () => {
       const req = {
         body: {
-          title: '<script>alert(1)</script>Title',
-          description: 'Normal text',
+          title: "<script>alert(1)</script>Title",
+          description: "Normal text",
         },
         query: {},
         params: {},
@@ -232,7 +232,7 @@ describe("Input Sanitization", () => {
       const req = {
         body: {},
         query: {
-          search: '<script>alert(1)</script>search term',
+          search: "<script>alert(1)</script>search term",
         },
         params: {},
       };
@@ -251,7 +251,7 @@ describe("Input Sanitization", () => {
         body: {},
         query: {},
         params: {
-          id: '<script>alert(1)</script>123',
+          id: "<script>alert(1)</script>123",
         },
       };
       const res = {};
@@ -272,7 +272,7 @@ describe("Input Sanitization", () => {
       };
       // Create circular reference
       req.body.circular = req.body;
-      
+
       const res = {
         status: jest.fn().mockReturnThis(),
         json: jest.fn(),
@@ -290,9 +290,9 @@ describe("Input Sanitization", () => {
 
     test("should respect options to skip sanitization", () => {
       const req = {
-        body: { title: '<script>alert(1)</script>Title' },
-        query: { search: '<script>alert(1)</script>search' },
-        params: { id: '<script>alert(1)</script>123' },
+        body: { title: "<script>alert(1)</script>Title" },
+        query: { search: "<script>alert(1)</script>search" },
+        params: { id: "<script>alert(1)</script>123" },
       };
       const res = {};
       const next = jest.fn();

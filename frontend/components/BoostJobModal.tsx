@@ -60,9 +60,7 @@ export default function BoostJobModal({
   onClose,
   onSuccess,
 }: BoostJobModalProps) {
-  const [selectedTier, setSelectedTier] = useState<(typeof BOOST_TIERS)[number]>(
-    BOOST_TIERS[0]
-  );
+  const [selectedTier, setSelectedTier] = useState<(typeof BOOST_TIERS)[number]>(BOOST_TIERS[0]);
   const [step, setStep] = useState<"select" | "signing" | "confirming" | "done" | "error">(
     "select"
   );
@@ -70,8 +68,7 @@ export default function BoostJobModal({
   const [txHash, setTxHash] = useState<string | null>(null);
 
   const isMockMode = process.env.NEXT_PUBLIC_USE_CONTRACT_MOCK === "true";
-  const treasuryAddress =
-    process.env.NEXT_PUBLIC_TREASURY_ADDRESS || clientPublicKey; // fallback for dev
+  const treasuryAddress = process.env.NEXT_PUBLIC_TREASURY_ADDRESS || clientPublicKey; // fallback for dev
 
   const handleBoost = async () => {
     setStep("signing");
@@ -129,12 +126,8 @@ export default function BoostJobModal({
         {/* Header */}
         <div className="flex items-start justify-between mb-5">
           <div>
-            <h2 className="font-display text-xl font-bold text-amber-100">
-              Boost Job Listing
-            </h2>
-            <p className="text-xs text-amber-800 mt-0.5 truncate max-w-xs">
-              {jobTitle}
-            </p>
+            <h2 className="font-display text-xl font-bold text-amber-100">Boost Job Listing</h2>
+            <p className="text-xs text-amber-800 mt-0.5 truncate max-w-xs">{jobTitle}</p>
           </div>
           <button
             onClick={onClose}
@@ -159,9 +152,7 @@ export default function BoostJobModal({
                   }`}
                 >
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm font-semibold text-amber-100">
-                      {tier.label}
-                    </span>
+                    <span className="text-sm font-semibold text-amber-100">{tier.label}</span>
                     <div className="flex items-center gap-2">
                       {tier.recommended && (
                         <span className="text-xs bg-market-500/20 text-market-400 border border-market-500/30 px-2 py-0.5 rounded-full">
@@ -175,12 +166,7 @@ export default function BoostJobModal({
                   </div>
                   <p className="text-xs text-amber-700">{tier.description}</p>
                   <p className="text-xs text-amber-800 mt-1">
-                    Expires:{" "}
-                    {formatDate(
-                      new Date(
-                        Date.now() + tier.days * 86400000
-                      ).toISOString()
-                    )}
+                    Expires: {formatDate(new Date(Date.now() + tier.days * 86400000).toISOString())}
                   </p>
                 </button>
               ))}
@@ -202,10 +188,7 @@ export default function BoostJobModal({
               <button onClick={onClose} className="flex-1 btn-secondary py-2.5 text-sm">
                 Cancel
               </button>
-              <button
-                onClick={handleBoost}
-                className="flex-1 btn-primary py-2.5 text-sm"
-              >
+              <button onClick={handleBoost} className="flex-1 btn-primary py-2.5 text-sm">
                 Pay {selectedTier.amountXlm} XLM &amp; Boost
               </button>
             </div>
@@ -217,9 +200,7 @@ export default function BoostJobModal({
           <div className="text-center py-6">
             <div className="w-10 h-10 border-2 border-market-400 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
             <p className="text-amber-100 font-medium">
-              {step === "signing"
-                ? "Building transaction…"
-                : "Waiting for Freighter signature…"}
+              {step === "signing" ? "Building transaction…" : "Waiting for Freighter signature…"}
             </p>
             <p className="text-xs text-amber-700 mt-1">
               {step === "confirming" && "Please approve in your Freighter wallet."}
@@ -238,9 +219,7 @@ export default function BoostJobModal({
               Your job is now featured for {selectedTier.days} days.
             </p>
             {txHash && (
-              <p className="text-xs text-amber-800 font-mono truncate mb-4">
-                tx: {txHash}
-              </p>
+              <p className="text-xs text-amber-800 font-mono truncate mb-4">tx: {txHash}</p>
             )}
             <button onClick={onClose} className="btn-primary text-sm px-6 py-2">
               Done

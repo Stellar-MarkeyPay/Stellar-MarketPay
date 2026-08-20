@@ -107,5 +107,5 @@ module.exports = {
   getStats,
   getJobTrends,
   getEscrowTrends,
-  getTopCategories
+  getTopCategories,
 };

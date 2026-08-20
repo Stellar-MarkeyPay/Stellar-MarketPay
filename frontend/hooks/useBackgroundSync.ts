@@ -52,23 +52,20 @@ export function useBackgroundSync(options: UseBackgroundSyncOptions = {}) {
    *
    * Returns the Response on success, or null if the request was queued.
    */
-  const queueRequest = useCallback(
-    async (request: QueuedRequest): Promise<Response | null> => {
-      try {
-        const response = await fetch(request.url, {
-          method: request.method ?? "POST",
-          headers: request.headers ?? { "Content-Type": "application/json" },
-          body: request.body,
-        });
-        return response;
-      } catch {
-        // Network failure — hand off to the service worker
-        await enqueueInServiceWorker(request);
-        return null;
-      }
-    },
-    []
-  );
+  const queueRequest = useCallback(async (request: QueuedRequest): Promise<Response | null> => {
+    try {
+      const response = await fetch(request.url, {
+        method: request.method ?? "POST",
+        headers: request.headers ?? { "Content-Type": "application/json" },
+        body: request.body,
+      });
+      return response;
+    } catch {
+      // Network failure — hand off to the service worker
+      await enqueueInServiceWorker(request);
+      return null;
+    }
+  }, []);
 
   return { queueRequest };
 }
@@ -92,9 +89,11 @@ async function enqueueInServiceWorker(request: QueuedRequest): Promise<void> {
   // ignored in browsers that don't support the API)
   if ("sync" in registration) {
     try {
-      await (registration as ServiceWorkerRegistration & {
-        sync: { register: (tag: string) => Promise<void> };
-      }).sync.register("stellar-form-sync");
+      await (
+        registration as ServiceWorkerRegistration & {
+          sync: { register: (tag: string) => Promise<void> };
+        }
+      ).sync.register("stellar-form-sync");
     } catch {
       // Background Sync not supported — the SW will replay on next load
     }

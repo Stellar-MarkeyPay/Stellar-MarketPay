@@ -25,22 +25,15 @@ import {
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend);
 
-type SortKey = "totalJobs" | "avgBudget" | "avgApplicationsPerJob" | "acceptanceRate" | "lowCompetitionJobs";
+type SortKey =
+  "totalJobs" | "avgBudget" | "avgApplicationsPerJob" | "acceptanceRate" | "lowCompetitionJobs";
 type SortDirection = "asc" | "desc";
 
 function formatBudget(value: number) {
   return `${value.toFixed(2)} XLM`;
 }
 
-function MetricCard({
-  label,
-  value,
-  note,
-}: {
-  label: string;
-  value: string;
-  note?: string;
-}) {
+function MetricCard({ label, value, note }: { label: string; value: string; note?: string }) {
   return (
     <div className="card relative overflow-hidden">
       <div className="absolute inset-0 bg-gradient-to-br from-market-500/10 via-transparent to-transparent" />
@@ -73,7 +66,9 @@ function SortButton({
       }`}
     >
       {label}
-      {active && <span className="ml-1 text-[10px] font-mono">{direction === "asc" ? "▲" : "▼"}</span>}
+      {active && (
+        <span className="ml-1 text-[10px] font-mono">{direction === "asc" ? "▲" : "▼"}</span>
+      )}
     </button>
   );
 }
@@ -138,12 +133,18 @@ export default function InsightsPage() {
     return (left - right) * multiplier;
   });
 
-  const overview = categories.length > 0 ? {
-    totalJobs: categories.reduce((sum, c) => sum + c.totalJobs, 0),
-    openJobs: categories.reduce((sum, c) => sum + c.totalJobs, 0),
-    avgBudgetXLM: (categories.reduce((sum, c) => sum + (c.avgBudget * c.totalJobs), 0) / categories.reduce((sum, c) => sum + c.totalJobs, 0)).toFixed(1),
-    avgDaysToFill: 3.2
-  } : null;
+  const overview =
+    categories.length > 0
+      ? {
+          totalJobs: categories.reduce((sum, c) => sum + c.totalJobs, 0),
+          openJobs: categories.reduce((sum, c) => sum + c.totalJobs, 0),
+          avgBudgetXLM: (
+            categories.reduce((sum, c) => sum + c.avgBudget * c.totalJobs, 0) /
+            categories.reduce((sum, c) => sum + c.totalJobs, 0)
+          ).toFixed(1),
+          avgDaysToFill: 3.2,
+        }
+      : null;
 
   const topTrendCategories = categories.slice(0, 5).map((entry) => entry.category);
   const trendDates = Array.from(new Set(payTrends.map((entry) => entry.date))).sort();
@@ -206,8 +207,12 @@ export default function InsightsPage() {
 
       <div className="min-h-screen bg-gray-50 dark:bg-ink-900 py-12 px-4">
         <div className="max-w-6xl mx-auto">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-amber-100 mb-1">Market Insights</h1>
-          <p className="text-gray-500 dark:text-amber-700 mb-8">Live analytics across all job categories on Stellar MarketPay</p>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-amber-100 mb-1">
+            Market Insights
+          </h1>
+          <p className="text-gray-500 dark:text-amber-700 mb-8">
+            Live analytics across all job categories on Stellar MarketPay
+          </p>
 
           {/* Overview cards */}
           {overview && (
@@ -216,11 +221,16 @@ export default function InsightsPage() {
                 { label: "Total Jobs", value: overview.totalJobs.toLocaleString() },
                 { label: "Open Now", value: overview.openJobs.toLocaleString() },
                 { label: "Avg Budget", value: `${overview.avgBudgetXLM} XLM` },
-                { label: "Avg Days to Fill", value: overview.avgDaysToFill != null ? `${overview.avgDaysToFill}d` : "—" },
+                {
+                  label: "Avg Days to Fill",
+                  value: overview.avgDaysToFill != null ? `${overview.avgDaysToFill}d` : "—",
+                },
               ].map((card) => (
                 <div key={card.label} className="bg-white dark:bg-ink-800 rounded-lg shadow p-5">
                   <p className="text-xs text-gray-500 dark:text-amber-700 mb-1">{card.label}</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-amber-100">{card.value}</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-amber-100">
+                    {card.value}
+                  </p>
                 </div>
               ))}
             </div>
@@ -234,7 +244,9 @@ export default function InsightsPage() {
           ) : (
             <div className="bg-white dark:bg-ink-800 rounded-lg shadow overflow-hidden mb-10">
               <div className="px-6 py-4 border-b dark:border-market-500/10">
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-amber-100">Stats by Category</h2>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-amber-100">
+                  Stats by Category
+                </h2>
               </div>
               <div className="overflow-x-auto">
                 <table className="min-w-full text-sm">
@@ -292,13 +304,28 @@ export default function InsightsPage() {
                   </thead>
                   <tbody>
                     {sortedCategories.map((entry) => (
-                      <tr key={entry.category} className="border-t dark:border-market-500/10 hover:bg-gray-50 dark:hover:bg-ink-700">
-                        <td className="py-3 px-6 text-gray-900 dark:text-amber-100 font-medium">{entry.category}</td>
-                        <td className="py-3 px-6 text-right text-gray-900 dark:text-amber-100">{entry.totalJobs}</td>
-                        <td className="py-3 px-6 text-right text-gray-900 dark:text-amber-100">{formatBudget(entry.avgBudget)}</td>
-                        <td className="py-3 px-6 text-right text-gray-900 dark:text-amber-100">{entry.avgApplicationsPerJob.toFixed(1)}</td>
-                        <td className="py-3 px-6 text-right text-gray-900 dark:text-amber-100">{entry.acceptanceRate.toFixed(1)}%</td>
-                        <td className="py-3 px-6 text-right text-gray-900 dark:text-amber-100">{entry.lowCompetitionJobs}</td>
+                      <tr
+                        key={entry.category}
+                        className="border-t dark:border-market-500/10 hover:bg-gray-50 dark:hover:bg-ink-700"
+                      >
+                        <td className="py-3 px-6 text-gray-900 dark:text-amber-100 font-medium">
+                          {entry.category}
+                        </td>
+                        <td className="py-3 px-6 text-right text-gray-900 dark:text-amber-100">
+                          {entry.totalJobs}
+                        </td>
+                        <td className="py-3 px-6 text-right text-gray-900 dark:text-amber-100">
+                          {formatBudget(entry.avgBudget)}
+                        </td>
+                        <td className="py-3 px-6 text-right text-gray-900 dark:text-amber-100">
+                          {entry.avgApplicationsPerJob.toFixed(1)}
+                        </td>
+                        <td className="py-3 px-6 text-right text-gray-900 dark:text-amber-100">
+                          {entry.acceptanceRate.toFixed(1)}%
+                        </td>
+                        <td className="py-3 px-6 text-right text-gray-900 dark:text-amber-100">
+                          {entry.lowCompetitionJobs}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -348,91 +375,93 @@ export default function InsightsPage() {
 
           <div className="mt-6 grid gap-6 xl:grid-cols-[1.3fr_0.9fr]">
             <section className="card">
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <h2 className="section-title">Pay trends</h2>
-                    <p className="mt-2 text-sm text-amber-800">
-                      Average budget over time for the top five categories.
-                    </p>
-                  </div>
-                  <span className="rounded-full border border-market-500/20 bg-market-500/10 px-3 py-1 text-xs font-semibold text-market-300">
-                    30-day window
-                  </span>
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <h2 className="section-title">Pay trends</h2>
+                  <p className="mt-2 text-sm text-amber-800">
+                    Average budget over time for the top five categories.
+                  </p>
                 </div>
+                <span className="rounded-full border border-market-500/20 bg-market-500/10 px-3 py-1 text-xs font-semibold text-market-300">
+                  30-day window
+                </span>
+              </div>
 
-                <div className="mt-6 h-80 rounded-2xl border border-[rgba(251,191,36,0.08)] bg-ink-800/80 p-4">
-                  <Line
-                    data={{
-                      labels: trendLabels,
-                      datasets: trendDatasets,
-                    }}
-                    options={{
-                      responsive: true,
-                      maintainAspectRatio: false,
-                      plugins: {
-                        legend: {
-                          position: "bottom",
-                          labels: { color: "#fef3c7" },
-                        },
+              <div className="mt-6 h-80 rounded-2xl border border-[rgba(251,191,36,0.08)] bg-ink-800/80 p-4">
+                <Line
+                  data={{
+                    labels: trendLabels,
+                    datasets: trendDatasets,
+                  }}
+                  options={{
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                      legend: {
+                        position: "bottom",
+                        labels: { color: "#fef3c7" },
                       },
-                      scales: {
-                        x: {
-                          ticks: { color: "#a8956a" },
-                          grid: { color: "rgba(251,191,36,0.06)" },
-                        },
-                        y: {
-                          ticks: { color: "#a8956a" },
-                          grid: { color: "rgba(251,191,36,0.06)" },
-                        },
+                    },
+                    scales: {
+                      x: {
+                        ticks: { color: "#a8956a" },
+                        grid: { color: "rgba(251,191,36,0.06)" },
                       },
-                    }}
-                  />
-                </div>
-              </section>
+                      y: {
+                        ticks: { color: "#a8956a" },
+                        grid: { color: "rgba(251,191,36,0.06)" },
+                      },
+                    },
+                  }}
+                />
+              </div>
+            </section>
 
-              <section className="card">
-                <h2 className="section-title">Low competition jobs</h2>
-                <p className="mt-2 text-sm text-amber-800">
-                  Open jobs with fewer than five applications.
-                </p>
+            <section className="card">
+              <h2 className="section-title">Low competition jobs</h2>
+              <p className="mt-2 text-sm text-amber-800">
+                Open jobs with fewer than five applications.
+              </p>
 
-                <div className="mt-5 space-y-3">
-                  {competitiveJobs.map((job) => (
-                    <article
-                      key={job.id}
-                      className="rounded-2xl border border-[rgba(251,191,36,0.08)] bg-ink-800/80 p-4"
-                    >
-                      <div className="flex items-start justify-between gap-4">
-                        <div>
-                          <p className="font-medium text-amber-100">{job.title}</p>
-                          <p className="mt-1 text-xs text-amber-800">{job.category}</p>
-                        </div>
-                        <span className="rounded-full border border-market-500/20 bg-market-500/10 px-2.5 py-1 text-xs font-semibold text-market-300">
-                          {job.competitionLevel}
-                        </span>
+              <div className="mt-5 space-y-3">
+                {competitiveJobs.map((job) => (
+                  <article
+                    key={job.id}
+                    className="rounded-2xl border border-[rgba(251,191,36,0.08)] bg-ink-800/80 p-4"
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="font-medium text-amber-100">{job.title}</p>
+                        <p className="mt-1 text-xs text-amber-800">{job.category}</p>
                       </div>
+                      <span className="rounded-full border border-market-500/20 bg-market-500/10 px-2.5 py-1 text-xs font-semibold text-market-300">
+                        {job.competitionLevel}
+                      </span>
+                    </div>
 
-                      <div className="mt-4 grid grid-cols-3 gap-3 text-xs text-amber-800">
-                        <div>
-                          <p className="uppercase tracking-[0.2em]">Budget</p>
-                          <p className="mt-1 text-amber-100">{formatBudget(job.budget)}</p>
-                        </div>
-                        <div>
-                          <p className="uppercase tracking-[0.2em]">Applications</p>
-                          <p className="mt-1 text-amber-100">{job.applicationCount}</p>
-                        </div>
-                        <div>
-                          <p className="uppercase tracking-[0.2em]">Client</p>
-                          <p className="mt-1 truncate text-amber-100">{job.clientAddress.slice(0, 8)}…</p>
-                        </div>
+                    <div className="mt-4 grid grid-cols-3 gap-3 text-xs text-amber-800">
+                      <div>
+                        <p className="uppercase tracking-[0.2em]">Budget</p>
+                        <p className="mt-1 text-amber-100">{formatBudget(job.budget)}</p>
                       </div>
-                    </article>
-                  ))}
-                </div>
-              </section>
-            </div>
+                      <div>
+                        <p className="uppercase tracking-[0.2em]">Applications</p>
+                        <p className="mt-1 text-amber-100">{job.applicationCount}</p>
+                      </div>
+                      <div>
+                        <p className="uppercase tracking-[0.2em]">Client</p>
+                        <p className="mt-1 truncate text-amber-100">
+                          {job.clientAddress.slice(0, 8)}…
+                        </p>
+                      </div>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </section>
           </div>
         </div>
+      </div>
     </>
   );
 }

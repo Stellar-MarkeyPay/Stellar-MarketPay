@@ -27,9 +27,10 @@ function getServerKeypair() {
 }
 
 const HOME_DOMAIN = process.env.HOME_DOMAIN || "localhost:4000";
-const NETWORK_PASSPHRASE = process.env.STELLAR_NETWORK === "mainnet" 
-  ? "Public Global Stellar Network ; September 2015" 
-  : "Test SDF Network ; September 2015";
+const NETWORK_PASSPHRASE =
+  process.env.STELLAR_NETWORK === "mainnet"
+    ? "Public Global Stellar Network ; September 2015"
+    : "Test SDF Network ; September 2015";
 
 /**
  * @swagger
@@ -165,10 +166,9 @@ router.post("/", async (req, res) => {
     // Uses ON CONFLICT to handle the case where the profile row may not yet
     // exist (it will be created by profileService on first access).
     try {
-      await pool.query(
-        `UPDATE profiles SET last_login_at = NOW() WHERE public_key = $1`,
-        [accountId]
-      );
+      await pool.query(`UPDATE profiles SET last_login_at = NOW() WHERE public_key = $1`, [
+        accountId,
+      ]);
     } catch (stampErr) {
       // Non-fatal: log and continue issuing the token
       console.warn("[auth] Could not stamp last_login_at:", stampErr.message);

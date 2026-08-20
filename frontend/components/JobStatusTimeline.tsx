@@ -20,8 +20,7 @@ interface TimelineStep {
 }
 
 function buildSteps(job: Job): { steps: TimelineStep[]; branch?: TimelineStep } {
-  const hiredDate =
-    job.freelancerAddress && job.status !== "open" ? job.updatedAt : undefined;
+  const hiredDate = job.freelancerAddress && job.status !== "open" ? job.updatedAt : undefined;
   const doneDate = job.status === "completed" ? job.updatedAt : undefined;
   const branchDate =
     job.status === "cancelled" || job.status === "disputed"
@@ -44,10 +43,7 @@ function buildSteps(job: Job): { steps: TimelineStep[]; branch?: TimelineStep } 
     {
       id: "in_progress",
       label: "In Progress",
-      date:
-        job.status === "in_progress" || job.status === "disputed"
-          ? job.updatedAt
-          : hiredDate,
+      date: job.status === "in_progress" || job.status === "disputed" ? job.updatedAt : hiredDate,
       state: "upcoming",
     },
     {
@@ -99,7 +95,8 @@ function buildSteps(job: Job): { steps: TimelineStep[]; branch?: TimelineStep } 
 
 function circleClasses(state: StepState) {
   if (state === "complete") return "bg-market-400 border-market-400 text-ink-900";
-  if (state === "current") return "bg-ink-900 border-market-400 text-market-400 ring-2 ring-market-400/30";
+  if (state === "current")
+    return "bg-ink-900 border-market-400 text-market-400 ring-2 ring-market-400/30";
   if (state === "branch") return "bg-red-500/20 border-red-400 text-red-300";
   return "bg-ink-800 border-market-500/20 text-amber-700";
 }
@@ -121,11 +118,18 @@ function StepCircle({ state }: { state: StepState }) {
 function Connector({ complete, vertical }: { complete: boolean; vertical?: boolean }) {
   if (vertical) {
     return (
-      <div className={["w-0.5 h-6 mx-auto", complete ? "bg-market-400" : "bg-market-500/15"].join(" ")} />
+      <div
+        className={["w-0.5 h-6 mx-auto", complete ? "bg-market-400" : "bg-market-500/15"].join(" ")}
+      />
     );
   }
   return (
-    <div className={["flex-1 h-0.5 min-w-[1rem]", complete ? "bg-market-400" : "bg-market-500/15"].join(" ")} />
+    <div
+      className={[
+        "flex-1 h-0.5 min-w-[1rem]",
+        complete ? "bg-market-400" : "bg-market-500/15",
+      ].join(" ")}
+    />
   );
 }
 
@@ -138,7 +142,7 @@ export default function JobStatusTimeline({ job, compact = false }: JobStatusTim
       ? steps.length - 1
       : Math.max(
           steps.findIndex((s) => s.state === "current"),
-          steps.filter((s) => s.state === "complete").length - 1,
+          steps.filter((s) => s.state === "complete").length - 1
         );
 
     return (
@@ -180,8 +184,16 @@ export default function JobStatusTimeline({ job, compact = false }: JobStatusTim
   }
 
   return (
-    <section className="mt-5 pt-5 border-t border-[rgba(251,191,36,0.07)]" aria-labelledby="job-progress-heading">
-      <p id="job-progress-heading" className="text-xs uppercase tracking-wider text-amber-800/70 mb-4">Job Progress</p>
+    <section
+      className="mt-5 pt-5 border-t border-[rgba(251,191,36,0.07)]"
+      aria-labelledby="job-progress-heading"
+    >
+      <p
+        id="job-progress-heading"
+        className="text-xs uppercase tracking-wider text-amber-800/70 mb-4"
+      >
+        Job Progress
+      </p>
 
       <ol className="hidden sm:flex items-start" aria-label="Job progress steps">
         {steps.map((step, i) => (
@@ -203,7 +215,10 @@ export default function JobStatusTimeline({ job, compact = false }: JobStatusTim
                 {step.label}
               </span>
               {step.date && (
-                <time dateTime={step.date} className="text-[10px] text-amber-800/60 whitespace-nowrap">
+                <time
+                  dateTime={step.date}
+                  className="text-[10px] text-amber-800/60 whitespace-nowrap"
+                >
                   {formatDate(step.date)}
                 </time>
               )}
@@ -217,12 +232,18 @@ export default function JobStatusTimeline({ job, compact = false }: JobStatusTim
         ))}
 
         {branch && (
-          <li className="flex items-start ml-2 pl-2 border-l border-dashed border-red-400/40" aria-current="step">
+          <li
+            className="flex items-start ml-2 pl-2 border-l border-dashed border-red-400/40"
+            aria-current="step"
+          >
             <div className="flex flex-col items-center gap-1.5 min-w-[4.5rem]">
               <StepCircle state="branch" />
               <span className="text-xs font-medium text-red-400 text-center">{branch.label}</span>
               {branch.date && (
-                <time dateTime={branch.date} className="text-[10px] text-amber-800/60 whitespace-nowrap">
+                <time
+                  dateTime={branch.date}
+                  className="text-[10px] text-amber-800/60 whitespace-nowrap"
+                >
                   {formatDate(branch.date)}
                 </time>
               )}
@@ -248,7 +269,9 @@ export default function JobStatusTimeline({ job, compact = false }: JobStatusTim
                   {step.label}
                 </p>
                 {step.date && (
-                  <time dateTime={step.date} className="text-xs text-amber-800/60">{formatDate(step.date)}</time>
+                  <time dateTime={step.date} className="text-xs text-amber-800/60">
+                    {formatDate(step.date)}
+                  </time>
                 )}
               </div>
             </div>
@@ -261,12 +284,17 @@ export default function JobStatusTimeline({ job, compact = false }: JobStatusTim
         ))}
 
         {branch && (
-          <li className="flex items-start gap-3 mt-2 pt-2 border-t border-dashed border-red-400/30" aria-current="step">
+          <li
+            className="flex items-start gap-3 mt-2 pt-2 border-t border-dashed border-red-400/30"
+            aria-current="step"
+          >
             <StepCircle state="branch" />
             <div className="pt-0.5">
               <p className="text-sm font-medium text-red-400">{branch.label}</p>
               {branch.date && (
-                <time dateTime={branch.date} className="text-xs text-amber-800/60">{formatDate(branch.date)}</time>
+                <time dateTime={branch.date} className="text-xs text-amber-800/60">
+                  {formatDate(branch.date)}
+                </time>
               )}
             </div>
           </li>

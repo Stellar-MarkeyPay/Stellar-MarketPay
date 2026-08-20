@@ -62,19 +62,20 @@ function createRequestLogger(req) {
 function requestLoggerMiddleware(req, res, next) {
   req.requestId = generateRequestId();
   req.logger = createRequestLogger(req);
-  
+
   // Log request start
   req.logger.info({
     msg: "Request started",
     query: req.query,
-    body: req.method === "POST" || req.method === "PUT" || req.method === "PATCH" 
-      ? sanitizeBody(req.body) 
-      : undefined,
+    body:
+      req.method === "POST" || req.method === "PUT" || req.method === "PATCH"
+        ? sanitizeBody(req.body)
+        : undefined,
   });
 
   // Track response time
   const startTime = Date.now();
-  
+
   res.on("finish", () => {
     const durationMs = Date.now() - startTime;
     req.logger.info({
@@ -92,16 +93,16 @@ function requestLoggerMiddleware(req, res, next) {
  */
 function sanitizeBody(body) {
   if (!body || typeof body !== "object") return body;
-  
+
   const sensitiveFields = ["password", "token", "secret", "key", "credential"];
   const sanitized = { ...body };
-  
+
   for (const field of sensitiveFields) {
     if (sanitized[field]) {
       sanitized[field] = "[REDACTED]";
     }
   }
-  
+
   return sanitized;
 }
 

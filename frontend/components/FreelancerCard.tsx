@@ -4,7 +4,12 @@
  */
 import Link from "next/link";
 import FreelancerTierBadge from "@/components/FreelancerTierBadge";
-import { availabilityBadgeClass, availabilityStatusLabel, formatXLM, shortenAddress } from "@/utils/format";
+import {
+  availabilityBadgeClass,
+  availabilityStatusLabel,
+  formatXLM,
+  shortenAddress,
+} from "@/utils/format";
 import type { UserProfile } from "@/utils/types";
 
 interface FreelancerCardProps {
@@ -30,23 +35,28 @@ export default function FreelancerCard({ profile, matchScore }: FreelancerCardPr
               <p className="text-amber-700 text-sm">{shortenAddress(profile.publicKey)}</p>
             </div>
             <div className="flex items-center gap-2">
-              <span className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${availabilityBadgeClass(profile.availability?.status)}`}>
+              <span
+                className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${availabilityBadgeClass(profile.availability?.status)}`}
+              >
                 {availabilityStatusLabel(profile.availability?.status)}
               </span>
-              {profile.tier ? <FreelancerTierBadge tier={profile.tier} className="hidden sm:inline-flex" /> : null}
+              {profile.tier ? (
+                <FreelancerTierBadge tier={profile.tier} className="hidden sm:inline-flex" />
+              ) : null}
             </div>
           </div>
 
           {profile.bio ? (
-            <p className="text-amber-800 text-sm leading-relaxed line-clamp-3">
-              {profile.bio}
-            </p>
+            <p className="text-amber-800 text-sm leading-relaxed line-clamp-3">{profile.bio}</p>
           ) : null}
 
           {profile.skills && profile.skills.length > 0 ? (
             <div className="flex flex-wrap gap-2">
               {profile.skills.slice(0, 6).map((skill) => (
-                <span key={skill} className="text-xs bg-market-500/8 text-market-500/80 border border-market-500/15 px-2 py-0.5 rounded-md">
+                <span
+                  key={skill}
+                  className="text-xs bg-market-500/8 text-market-500/80 border border-market-500/15 px-2 py-0.5 rounded-md"
+                >
                   {skill}
                 </span>
               ))}
@@ -66,7 +76,9 @@ export default function FreelancerCard({ profile, matchScore }: FreelancerCardPr
           </div>
           <div className="rounded-2xl border border-[rgba(251,191,36,0.15)] bg-market-500/5 p-3">
             <p className="text-xs uppercase tracking-[0.15em] text-amber-700">Earnings</p>
-            <p className="font-semibold text-amber-100">{formatXLM(profile.totalEarnedXLM || "0")}</p>
+            <p className="font-semibold text-amber-100">
+              {formatXLM(profile.totalEarnedXLM || "0")}
+            </p>
           </div>
           {profile.rating !== undefined && profile.rating !== null ? (
             <div className="rounded-2xl border border-[rgba(251,191,36,0.15)] bg-market-500/5 p-3">

@@ -11,11 +11,11 @@ interface ProgressBarProps {
   size?: "sm" | "md" | "lg";
 }
 
-export default function ProgressBar({ 
-  current, 
-  total, 
+export default function ProgressBar({
+  current,
+  total,
   showLabel = true,
-  size = "md" 
+  size = "md",
 }: ProgressBarProps) {
   const percentage = Math.round((current / total) * 100);
   const isComplete = current === total;
@@ -30,9 +30,7 @@ export default function ProgressBar({
     <div className="w-full">
       {showLabel && (
         <div className="flex items-center justify-between text-xs mb-2">
-          <span className="text-amber-700 font-medium">
-            Profile Completion
-          </span>
+          <span className="text-amber-700 font-medium">Profile Completion</span>
           <span
             className={clsx(
               "font-mono font-semibold",

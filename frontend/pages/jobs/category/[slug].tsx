@@ -33,14 +33,19 @@ export default function CategoryPage({ category, jobs, slug }: CategoryPageProps
       </Head>
 
       <div className="mb-8">
-        <Link href="/jobs" className="text-market-400 hover:text-market-300 text-sm mb-4 inline-block">
+        <Link
+          href="/jobs"
+          className="text-market-400 hover:text-market-300 text-sm mb-4 inline-block"
+        >
           ← Back to all jobs
         </Link>
         <div className="flex items-center gap-3">
           <span className="text-4xl">{icon}</span>
           <div>
             <h1 className="font-display text-3xl font-bold text-amber-100">{category} Jobs</h1>
-            <p className="text-amber-800 text-sm">{jobs.length} open position{jobs.length !== 1 ? "s" : ""}</p>
+            <p className="text-amber-800 text-sm">
+              {jobs.length} open position{jobs.length !== 1 ? "s" : ""}
+            </p>
           </div>
         </div>
       </div>
@@ -49,7 +54,9 @@ export default function CategoryPage({ category, jobs, slug }: CategoryPageProps
         <div className="card text-center py-16">
           <p className="font-display text-xl text-amber-100 mb-2">No jobs in this category yet</p>
           <p className="text-amber-800 text-sm mb-6">Be the first to post a {category} job!</p>
-          <Link href="/post-job" className="btn-primary text-sm">Post a Job →</Link>
+          <Link href="/post-job" className="btn-primary text-sm">
+            Post a Job →
+          </Link>
         </div>
       ) : (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">

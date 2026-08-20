@@ -21,7 +21,7 @@ async function getTokenMetadata(contractId) {
   try {
     // First try to get the contract from Stellar
     const contract = await stellarAccountCache.getAccount(contractId);
-    
+
     // Look for token metadata in contract data
     // This is a simplified approach - in production you'd want to use Soroban RPC
     const tokenMetadata = {
@@ -30,7 +30,7 @@ async function getTokenMetadata(contractId) {
       symbol: "UNKNOWN",
       decimals: 7,
       icon: null,
-      verified: false
+      verified: false,
     };
 
     // Try to extract basic info from the contract
@@ -65,35 +65,34 @@ async function getTokenBalance(publicKey, contractId) {
 
   try {
     const account = await stellarAccountCache.getAccount(publicKey);
-    
+
     // Find the balance for this specific token
-    const tokenBalance = account.balances.find(balance => 
-      balance.asset_code && balance.asset_issuer && 
-      balance.asset_issuer === contractId
+    const tokenBalance = account.balances.find(
+      (balance) => balance.asset_code && balance.asset_issuer && balance.asset_issuer === contractId
     );
 
     if (!tokenBalance) {
       return {
         balance: "0",
         exists: false,
-        limit: "0"
+        limit: "0",
       };
     }
 
     return {
       balance: tokenBalance.balance,
       exists: true,
-      limit: tokenBalance.limit || "0"
+      limit: tokenBalance.limit || "0",
     };
   } catch (error) {
     if (error.response?.status === 404) {
       return {
         balance: "0",
         exists: false,
-        limit: "0"
+        limit: "0",
       };
     }
-    
+
     console.error("Token balance fetch error:", error);
     const e = new Error(`Failed to fetch token balance: ${error.message}`);
     e.status = 500;
@@ -117,25 +116,25 @@ async function validateTokenContract(contractId) {
   if (!/^[A-Z0-9]{56}$/.test(contractId)) {
     return {
       valid: false,
-      error: "Invalid contract ID format"
+      error: "Invalid contract ID format",
     };
   }
 
   try {
     const account = await stellarAccountCache.getAccount(contractId);
-    
+
     // Check if this looks like a token contract
     // In a full implementation, you'd check specific contract data
     const isTokenContract = account && account.account_id === contractId;
-    
+
     return {
       valid: isTokenContract,
-      error: isTokenContract ? null : "Contract does not appear to be a token contract"
+      error: isTokenContract ? null : "Contract does not appear to be a token contract",
     };
   } catch (error) {
     return {
       valid: false,
-      error: "Contract not found or inaccessible"
+      error: "Contract not found or inaccessible",
     };
   }
 }
@@ -152,16 +151,16 @@ function getPopularTokens() {
       symbol: "USDC",
       decimals: 7,
       verified: true,
-      icon: "🪙"
+      icon: "🪙",
     },
     {
       contractId: "CA3D5SRYAEYKJVVBFJKW6S5U2YJ5E5BBHCNATIVXQDQSTZPFFR4XCWK",
       name: "USDT",
-      symbol: "USDT", 
+      symbol: "USDT",
       decimals: 7,
       verified: true,
-      icon: "💵"
-    }
+      icon: "💵",
+    },
   ];
 }
 
@@ -177,10 +176,11 @@ async function searchTokens(query) {
 
   const popularTokens = getPopularTokens();
   const lowerQuery = query.toLowerCase();
-  
-  return popularTokens.filter(token => 
-    token.name.toLowerCase().includes(lowerQuery) ||
-    token.symbol.toLowerCase().includes(lowerQuery)
+
+  return popularTokens.filter(
+    (token) =>
+      token.name.toLowerCase().includes(lowerQuery) ||
+      token.symbol.toLowerCase().includes(lowerQuery)
   );
 }
 
@@ -189,5 +189,5 @@ module.exports = {
   getTokenBalance,
   validateTokenContract,
   getPopularTokens,
-  searchTokens
+  searchTokens,
 };

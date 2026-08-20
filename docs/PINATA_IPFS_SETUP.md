@@ -139,10 +139,7 @@ const pinata = new PinataSDK({
  * @param metadata - Optional metadata
  * @returns IPFS hash
  */
-export async function uploadToIPFS(
-  file: File,
-  metadata?: Record<string, any>,
-): Promise<string> {
+export async function uploadToIPFS(file: File, metadata?: Record<string, any>): Promise<string> {
   try {
     const upload = await pinata.upload.file(file);
 
@@ -168,10 +165,7 @@ export async function uploadToIPFS(
  * @param name - Optional name for the file
  * @returns IPFS hash
  */
-export async function uploadJSONToIPFS(
-  data: Record<string, any>,
-  name?: string,
-): Promise<string> {
+export async function uploadJSONToIPFS(data: Record<string, any>, name?: string): Promise<string> {
   try {
     const upload = await pinata.upload.json(data);
     return upload.IpfsHash;
@@ -446,7 +440,7 @@ router.post("/", async (req, res, next) => {
         reason,
         evidenceIPFSHash,
         `https://gateway.pinata.cloud/ipfs/${evidenceIPFSHash}`,
-      ],
+      ]
     );
 
     res.json({
@@ -467,10 +461,7 @@ router.get("/:jobId", async (req, res, next) => {
   try {
     const { jobId } = req.params;
 
-    const { rows } = await pool.query(
-      `SELECT * FROM disputes WHERE job_id = $1`,
-      [jobId],
-    );
+    const { rows } = await pool.query(`SELECT * FROM disputes WHERE job_id = $1`, [jobId]);
 
     res.json({
       success: true,

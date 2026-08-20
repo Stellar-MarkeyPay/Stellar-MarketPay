@@ -237,6 +237,27 @@ export default function BulkJobActionBar({
           </div>
 
           {/* Extend */}
+      <div
+        className={clsx(
+          "fixed bottom-6 left-1/2 -translate-x-1/2 z-40",
+          "flex items-center gap-3 px-4 py-3 rounded-2xl shadow-2xl",
+          "bg-ink-800 border border-market-500/30 backdrop-blur-sm",
+          "transition-all duration-200",
+          selectedCount > 0
+            ? "opacity-100 translate-y-0"
+            : "opacity-0 translate-y-4 pointer-events-none"
+        )}
+        role="toolbar"
+        aria-label="Bulk job actions"
+      >
+        {/* Selection count + clear */}
+        <div className="flex items-center gap-2 pr-3 border-r border-market-500/20">
+          <span className="w-6 h-6 rounded-lg bg-market-500/20 flex items-center justify-center text-xs font-bold text-market-400">
+            {selectedCount}
+          </span>
+          <span className="text-sm text-amber-200 font-medium whitespace-nowrap">
+            job{selectedCount !== 1 ? "s" : ""} selected
+          </span>
           <button
             onClick={() => setConfirmAction("extend")}
             disabled={loading}
@@ -245,6 +266,13 @@ export default function BulkJobActionBar({
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
             Extend
           </button>
@@ -276,6 +304,59 @@ export default function BulkJobActionBar({
           </button>
         </div>
       )}
+        </div>
+
+        {/* Extend */}
+        <button
+          onClick={() => handleAction("extend")}
+          disabled={loading}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium bg-ink-700 border border-market-500/20 text-amber-200 hover:border-market-400 hover:text-market-300 transition-all disabled:opacity-50"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+            />
+          </svg>
+          Extend
+        </button>
+
+        {/* Boost */}
+        <button
+          onClick={() => handleAction("boost")}
+          disabled={loading}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium bg-ink-700 border border-amber-500/20 text-amber-300 hover:border-amber-400 hover:text-amber-200 transition-all disabled:opacity-50"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M13 10V3L4 14h7v7l9-11h-7z"
+            />
+          </svg>
+          Boost
+        </button>
+
+        {/* Cancel — destructive, requires confirmation */}
+        <button
+          onClick={() => setConfirmAction("cancel")}
+          disabled={loading}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium bg-red-500/10 border border-red-500/20 text-red-400 hover:border-red-400 hover:bg-red-500/15 transition-all disabled:opacity-50"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"
+            />
+          </svg>
+          Cancel Jobs
+        </button>
+      </div>
 
       {/* ── Confirmation modal ──────────────────────────────────────────── */}
       {confirmAction && (
@@ -341,6 +422,14 @@ export default function BulkJobActionBar({
 
             <p id="bulk-confirm-desc" className="text-sm text-amber-700 mb-5">
               {actionDescription(confirmAction, selectedCount)}
+                  Cancel {selectedCount} job{selectedCount !== 1 ? "s" : ""}?
+                </h3>
+                <p className="text-xs text-amber-700 mt-0.5">This cannot be undone.</p>
+              </div>
+            </div>
+            <p className="text-sm text-amber-700 mb-6">
+              Only <span className="text-amber-300 font-medium">open</span> jobs will be cancelled.
+              Jobs that are in progress, completed, or already cancelled will be skipped.
             </p>
 
             {/* Extend duration picker */}
@@ -418,6 +507,8 @@ export default function BulkJobActionBar({
           }}
         />
       )}
+      {/* ── Result toast ────────────────────────────────────────────────── */}
+      {result && <BulkResultToast result={result} onDismiss={() => setResult(null)} />}
     </>
   );
 }
@@ -452,9 +543,7 @@ function BulkResultPanel({
       className={clsx(
         "fixed bottom-24 left-1/2 -translate-x-1/2 z-50",
         "max-w-sm w-full mx-4 rounded-2xl border p-4 shadow-2xl",
-        allOk
-          ? "bg-emerald-500/10 border-emerald-500/30"
-          : "bg-amber-500/10 border-amber-500/30",
+        allOk ? "bg-emerald-500/10 border-emerald-500/30" : "bg-amber-500/10 border-amber-500/30"
       )}
       role="status"
       aria-live="polite"
@@ -479,6 +568,15 @@ function BulkResultPanel({
                 ? `${result.succeeded} ${actionLabel(action).toLowerCase()} successfully`
                 : "No jobs were updated"}
               {result.failed > 0 && `, ${result.failed} failed`}
+          <div>
+            <p
+              className={clsx(
+                "text-sm font-semibold",
+                allOk ? "text-emerald-400" : "text-amber-300"
+              )}
+            >
+              {result.succeeded} succeeded
+              {result.failed > 0 ? `, ${result.failed} failed` : ""}
             </p>
 
             {/* Per-item failure details */}
@@ -493,6 +591,9 @@ function BulkResultPanel({
                     <span className="flex-1">{f.error ?? "Unknown error"}</span>
                   </li>
                 ))}
+                {failures.length > 3 && (
+                  <li className="text-xs text-amber-800">+{failures.length - 3} more</li>
+                )}
               </ul>
             )}
 
@@ -526,6 +627,13 @@ function BulkResultPanel({
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M6 18L18 6M6 6l12 12"
+            />
           </svg>
         </button>
       </div>

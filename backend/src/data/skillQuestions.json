@@ -101,12 +101,7 @@
       {
         "id": 2,
         "question": "When does `useEffect` with an empty dependency array `[]` run?",
-        "options": [
-          "On every render",
-          "Only on mount",
-          "Only on unmount",
-          "Never"
-        ],
+        "options": ["On every render", "Only on mount", "Only on unmount", "Never"],
         "answer": 1
       },
       {
@@ -563,12 +558,7 @@
       {
         "id": 4,
         "question": "What is the minimum account balance required on Stellar?",
-        "options": [
-          "0 XLM",
-          "1 XLM base reserve",
-          "10 XLM",
-          "100 XLM"
-        ],
+        "options": ["0 XLM", "1 XLM base reserve", "10 XLM", "100 XLM"],
         "answer": 1
       },
       {

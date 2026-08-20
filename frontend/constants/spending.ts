@@ -6,7 +6,10 @@ export const SPENDING_STATUS_ORDER: Array<keyof ClientSpendingAnalytics["jobsBre
   "cancelled",
 ];
 
-export const SPENDING_STATUS_LABELS: Record<keyof ClientSpendingAnalytics["jobsBreakdown"], string> = {
+export const SPENDING_STATUS_LABELS: Record<
+  keyof ClientSpendingAnalytics["jobsBreakdown"],
+  string
+> = {
   posted: "Posted",
   completed: "Completed",
   inProgress: "In Progress",

@@ -31,7 +31,9 @@ router.post("/setup", verifyJWT, requireAdminRole, async (req, res, next) => {
     const { publicKey } = req.user;
     await ensureAdminProfile(publicKey);
 
-    const { rows } = await pool.query("SELECT totp_enabled FROM admin_profiles WHERE id = $1", [publicKey]);
+    const { rows } = await pool.query("SELECT totp_enabled FROM admin_profiles WHERE id = $1", [
+      publicKey,
+    ]);
     if (rows[0]?.totp_enabled) {
       return res.status(400).json({ success: false, error: "2FA is already enabled" });
     }
@@ -70,7 +72,9 @@ router.post("/verify", verifyJWT, requireAdminRole, async (req, res, next) => {
     const secret = await getDecryptedSecret(publicKey);
 
     if (!secret) {
-      return res.status(400).json({ success: false, error: "2FA setup not initiated. Call /setup first." });
+      return res
+        .status(400)
+        .json({ success: false, error: "2FA setup not initiated. Call /setup first." });
     }
 
     let backupCodes;

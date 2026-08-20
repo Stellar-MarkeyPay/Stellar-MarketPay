@@ -42,7 +42,10 @@ jest.mock("@stellar/stellar-sdk", () => {
     build: jest.fn().mockReturnValue(MockTx),
   };
   return {
-    Networks: { TESTNET: "Test SDF Network ; September 2015", PUBLIC: "Public Global Stellar Network ; September 2015" },
+    Networks: {
+      TESTNET: "Test SDF Network ; September 2015",
+      PUBLIC: "Public Global Stellar Network ; September 2015",
+    },
     TransactionBuilder: jest.fn().mockImplementation(() => MockBuilder),
     Transaction: jest.fn(),
     BASE_FEE,
@@ -87,9 +90,9 @@ const MockTransactionBuilder = TransactionBuilder as unknown as jest.Mock;
 
 function makeEstimate(mediumFee = "1000") {
   return {
-    slow:   { feeStroops: "350",       feeXlm: "0.000035",  label: "Slow",   estimatedWaitLedgers: 6 },
-    medium: { feeStroops: mediumFee,   feeXlm: "0.0001",    label: "Medium", estimatedWaitLedgers: 2 },
-    fast:   { feeStroops: "2500",      feeXlm: "0.00025",   label: "Fast",   estimatedWaitLedgers: 1 },
+    slow: { feeStroops: "350", feeXlm: "0.000035", label: "Slow", estimatedWaitLedgers: 6 },
+    medium: { feeStroops: mediumFee, feeXlm: "0.0001", label: "Medium", estimatedWaitLedgers: 2 },
+    fast: { feeStroops: "2500", feeXlm: "0.00025", label: "Fast", estimatedWaitLedgers: 1 },
     spikeDetected: false,
     fetchedAt: new Date().toISOString(),
     cached: false,
@@ -118,7 +121,7 @@ describe("stellar.ts — dynamic fee integration", () => {
       expect(mockFetchDynamicFeeTiers).toHaveBeenCalledTimes(1);
       expect(MockTransactionBuilder).toHaveBeenCalledWith(
         expect.anything(),
-        expect.objectContaining({ fee: "1000" }),
+        expect.objectContaining({ fee: "1000" })
       );
     });
 
@@ -135,7 +138,7 @@ describe("stellar.ts — dynamic fee integration", () => {
       expect(mockPickTierFeeStroops).toHaveBeenCalledWith(expect.anything(), "fast");
       expect(MockTransactionBuilder).toHaveBeenCalledWith(
         expect.anything(),
-        expect.objectContaining({ fee: "2500" }),
+        expect.objectContaining({ fee: "2500" })
       );
     });
 
@@ -150,7 +153,7 @@ describe("stellar.ts — dynamic fee integration", () => {
 
       expect(MockTransactionBuilder).toHaveBeenCalledWith(
         expect.anything(),
-        expect.objectContaining({ fee: BASE_FEE }),
+        expect.objectContaining({ fee: BASE_FEE })
       );
     });
   });
@@ -168,7 +171,7 @@ describe("stellar.ts — dynamic fee integration", () => {
       expect(mockFetchDynamicFeeTiers).toHaveBeenCalled();
       expect(MockTransactionBuilder).toHaveBeenCalledWith(
         expect.anything(),
-        expect.objectContaining({ fee: "1000" }),
+        expect.objectContaining({ fee: "1000" })
       );
     });
 
@@ -184,7 +187,7 @@ describe("stellar.ts — dynamic fee integration", () => {
 
       expect(MockTransactionBuilder).toHaveBeenCalledWith(
         expect.anything(),
-        expect.objectContaining({ fee: BASE_FEE }),
+        expect.objectContaining({ fee: BASE_FEE })
       );
     });
   });
@@ -201,7 +204,7 @@ describe("stellar.ts — dynamic fee integration", () => {
       expect(mockFetchDynamicFeeTiers).toHaveBeenCalled();
       expect(MockTransactionBuilder).toHaveBeenCalledWith(
         expect.anything(),
-        expect.objectContaining({ fee: "1000" }),
+        expect.objectContaining({ fee: "1000" })
       );
     });
 
@@ -218,7 +221,7 @@ describe("stellar.ts — dynamic fee integration", () => {
       expect(mockPickTierFeeStroops).toHaveBeenCalledWith(expect.anything(), "slow");
       expect(MockTransactionBuilder).toHaveBeenCalledWith(
         expect.anything(),
-        expect.objectContaining({ fee: "350" }),
+        expect.objectContaining({ fee: "350" })
       );
     });
   });

@@ -94,7 +94,7 @@ Each provider has a small circuit breaker (`cdnService.js`):
   secondary (`"fails over on a provider timeout"`).
 - Repeated primary failures open its circuit, and subsequent purges skip it
   entirely without re-attempting (`"opens the circuit after repeated
-  failures..."`).
+failures..."`).
 - All providers down → `CdnPurgeError` with a per-provider attempt log, so
   the failure is observable rather than silently swallowed.
 
@@ -134,7 +134,7 @@ CdnInvalidationService.handleContractEvent(eventType, jobId)
   exist for that job) — see
   `backend/src/services/cdn/invalidationService.test.js`,
   `"purges only the affected job + both parties' profile URLs, not a full
-  flush"`.
+flush"`.
 - **Non-blocking.** `indexerService.js` calls `handleContractEvent()`
   fire-and-forget (`.catch(...)` logs failures) so a slow/failed CDN purge
   never adds latency to ledger event processing.
@@ -155,11 +155,11 @@ CdnInvalidationService.handleContractEvent(eventType, jobId)
 Defined in `backend/src/services/cdn/cacheStrategy.js`, applied via the
 `edgeCacheControl` middleware (`backend/src/middleware/edgeCacheControl.js`):
 
-| Content type | Examples | Edge TTL | Cache-Control | Invalidation |
-|---|---|---|---|---|
-| **Static asset** | Next.js build output (`/_next/static/*`, hashed filenames) | 1 year | `public, max-age=31536000, immutable` | Never — a new deploy ships a new filename, so nothing to purge |
-| **Semi-dynamic** | Job list (`GET /api/jobs`), job detail (`GET /api/jobs/:id`), profile pages (`GET /api/profiles/:publicKey`) | 30s edge (`s-maxage`), plus `stale-while-revalidate=60` and `stale-if-error=300` | `public, max-age=0, s-maxage=30, stale-while-revalidate=60, stale-if-error=300` | Event-driven purge (this doc) on the contract events that make it stale |
-| **Dynamic / personalized** | Dashboard, spending analytics, notifications, anything keyed to the viewer's JWT | 0 (no CDN caching) | `private, no-store` | N/A |
+| Content type               | Examples                                                                                                     | Edge TTL                                                                         | Cache-Control                                                                   | Invalidation                                                            |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| **Static asset**           | Next.js build output (`/_next/static/*`, hashed filenames)                                                   | 1 year                                                                           | `public, max-age=31536000, immutable`                                           | Never — a new deploy ships a new filename, so nothing to purge          |
+| **Semi-dynamic**           | Job list (`GET /api/jobs`), job detail (`GET /api/jobs/:id`), profile pages (`GET /api/profiles/:publicKey`) | 30s edge (`s-maxage`), plus `stale-while-revalidate=60` and `stale-if-error=300` | `public, max-age=0, s-maxage=30, stale-while-revalidate=60, stale-if-error=300` | Event-driven purge (this doc) on the contract events that make it stale |
+| **Dynamic / personalized** | Dashboard, spending analytics, notifications, anything keyed to the viewer's JWT                             | 0 (no CDN caching)                                                               | `private, no-store`                                                             | N/A                                                                     |
 
 Cache keys / surrogate tags:
 
@@ -253,9 +253,9 @@ half that's automated (previous section).
 
 ## Operational endpoints
 
-| Endpoint | Purpose |
-|---|---|
-| `GET /api/cdn/health` | Per-provider circuit-breaker status (`{ provider, circuitOpen, failures }[]`) |
+| Endpoint                | Purpose                                                                                     |
+| ----------------------- | ------------------------------------------------------------------------------------------- |
+| `GET /api/cdn/health`   | Per-provider circuit-breaker status (`{ provider, circuitOpen, failures }[]`)               |
 | `POST /api/cdn/webhook` | External pub-sub trigger for `handleContractEvent()`, HMAC-signed with `CDN_WEBHOOK_SECRET` |
 
 ## Environment variables

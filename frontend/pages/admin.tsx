@@ -48,13 +48,19 @@ function getJwtRole() {
   }
 }
 
-function Badge({ label, color }: { label: string; color: "red" | "amber" | "emerald" | "blue" | "gray" }) {
+function Badge({
+  label,
+  color,
+}: {
+  label: string;
+  color: "red" | "amber" | "emerald" | "blue" | "gray";
+}) {
   const colorMap = {
-    red:     "bg-red-500/10 text-red-400 border-red-500/20",
-    amber:   "bg-amber-500/10 text-amber-400 border-amber-500/20",
+    red: "bg-red-500/10 text-red-400 border-red-500/20",
+    amber: "bg-amber-500/10 text-amber-400 border-amber-500/20",
     emerald: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
-    blue:    "bg-blue-500/10 text-blue-400 border-blue-500/20",
-    gray:    "bg-white/5 text-amber-800 border-white/10",
+    blue: "bg-blue-500/10 text-blue-400 border-blue-500/20",
+    gray: "bg-white/5 text-amber-800 border-white/10",
   };
   return (
     <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${colorMap[color]}`}>
@@ -63,7 +69,15 @@ function Badge({ label, color }: { label: string; color: "red" | "amber" | "emer
   );
 }
 
-function Section({ title, count, children }: { title: string; count?: number; children: React.ReactNode }) {
+function Section({
+  title,
+  count,
+  children,
+}: {
+  title: string;
+  count?: number;
+  children: React.ReactNode;
+}) {
   return (
     <section className="mb-8">
       <div className="flex items-center gap-3 mb-4">
@@ -291,10 +305,7 @@ export default function AdminDashboard({ publicKey }: AdminPageProps) {
         <Head>
           <title>Admin 2FA — Stellar MarketPay</title>
         </Head>
-        <Admin2FAModal
-          mode={twoFaState}
-          onComplete={() => setTwoFaState("ready")}
-        />
+        <Admin2FAModal mode={twoFaState} onComplete={() => setTwoFaState("ready")} />
       </>
     );
   }
@@ -302,9 +313,9 @@ export default function AdminDashboard({ publicKey }: AdminPageProps) {
   const tabs: { id: ActiveTab; label: string; count?: number }[] = [
     { id: "analytics", label: "Analytics" },
     { id: "disputes", label: "Open Disputes", count: disputes.length },
-    { id: "reports",  label: "Flagged Jobs",  count: reports.length },
-    { id: "wallets",  label: "Frozen Wallets", count: frozenWallets.length },
-    { id: "logs",     label: "Audit Log",      count: logs.length },
+    { id: "reports", label: "Flagged Jobs", count: reports.length },
+    { id: "wallets", label: "Frozen Wallets", count: frozenWallets.length },
+    { id: "logs", label: "Audit Log", count: logs.length },
   ];
 
   return (
@@ -326,9 +337,7 @@ export default function AdminDashboard({ publicKey }: AdminPageProps) {
           <p className="text-amber-800 text-sm mt-1">
             Platform moderation center — flagged jobs, open disputes, and wallet controls.
           </p>
-          <p className="text-amber-900 text-xs mt-1 font-mono">
-            Logged in as: {publicKey}
-          </p>
+          <p className="text-amber-900 text-xs mt-1 font-mono">Logged in as: {publicKey}</p>
         </div>
 
         {/* ── Action feedback ────────────────────────────────────────────────── */}
@@ -369,15 +378,16 @@ export default function AdminDashboard({ publicKey }: AdminPageProps) {
         {loading ? (
           <div className="space-y-4 animate-pulse">
             {[1, 2, 3].map((n) => (
-              <div key={n} className="h-20 bg-market-500/5 rounded-xl border border-market-500/10" />
+              <div
+                key={n}
+                className="h-20 bg-market-500/5 rounded-xl border border-market-500/10"
+              />
             ))}
           </div>
         ) : (
           <>
             {/* ── Analytics Tab ──────────────────────────────────────────────── */}
-            {activeTab === "analytics" && (
-              <AdminAnalytics publicKey={publicKey} />
-            )}
+            {activeTab === "analytics" && <AdminAnalytics publicKey={publicKey} />}
 
             {/* ── Disputes Tab ──────────────────────────────────────────────── */}
             {activeTab === "disputes" && (
@@ -404,28 +414,39 @@ export default function AdminDashboard({ publicKey }: AdminPageProps) {
                             <div className="text-sm text-amber-800 space-y-0.5">
                               <p>
                                 <span className="text-amber-700">Client:</span>{" "}
-                                <span className="font-mono">{shortenAddress(d.client_address)}</span>
+                                <span className="font-mono">
+                                  {shortenAddress(d.client_address)}
+                                </span>
                               </p>
                               <p>
                                 <span className="text-amber-700">Freelancer:</span>{" "}
-                                <span className="font-mono">{d.freelancer_address ? shortenAddress(d.freelancer_address) : "—"}</span>
+                                <span className="font-mono">
+                                  {d.freelancer_address
+                                    ? shortenAddress(d.freelancer_address)
+                                    : "—"}
+                                </span>
                               </p>
                               <p>
-                                <span className="text-amber-700">Budget:</span> {d.budget} {d.currency}
+                                <span className="text-amber-700">Budget:</span> {d.budget}{" "}
+                                {d.currency}
                               </p>
                             </div>
                           </div>
                           <div className="flex gap-2 flex-wrap">
                             <button
                               id={`resolve-dispute-${d.job_id}`}
-                              onClick={() => setResolveModal({ jobId: d.job_id, title: d.job_title || d.job_id })}
+                              onClick={() =>
+                                setResolveModal({ jobId: d.job_id, title: d.job_title || d.job_id })
+                              }
                               className="btn-primary text-sm py-2 px-4"
                             >
                               Resolve
                             </button>
                             <button
                               id={`cancel-job-dispute-${d.job_id}`}
-                              onClick={() => setCancelModal({ jobId: d.job_id, title: d.job_title || d.job_id })}
+                              onClick={() =>
+                                setCancelModal({ jobId: d.job_id, title: d.job_title || d.job_id })
+                              }
                               className="btn-ghost text-sm py-2 px-4 text-red-400/80 hover:text-red-400"
                             >
                               Cancel Job
@@ -462,17 +483,24 @@ export default function AdminDashboard({ publicKey }: AdminPageProps) {
                               {r.job_title || r.job_id}
                             </h3>
                             {r.description && (
-                              <p className="text-sm text-amber-800 mb-2 line-clamp-2">{r.description}</p>
+                              <p className="text-sm text-amber-800 mb-2 line-clamp-2">
+                                {r.description}
+                              </p>
                             )}
                             <p className="text-xs text-amber-900">
-                              Reported by <span className="font-mono">{shortenAddress(r.reporter_address)}</span>{" "}
+                              Reported by{" "}
+                              <span className="font-mono">
+                                {shortenAddress(r.reporter_address)}
+                              </span>{" "}
                               · {timeAgo(r.created_at)}
                             </p>
                           </div>
                           <div className="flex gap-2 flex-wrap">
                             <button
                               id={`admin-cancel-job-${r.job_id}`}
-                              onClick={() => setCancelModal({ jobId: r.job_id, title: r.job_title || r.job_id })}
+                              onClick={() =>
+                                setCancelModal({ jobId: r.job_id, title: r.job_title || r.job_id })
+                              }
                               className="btn-ghost text-sm py-2 px-4 text-red-400/80 hover:text-red-400"
                             >
                               Cancel Job
@@ -521,7 +549,9 @@ export default function AdminDashboard({ publicKey }: AdminPageProps) {
                             <p className="text-xs text-amber-800 mt-1">Reason: {fw.reason}</p>
                           )}
                           {fw.created_at && (
-                            <p className="text-xs text-amber-900 mt-0.5">Frozen {timeAgo(fw.created_at)}</p>
+                            <p className="text-xs text-amber-900 mt-0.5">
+                              Frozen {timeAgo(fw.created_at)}
+                            </p>
                           )}
                         </div>
                         <button
@@ -558,7 +588,9 @@ export default function AdminDashboard({ publicKey }: AdminPageProps) {
                       <tbody className="divide-y divide-market-500/8">
                         {logs.map((log) => (
                           <tr key={log.id} className="hover:bg-market-500/5 transition-colors">
-                            <td className="px-4 py-3 text-amber-100 font-mono text-xs">{log.action}</td>
+                            <td className="px-4 py-3 text-amber-100 font-mono text-xs">
+                              {log.action}
+                            </td>
                             <td className="px-4 py-3 text-amber-800 font-mono text-xs">
                               {shortenAddress(log.actor_address || log.admin_address)}
                             </td>
@@ -627,7 +659,10 @@ export default function AdminDashboard({ publicKey }: AdminPageProps) {
                 Confirm Resolution
               </button>
               <button
-                onClick={() => { setResolveModal(null); setResolveNote(""); }}
+                onClick={() => {
+                  setResolveModal(null);
+                  setResolveNote("");
+                }}
                 className="btn-ghost text-sm px-4"
               >
                 Cancel
@@ -663,7 +698,10 @@ export default function AdminDashboard({ publicKey }: AdminPageProps) {
                 Cancel Job
               </button>
               <button
-                onClick={() => { setCancelModal(null); setCancelReason(""); }}
+                onClick={() => {
+                  setCancelModal(null);
+                  setCancelReason("");
+                }}
                 className="btn-ghost text-sm px-4"
               >
                 Back
@@ -709,7 +747,10 @@ export default function AdminDashboard({ publicKey }: AdminPageProps) {
                 Freeze
               </button>
               <button
-                onClick={() => { setFreezeModal(null); setFreezeReason(""); }}
+                onClick={() => {
+                  setFreezeModal(null);
+                  setFreezeReason("");
+                }}
                 className="btn-ghost text-sm px-4"
               >
                 Cancel

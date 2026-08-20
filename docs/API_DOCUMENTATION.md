@@ -16,10 +16,12 @@ The Stellar MarketPay API uses OpenAPI 3.0 specification with Swagger UI for int
 ## Accessing Documentation
 
 ### Development
+
 - **Swagger UI**: http://localhost:4000/api/docs
 - **OpenAPI JSON**: http://localhost:4000/api/docs/json
 
 ### Production
+
 - **Swagger UI**: https://api.stellarmarketpay.com/api/docs
 - **OpenAPI JSON**: https://api.stellarmarketpay.com/api/docs/json
 
@@ -100,13 +102,16 @@ npm run generate-openapi
 ## Documentation Standards
 
 ### Required Fields
+
 - `summary`: Brief, one-line description
 - `description`: Detailed explanation of the endpoint
 - `tags`: Group endpoints logically (e.g., [Authentication], [Jobs], [Applications])
 - `responses`: Document at least the success response and common error responses
 
 ### Response Documentation
+
 Always document:
+
 - `200`: Success response
 - `400`: Bad request
 - `401`: Unauthorized (if authentication required)
@@ -114,6 +119,7 @@ Always document:
 - `500`: Server error
 
 ### Parameter Documentation
+
 - Path parameters: Mark as `required: true`
 - Query parameters: Include type, format, and description
 - Request body: Include schema validation
@@ -134,6 +140,7 @@ The following tags are used for organizing endpoints:
 ## Security Documentation
 
 ### Authentication Methods
+
 - **Bearer Token**: JWT token in Authorization header
 - **Cookie Auth**: JWT token in HTTP cookie
 
@@ -158,6 +165,7 @@ The GitHub Actions workflow `.github/workflows/check-openapi-docs.yml`:
 ### Build Process
 
 The build process includes:
+
 1. OpenAPI specification generation
 2. Linting and validation
 3. Documentation completeness checks
@@ -181,6 +189,7 @@ The build process includes:
 ### Debugging
 
 Enable debug logging by setting environment variable:
+
 ```bash
 DEBUG=swagger-jsdoc* npm run generate-openapi
 ```
@@ -194,12 +203,14 @@ DEBUG=swagger-jsdoc* npm run generate-openapi
 ## Maintenance
 
 ### Regular Tasks
+
 1. Review documentation for accuracy after API changes
 2. Update schemas when data models change
 3. Add new tags when introducing new endpoint categories
 4. Validate documentation completeness before releases
 
 ### Version Updates
+
 - Update API version in `src/config/swagger.js`
 - Maintain backward compatibility when possible
 - Document breaking changes in release notes

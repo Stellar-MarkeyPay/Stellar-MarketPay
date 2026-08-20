@@ -39,62 +39,54 @@ describe("Chaos Engineering - Backend Resilience", () => {
   // ============================================================================
 
   describe("Database Resilience", () => {
-    it(
-      "recovers gracefully from database latency",
-      async () => {
-        const injectedQuery = chaosInjector.createLatencyInjectedQuery(
-          originalPoolQuery,
-          1000 // 1 second latency
-        );
+    it("recovers gracefully from database latency", async () => {
+      const injectedQuery = chaosInjector.createLatencyInjectedQuery(
+        originalPoolQuery,
+        1000 // 1 second latency
+      );
 
-        const metrics = await chaosInjector.runChaosScenario(
-          CHAOS_SCENARIOS.DB_LATENCY,
-          async () => {
-            const queryStartTime = Date.now();
+      const metrics = await chaosInjector.runChaosScenario(
+        CHAOS_SCENARIOS.DB_LATENCY,
+        async () => {
+          const queryStartTime = Date.now();
+          await injectedQuery("SELECT 1");
+          const duration = Date.now() - queryStartTime;
+
+          return {
+            success: true,
+            latency: duration,
+          };
+        },
+        3 // Run 3 times
+      );
+
+      // Assert latency is injected but requests still complete
+      expect(metrics.successCount).toBeGreaterThanOrEqual(2);
+      expect(metrics.averageLatency).toBeGreaterThan(500);
+    }, 15000);
+
+    it("handles database connection timeouts", async () => {
+      const injectedQuery = chaosInjector.createTimeoutInjectedQuery(
+        originalPoolQuery,
+        100 // 100ms timeout
+      );
+
+      const metrics = await chaosInjector.runChaosScenario(
+        CHAOS_SCENARIOS.DB_TIMEOUT,
+        async () => {
+          try {
             await injectedQuery("SELECT 1");
-            const duration = Date.now() - queryStartTime;
+            return { success: true };
+          } catch (error) {
+            return { success: false, error: error.message };
+          }
+        },
+        3
+      );
 
-            return {
-              success: true,
-              latency: duration,
-            };
-          },
-          3 // Run 3 times
-        );
-
-        // Assert latency is injected but requests still complete
-        expect(metrics.successCount).toBeGreaterThanOrEqual(2);
-        expect(metrics.averageLatency).toBeGreaterThan(500);
-      },
-      15000
-    );
-
-    it(
-      "handles database connection timeouts",
-      async () => {
-        const injectedQuery = chaosInjector.createTimeoutInjectedQuery(
-          originalPoolQuery,
-          100 // 100ms timeout
-        );
-
-        const metrics = await chaosInjector.runChaosScenario(
-          CHAOS_SCENARIOS.DB_TIMEOUT,
-          async () => {
-            try {
-              await injectedQuery("SELECT 1");
-              return { success: true };
-            } catch (error) {
-              return { success: false, error: error.message };
-            }
-          },
-          3
-        );
-
-        // System should handle both successes and timeouts
-        expect(metrics.totalRuns).toBe(3);
-      },
-      10000
-    );
+      // System should handle both successes and timeouts
+      expect(metrics.totalRuns).toBe(3);
+    }, 10000);
 
     it("recovers from database disconnection", async () => {
       const injectedQuery = chaosInjector.createConnectionLossQuery(
@@ -177,38 +169,34 @@ describe("Chaos Engineering - Backend Resilience", () => {
   // ============================================================================
 
   describe("Network Resilience", () => {
-    it(
-      "handles network latency spikes",
-      async () => {
-        const latencySpikes = [50, 100, 150, 100];
-        let spikeIndex = 0;
+    it("handles network latency spikes", async () => {
+      const latencySpikes = [50, 100, 150, 100];
+      let spikeIndex = 0;
 
-        const injectedQuery = chaosInjector.createLatencyInjectedQuery(
-          originalPoolQuery,
-          () => latencySpikes[spikeIndex++ % latencySpikes.length]
-        );
+      const injectedQuery = chaosInjector.createLatencyInjectedQuery(
+        originalPoolQuery,
+        () => latencySpikes[spikeIndex++ % latencySpikes.length]
+      );
 
-        const results = [];
+      const results = [];
 
-        for (let i = 0; i < 4; i++) {
-          const startTime = Date.now();
-          try {
-            await injectedQuery("SELECT 1");
-            results.push({
-              success: true,
-              latency: Date.now() - startTime,
-            });
-          } catch (error) {
-            results.push({ success: false, error: error.message });
-          }
+      for (let i = 0; i < 4; i++) {
+        const startTime = Date.now();
+        try {
+          await injectedQuery("SELECT 1");
+          results.push({
+            success: true,
+            latency: Date.now() - startTime,
+          });
+        } catch (error) {
+          results.push({ success: false, error: error.message });
         }
+      }
 
-        // All requests should complete despite varying latency
-        const successCount = results.filter((r) => r.success).length;
-        expect(successCount).toBe(4);
-      },
-      10000
-    );
+      // All requests should complete despite varying latency
+      const successCount = results.filter((r) => r.success).length;
+      expect(successCount).toBe(4);
+    }, 10000);
 
     it("recovers from intermittent network failures", async () => {
       let failureCount = 0;
@@ -270,82 +258,66 @@ describe("Chaos Engineering - Backend Resilience", () => {
   // ============================================================================
 
   describe("Service Resilience", () => {
-    it(
-      "handles concurrent request overload",
-      async () => {
-        const concurrentRequests = 30;
-        const injectedQuery = chaosInjector.createLatencyInjectedQuery(
-          originalPoolQuery,
-          20
-        );
+    it("handles concurrent request overload", async () => {
+      const concurrentRequests = 30;
+      const injectedQuery = chaosInjector.createLatencyInjectedQuery(originalPoolQuery, 20);
 
-        const promises = Array.from({ length: concurrentRequests }).map(() =>
-          injectedQuery("SELECT 1")
-            .then(() => ({ success: true }))
-            .catch((error) => ({ success: false, error: error.message }))
-        );
+      const promises = Array.from({ length: concurrentRequests }).map(() =>
+        injectedQuery("SELECT 1")
+          .then(() => ({ success: true }))
+          .catch((error) => ({ success: false, error: error.message }))
+      );
 
-        const batchResults = await Promise.all(promises);
+      const batchResults = await Promise.all(promises);
 
-        const successCount = batchResults.filter((r) => r.success).length;
+      const successCount = batchResults.filter((r) => r.success).length;
 
-        // Should handle high concurrency
-        expect(successCount).toBeGreaterThanOrEqual(
-          Math.floor(concurrentRequests * 0.8)
-        );
-      },
-      15000
-    );
+      // Should handle high concurrency
+      expect(successCount).toBeGreaterThanOrEqual(Math.floor(concurrentRequests * 0.8));
+    }, 15000);
 
-    it(
-      "detects and reports service health degradation",
-      async () => {
-        const injectedQuery = chaosInjector.createLatencyInjectedQuery(
-          originalPoolQuery,
-          () => Math.random() * 300 // Variable latency up to 300ms
-        );
+    it("detects and reports service health degradation", async () => {
+      const injectedQuery = chaosInjector.createLatencyInjectedQuery(
+        originalPoolQuery,
+        () => Math.random() * 300 // Variable latency up to 300ms
+      );
 
-        const metrics = await chaosInjector.runChaosScenario(
-          CHAOS_SCENARIOS.DEGRADATION,
-          async () => {
-            const requests = 15;
-            const results = [];
+      const metrics = await chaosInjector.runChaosScenario(
+        CHAOS_SCENARIOS.DEGRADATION,
+        async () => {
+          const requests = 15;
+          const results = [];
 
-            for (let i = 0; i < requests; i++) {
-              const startTime = Date.now();
-              try {
-                await injectedQuery("SELECT 1");
-                results.push({
-                  success: true,
-                  latency: Date.now() - startTime,
-                });
-              } catch (error) {
-                results.push({ success: false });
-              }
+          for (let i = 0; i < requests; i++) {
+            const startTime = Date.now();
+            try {
+              await injectedQuery("SELECT 1");
+              results.push({
+                success: true,
+                latency: Date.now() - startTime,
+              });
+            } catch (error) {
+              results.push({ success: false });
             }
+          }
 
-            const avgLatency =
-              results.reduce((sum, r) => sum + (r.latency || 0), 0) /
-              results.length;
-            const errorRate =
-              results.filter((r) => !r.success).length / requests;
+          const avgLatency = results.reduce((sum, r) => sum + (r.latency || 0), 0) / results.length;
+          const errorRate = results.filter((r) => !r.success).length / requests;
 
-            return {
-              totalRequests: requests,
-              successCount: results.filter((r) => r.success).length,
-              averageLatency: avgLatency,
-              errorRate,
-              degraded: errorRate > 0.05 || avgLatency > 150,
-            };
-          },
-          1
-        );
+          return {
+            totalRequests: requests,
+            successCount: results.filter((r) => r.success).length,
+            averageLatency: avgLatency,
+            errorRate,
+            degraded: errorRate > 0.05 || avgLatency > 150,
+          };
+        },
+        1
+      );
 
-        // Should detect degradation
-        expect(metrics.averageLatency).toBeGreaterThan(50);
-      },
-      10000
-    );
+      // Should detect degradation
+      expect(metrics.averageLatency).toBeGreaterThan(50);
+    }, 10000);
 
     it("implements circuit breaker pattern for failing services", async () => {
       let failCount = 0;
@@ -389,70 +361,61 @@ describe("Chaos Engineering - Backend Resilience", () => {
   // ============================================================================
 
   describe("System Recovery and Resilience", () => {
-    it(
-      "achieves acceptable success rate under chaos",
-      async () => {
-        const chaosScenarios = [
-          {
-            name: "latency",
-            injector: (q) => chaosInjector.createLatencyInjectedQuery(q, 50),
-          },
-          {
-            name: "errors",
-            injector: (q) => chaosInjector.createErrorInjectedQuery(q, 0.05),
-          },
-        ];
+    it("achieves acceptable success rate under chaos", async () => {
+      const chaosScenarios = [
+        {
+          name: "latency",
+          injector: (q) => chaosInjector.createLatencyInjectedQuery(q, 50),
+        },
+        {
+          name: "errors",
+          injector: (q) => chaosInjector.createErrorInjectedQuery(q, 0.05),
+        },
+      ];
 
-        for (const scenario of chaosScenarios) {
-          const injectedQuery = scenario.injector(originalPoolQuery);
+      for (const scenario of chaosScenarios) {
+        const injectedQuery = scenario.injector(originalPoolQuery);
 
-          const results = [];
-          for (let i = 0; i < 200; i++) {
-            try {
-              await injectedQuery("SELECT 1");
-              results.push(true);
-            } catch (error) {
-              results.push(false);
-            }
-          }
-
-          const successRate = results.filter((r) => r).length / results.length;
-
-          // Success rate should be high
-          expect(successRate).toBeGreaterThanOrEqual(0.90);
-        }
-      },
-      15000
-    );
-
-    it(
-      "meets steady-state latency requirements under load",
-      async () => {
-        const injectedQuery = chaosInjector.createLatencyInjectedQuery(
-          originalPoolQuery,
-          () => Math.random() * 150 // Up to 150ms
-        );
-
-        const latencies = [];
-
-        for (let i = 0; i < 30; i++) {
-          const startTime = Date.now();
+        const results = [];
+        for (let i = 0; i < 200; i++) {
           try {
             await injectedQuery("SELECT 1");
-            latencies.push(Date.now() - startTime);
+            results.push(true);
           } catch (error) {
-            latencies.push(STEADY_STATE_METRICS.maxLatency);
+            results.push(false);
           }
         }
 
-        const avgLatency =
-          latencies.reduce((a, b) => a + b, 0) / latencies.length;
+        const successRate = results.filter((r) => r).length / results.length;
 
-        // Average latency should be reasonable
-        expect(avgLatency).toBeLessThan(300);
-      },
-      10000
-    );
+        // Success rate should be high
+        expect(successRate).toBeGreaterThanOrEqual(0.9);
+      }
+    }, 15000);
+
+    it("meets steady-state latency requirements under load", async () => {
+      const injectedQuery = chaosInjector.createLatencyInjectedQuery(
+        originalPoolQuery,
+        () => Math.random() * 150 // Up to 150ms
+      );
+
+      const latencies = [];
+
+      for (let i = 0; i < 30; i++) {
+        const startTime = Date.now();
+        try {
+          await injectedQuery("SELECT 1");
+          latencies.push(Date.now() - startTime);
+        } catch (error) {
+          latencies.push(STEADY_STATE_METRICS.maxLatency);
+        }
+      }
+
+      const avgLatency = latencies.reduce((a, b) => a + b, 0) / latencies.length;
+
+      // Average latency should be reasonable
+      expect(avgLatency).toBeLessThan(300);
+    }, 10000);
 
     it("logs chaos events for audit trail", async () => {
       const chaosEvents = [];
@@ -461,10 +424,7 @@ describe("Chaos Engineering - Backend Resilience", () => {
         chaosEvents.push(event);
       });
 
-      const injectedQuery = chaosInjector.createErrorInjectedQuery(
-        originalPoolQuery,
-        0.3
-      );
+      const injectedQuery = chaosInjector.createErrorInjectedQuery(originalPoolQuery, 0.3);
 
       for (let i = 0; i < 5; i++) {
         try {

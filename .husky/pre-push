@@ -1,0 +1,2 @@
+export PATH=$PATH:$HOME/.nvm/versions/node/v24.18.0/bin:$HOME/.cargo/bin
+npm run test:fast

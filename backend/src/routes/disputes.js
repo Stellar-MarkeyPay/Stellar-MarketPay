@@ -13,33 +13,36 @@
  */
 "use strict";
 
-const express    = require("express");
-const router     = express.Router();
-const multer     = require("multer");
-const pool       = require("../db/pool");
+const express = require("express");
+const router = express.Router();
+const multer = require("multer");
+const pool = require("../db/pool");
 const { createRateLimiter } = require("../middleware/rateLimiter");
-const { verifyJWT }         = require("../middleware/auth");
-const ipfsService            = require("../services/ipfsService");
-const { validateIpfsCid }    = require("../services/disputeService");
+const { verifyJWT } = require("../middleware/auth");
+const ipfsService = require("../services/ipfsService");
+const { validateIpfsCid } = require("../services/disputeService");
 
 const MAX_FILES_PER_PARTY = 10;
-const MAX_FILE_SIZE       = 5 * 1024 * 1024; // 5 MB
-const ALLOWED_MIME_TYPES  = new Set([
-  "image/jpeg", "image/png", "image/gif", "image/webp",
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
+const ALLOWED_MIME_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
   "application/pdf",
   "text/plain",
 ]);
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits:  { fileSize: MAX_FILE_SIZE, files: 1 },
+  limits: { fileSize: MAX_FILE_SIZE, files: 1 },
   fileFilter: (_req, file, cb) => {
     if (ALLOWED_MIME_TYPES.has(file.mimetype)) cb(null, true);
     else cb(Object.assign(new Error(`File type ${file.mimetype} is not allowed`), { status: 400 }));
   },
 });
 
-const readRateLimiter   = createRateLimiter(30, 1);
+const readRateLimiter = createRateLimiter(30, 1);
 const uploadRateLimiter = createRateLimiter(5, 1);
 
 // GET /api/disputes/:jobId
@@ -72,18 +75,20 @@ router.get("/:jobId", readRateLimiter, async (req, res, next) => {
       data: {
         job: jobRows[0],
         evidence: evidence.map((ev) => ({
-          id:              ev.id,
+          id: ev.id,
           uploaderAddress: ev.uploader_address,
-          fileName:        ev.file_name,
-          fileSize:        ev.file_size,
-          mimeType:        ev.mime_type,
-          ipfsCid:         ev.ipfs_cid,
-          gatewayUrl:      ipfsService.getGatewayUrl(ev.ipfs_cid),
-          createdAt:       ev.created_at,
+          fileName: ev.file_name,
+          fileSize: ev.file_size,
+          mimeType: ev.mime_type,
+          ipfsCid: ev.ipfs_cid,
+          gatewayUrl: ipfsService.getGatewayUrl(ev.ipfs_cid),
+          createdAt: ev.created_at,
         })),
       },
     });
-  } catch (e) { next(e); }
+  } catch (e) {
+    next(e);
+  }
 });
 
 // POST /api/disputes/:jobId/evidence
@@ -94,8 +99,8 @@ router.post(
   upload.single("file"),
   async (req, res, next) => {
     try {
-      const { jobId }          = req.params;
-      const uploaderAddress    = req.user.publicKey;
+      const { jobId } = req.params;
+      const uploaderAddress = req.user.publicKey;
 
       if (!req.file) {
         const e = new Error("No file provided");
@@ -141,7 +146,9 @@ router.post(
         );
       } catch (ipfsError) {
         // Return user-friendly error for IPFS failures
-        const e = new Error(ipfsError.message || "Upload service temporarily unavailable. Please try again later.");
+        const e = new Error(
+          ipfsError.message || "Upload service temporarily unavailable. Please try again later."
+        );
         e.status = ipfsError.status || 503;
         e.code = ipfsError.code || "IPFS_UPLOAD_FAILED";
         throw e;
@@ -161,17 +168,19 @@ router.post(
       res.status(201).json({
         success: true,
         data: {
-          id:              ev.id,
+          id: ev.id,
           uploaderAddress: ev.uploader_address,
-          fileName:        ev.file_name,
-          fileSize:        ev.file_size,
-          mimeType:        ev.mime_type,
-          ipfsCid:         ev.ipfs_cid,
-          gatewayUrl:      ipfsService.getGatewayUrl(ev.ipfs_cid),
-          createdAt:       ev.created_at,
+          fileName: ev.file_name,
+          fileSize: ev.file_size,
+          mimeType: ev.mime_type,
+          ipfsCid: ev.ipfs_cid,
+          gatewayUrl: ipfsService.getGatewayUrl(ev.ipfs_cid),
+          createdAt: ev.created_at,
         },
       });
-    } catch (e) { next(e); }
+    } catch (e) {
+      next(e);
+    }
   }
 );
 

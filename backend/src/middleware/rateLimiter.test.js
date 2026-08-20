@@ -36,9 +36,7 @@ describe("rate limiter IP handling", () => {
       expect(res.status).toBe(200);
     }
 
-    const blocked = await request(app)
-      .get("/test")
-      .set("X-Forwarded-For", "10.0.0.99");
+    const blocked = await request(app).get("/test").set("X-Forwarded-For", "10.0.0.99");
 
     expect(blocked.status).toBe(429);
     expect(blocked.body.message).toMatch(/too many requests/i);
@@ -48,19 +46,13 @@ describe("rate limiter IP handling", () => {
     delete process.env.TRUSTED_PROXY_IPS;
     const app = buildTestApp(2);
 
-    const first = await request(app)
-      .get("/test")
-      .set("X-Forwarded-For", "203.0.113.10");
-    const second = await request(app)
-      .get("/test")
-      .set("X-Forwarded-For", "198.51.100.20");
+    const first = await request(app).get("/test").set("X-Forwarded-For", "203.0.113.10");
+    const second = await request(app).get("/test").set("X-Forwarded-For", "198.51.100.20");
 
     expect(first.status).toBe(200);
     expect(second.status).toBe(200);
 
-    const third = await request(app)
-      .get("/test")
-      .set("X-Forwarded-For", "192.0.2.30");
+    const third = await request(app).get("/test").set("X-Forwarded-For", "192.0.2.30");
 
     expect(third.status).toBe(429);
   });
@@ -69,20 +61,14 @@ describe("rate limiter IP handling", () => {
     process.env.TRUSTED_PROXY_IPS = "127.0.0.1,::ffff:127.0.0.1";
     const app = buildTestApp(2);
 
-    const first = await request(app)
-      .get("/test")
-      .set("X-Forwarded-For", "203.0.113.10");
-    const second = await request(app)
-      .get("/test")
-      .set("X-Forwarded-For", "203.0.113.10");
+    const first = await request(app).get("/test").set("X-Forwarded-For", "203.0.113.10");
+    const second = await request(app).get("/test").set("X-Forwarded-For", "203.0.113.10");
 
     expect(first.status).toBe(200);
     expect(second.status).toBe(200);
     expect(first.body.ip).toBe("203.0.113.10");
 
-    const third = await request(app)
-      .get("/test")
-      .set("X-Forwarded-For", "203.0.113.10");
+    const third = await request(app).get("/test").set("X-Forwarded-For", "203.0.113.10");
 
     expect(third.status).toBe(429);
   });

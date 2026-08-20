@@ -1,6 +1,7 @@
 # Authentication Flow (Stellar SEP‑10)
 
 **Table of Contents**
+
 - [Overview](#overview)
 - [SEP‑10 Standard](#sep-10-standard)
 - [Flow Diagram](#flow-diagram)
@@ -12,13 +13,15 @@
 ---
 
 ## Overview
-Stellar MarketPay uses **SEP‑10** – the Stellar standard for **challenge‑response authentication**. Instead of passwords or OAuth, a user proves ownership of a Stellar account by signing a server‑generated transaction (the *challenge*) with their wallet (e.g., **Freighter**). When the signature is verified on‑chain, the server issues a short‑lived **JWT** for subsequent API calls.
+
+Stellar MarketPay uses **SEP‑10** – the Stellar standard for **challenge‑response authentication**. Instead of passwords or OAuth, a user proves ownership of a Stellar account by signing a server‑generated transaction (the _challenge_) with their wallet (e.g., **Freighter**). When the signature is verified on‑chain, the server issues a short‑lived **JWT** for subsequent API calls.
 
 This flow is deliberately **stateless** on the backend: the server never stores private keys, and the JWT contains only a minimal set of claims (`sub`, `exp`, `iat`). It works equally well for developers familiar with Web2 auth and those coming from the Stellar ecosystem.
 
 ---
 
 ## SEP‑10 Standard
+
 - Official specification: https://github.com/stellar/stellar-protocol/blob/master/ecosystem/sep-0010.md
 - Key concepts:
   - **Challenge transaction** – an unsigned `TransactionEnvelope` (XDR) that includes a **nonce** and **home domain**.
@@ -28,12 +31,13 @@ This flow is deliberately **stateless** on the backend: the server never stores 
 ---
 
 ## Flow Diagram
+
 ```mermaid
 sequenceDiagram
     participant C as Client (Browser)
     participant F as Freighter Wallet
     participant S as Server (API)
-    
+
     C->>S: GET /api/auth?account=GXXXX
     S-->>C: unsigned challenge XDR (base64)
     C->>F: request signing of XDR
@@ -51,6 +55,7 @@ sequenceDiagram
 ---
 
 ## Frontend Example (Freighter)
+
 ```tsx
 import { useRouter } from "next/router";
 
@@ -69,14 +74,11 @@ async function authenticate(account: string) {
   const signedXdr = await freighter.signTransaction(transaction);
 
   // 3️⃣ Send the signed XDR back to the server
-  const loginRes = await fetch(
-    `${process.env.NEXT_PUBLIC_API_URL}/api/auth`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ signedXdr }),
-    }
-  );
+  const loginRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ signedXdr }),
+  });
 
   if (!loginRes.ok) throw new Error("Authentication failed");
   const { token } = await loginRes.json();
@@ -102,6 +104,7 @@ export default function ConnectButton() {
 ---
 
 ## Backend Example (Node + Express)
+
 ```ts
 import express from "express";
 import { Server } from "stellar-sdk"; // v10+ includes SEP‑10 utilities
@@ -159,7 +162,7 @@ app.get("/api/profile", (req, res) => {
   try {
     const payload = jwt.verify(auth, JWT_SECRET) as { sub: string };
     // `payload.sub` is the Stellar address, use it to look up data
-    res.json({ stellarAddress: payload.sub, /* … */ });
+    res.json({ stellarAddress: payload.sub /* … */ });
   } catch {
     res.status(401).json({ error: "invalid token" });
   }
@@ -171,6 +174,7 @@ app.listen(4000, () => console.log("Auth server listening on :4000"));
 ---
 
 ## Using the JWT
+
 1. **Store** the token securely – an `httpOnly` cookie is recommended for production.
 2. **Attach** it to every request that needs authentication:
    ```http
@@ -182,25 +186,31 @@ app.listen(4000, () => console.log("Auth server listening on :4000"));
 ---
 
 ## Common Questions
+
 ### Why not use OAuth / passwords?
+
 - **Password‑less** – users never create or share a secret with the app.
 - **No credential storage** – the only secret lives in the user’s wallet.
 - **Blockchain‑native** – the identity is a public Stellar address that can be used on‑chain.
 
 ### What is XDR?
+
 XDR (External Data Representation) is a binary format used by Stellar for all network objects. The challenge transaction is serialized to XDR, Base64‑encoded for transport, and signed by the wallet.
 
 ### What if the user's wallet is compromised?
+
 If an attacker obtains the private key, they can sign any transaction, including a new SEP‑10 challenge. This is equivalent to losing control of the Stellar account – the same risk as any blockchain asset. Users should **store their secret keys safely** and can rotate the account by creating a new Stellar address.
 
 ---
 
 ## Linking from the README
+
 Add the following line to the project's README (e.g., under a "Documentation" heading):
+
 ```
 📚 See the full authentication flow in [docs/auth-flow.md](docs/auth-flow.md).
 ```
 
 ---
 
-*This document is intentionally concise but complete enough for contributors to implement, test, and extend the authentication flow.*
+_This document is intentionally concise but complete enough for contributors to implement, test, and extend the authentication flow._

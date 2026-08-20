@@ -42,13 +42,7 @@ Stellar Network
 ### Horizon Query Pattern
 
 ```javascript
-server
-  .transactions()
-  .forAccount(publicKey)
-  .limit(20)
-  .order("desc")
-  .cursor(lastTxId)
-  .call();
+server.transactions().forAccount(publicKey).limit(20).order("desc").cursor(lastTxId).call();
 ```
 
 ## Rationale

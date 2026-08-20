@@ -7,7 +7,9 @@ const { requireEnv } = require("../config/env");
 function parseJobIdFromMemo(memoValue) {
   if (!memoValue || typeof memoValue !== "string") return null;
   const trimmed = memoValue.trim();
-  const uuidMatch = trimmed.match(/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/i);
+  const uuidMatch = trimmed.match(
+    /[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/i
+  );
   if (uuidMatch) return uuidMatch[0];
   return null;
 }
@@ -33,7 +35,13 @@ function isDonation(op, platformWallet) {
 }
 
 class IndexerService {
-  constructor({ platformWallet, horizonUrl, contractId, broadcast = () => {}, cdnInvalidation = null }) {
+  constructor({
+    platformWallet,
+    horizonUrl,
+    contractId,
+    broadcast = () => {},
+    cdnInvalidation = null,
+  }) {
     this.platformWallet = platformWallet;
     this.horizonUrl = horizonUrl || "https://horizon-testnet.stellar.org";
     this.broadcast = broadcast;
@@ -48,7 +56,9 @@ class IndexerService {
     };
     this.closeStream = null;
     this.closeEventStream = null;
-    this.contractId = requireEnv("CONTRACT_ID", { fallback: contractId || process.env.ESCROW_CONTRACT_ID });
+    this.contractId = requireEnv("CONTRACT_ID", {
+      fallback: contractId || process.env.ESCROW_CONTRACT_ID,
+    });
   }
 
   async loadCheckpoint() {
@@ -201,14 +211,14 @@ class IndexerService {
     if (!eventTypeRaw) return;
 
     const typeMap = {
-      "escrow_created":      "escrow_created",
-      "work_started":        "work_started",
-      "escrow_released":     "escrow_released",
-      "escrow_refunded":     "escrow_refunded",
-      "escrow_timeout_refunded": "escrow_refunded",
-      "escrow_disputed":     "dispute_opened",
-      "milestone_released":  "milestone_released",
-      "message_sent":        "message_sent"
+      escrow_created: "escrow_created",
+      work_started: "work_started",
+      escrow_released: "escrow_released",
+      escrow_refunded: "escrow_refunded",
+      escrow_timeout_refunded: "escrow_refunded",
+      escrow_disputed: "dispute_opened",
+      milestone_released: "milestone_released",
+      message_sent: "message_sent",
     };
 
     const eventType = typeMap[eventTypeRaw];
@@ -231,7 +241,7 @@ class IndexerService {
         event.transaction_hash,
         event.ledger,
         data,
-        event.ledger_closed_at
+        event.ledger_closed_at,
       ]
     );
 
@@ -289,10 +299,7 @@ class IndexerService {
 
         case "milestone_released":
           // Mark partial progress; full release events will update status separately
-          await client.query(
-            `UPDATE escrows SET updated_at = NOW() WHERE job_id = $1`,
-            [jobId]
-          );
+          await client.query(`UPDATE escrows SET updated_at = NOW() WHERE job_id = $1`, [jobId]);
           break;
 
         default:
@@ -334,7 +341,9 @@ class IndexerService {
     this.syncState.running = true;
     this.syncState.lastError = null;
 
-    const cursor = this.syncState.lastProcessedLedger ? String(this.syncState.lastProcessedLedger) : "now";
+    const cursor = this.syncState.lastProcessedLedger
+      ? String(this.syncState.lastProcessedLedger)
+      : "now";
 
     this.closeStream = this.horizon
       .transactions()

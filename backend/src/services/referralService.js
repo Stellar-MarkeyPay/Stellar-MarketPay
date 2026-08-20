@@ -73,7 +73,7 @@ async function registerReferral(referrerAddress, refereeAddress) {
   for (let i = 0; i < MAX_DEPTH + 1; i++) {
     const { rows } = await pool.query(
       "SELECT parent_address FROM referral_tree WHERE child_address = $1 LIMIT 1",
-      [cursor],
+      [cursor]
     );
     if (!rows.length) break;
     cursor = rows[0].parent_address;
@@ -87,7 +87,7 @@ async function registerReferral(referrerAddress, refereeAddress) {
   // ── Compute child's depth ─────────────────────────────────────────────────
   const { rows: parentRows } = await pool.query(
     "SELECT depth FROM referral_tree WHERE child_address = $1 LIMIT 1",
-    [referrerAddress],
+    [referrerAddress]
   );
   const parentDepth = parentRows.length ? parentRows[0].depth : 0;
   const childDepth = parentDepth + 1;
@@ -102,7 +102,7 @@ async function registerReferral(referrerAddress, refereeAddress) {
        VALUES ($1, $2, 'pending', 1, $1)
        ON CONFLICT (referrer_address, referee_address) DO NOTHING
        RETURNING *`,
-      [referrerAddress, refereeAddress],
+      [referrerAddress, refereeAddress]
     );
 
     // ── referral_tree table ───────────────────────────────────────────────────
@@ -110,7 +110,7 @@ async function registerReferral(referrerAddress, refereeAddress) {
       `INSERT INTO referral_tree (child_address, parent_address, depth)
        VALUES ($1, $2, $3)
        ON CONFLICT (child_address) DO NOTHING`,
-      [refereeAddress, referrerAddress, childDepth],
+      [refereeAddress, referrerAddress, childDepth]
     );
 
     if (refRows.length > 0) {
@@ -119,7 +119,7 @@ async function registerReferral(referrerAddress, refereeAddress) {
         `UPDATE profiles
          SET referral_count = referral_count + 1, updated_at = NOW()
          WHERE public_key = $1`,
-        [referrerAddress],
+        [referrerAddress]
       );
     }
 
@@ -140,7 +140,7 @@ async function registerReferral(referrerAddress, refereeAddress) {
 async function getReferrerForReferee(refereeAddress) {
   const { rows } = await pool.query(
     `SELECT parent_address FROM referral_tree WHERE child_address = $1 LIMIT 1`,
-    [refereeAddress],
+    [refereeAddress]
   );
   return rows.length ? rows[0].parent_address : null;
 }
@@ -172,7 +172,7 @@ async function processMultiLevelPayout(jobId, refereeAddress, amountXlm, contrac
      WHERE j.freelancer_address = $1
        AND e.status = 'released'
        AND j.id != $2`,
-    [refereeAddress, jobId],
+    [refereeAddress, jobId]
   );
   if (parseInt(prevJobs[0].cnt, 10) > 0) return [];
 
@@ -185,7 +185,7 @@ async function processMultiLevelPayout(jobId, refereeAddress, amountXlm, contrac
   for (let level = 1; level <= MAX_DEPTH; level++) {
     const { rows } = await pool.query(
       "SELECT parent_address FROM referral_tree WHERE child_address = $1 LIMIT 1",
-      [cursor],
+      [cursor]
     );
     if (!rows.length) break;
     const parentAddr = rows[0].parent_address;
@@ -207,7 +207,7 @@ async function processMultiLevelPayout(jobId, refereeAddress, amountXlm, contrac
         `INSERT INTO multi_level_payouts
            (job_id, freelancer_address, recipient_address, level, amount_xlm, contract_tx_hash)
          VALUES ($1, $2, $3, $4, $5, $6)`,
-        [jobId, refereeAddress, recipient, level, bonusXlm, contractTxHash || null],
+        [jobId, refereeAddress, recipient, level, bonusXlm, contractTxHash || null]
       );
 
       // For the direct (level-1) referral, also update the legacy referrals row
@@ -221,13 +221,13 @@ async function processMultiLevelPayout(jobId, refereeAddress, amountXlm, contrac
            WHERE referrer_address = $3
              AND referee_address = $4
              AND status = 'pending'`,
-          [bonusXlm, jobId, recipient, refereeAddress],
+          [bonusXlm, jobId, recipient, refereeAddress]
         );
 
         // Legacy payout audit row
         const { rows: refRow } = await client.query(
           "SELECT id FROM referrals WHERE referrer_address = $1 AND referee_address = $2 LIMIT 1",
-          [recipient, refereeAddress],
+          [recipient, refereeAddress]
         );
         if (refRow.length) {
           await client.query(
@@ -235,7 +235,7 @@ async function processMultiLevelPayout(jobId, refereeAddress, amountXlm, contrac
                (referral_id, referrer_address, referee_address, job_id, amount_xlm, contract_tx_hash)
              VALUES ($1, $2, $3, $4, $5, $6)
              ON CONFLICT DO NOTHING`,
-            [refRow[0].id, recipient, refereeAddress, jobId, bonusXlm, contractTxHash || null],
+            [refRow[0].id, recipient, refereeAddress, jobId, bonusXlm, contractTxHash || null]
           );
         }
       }
@@ -246,7 +246,7 @@ async function processMultiLevelPayout(jobId, refereeAddress, amountXlm, contrac
         `UPDATE profiles
          SET reputation_points = reputation_points + $1, updated_at = NOW()
          WHERE public_key = $2`,
-        [repBonus, recipient],
+        [repBonus, recipient]
       );
     }
 
@@ -279,7 +279,7 @@ async function processPlatformFeePayout(jobId, freelancerAddress, amountXlm, con
 
   const { rows: escrowRows } = await pool.query(
     "SELECT referrer_address FROM escrows WHERE job_id = $1",
-    [jobId],
+    [jobId]
   );
   const referrerAddress = escrowRows.length ? escrowRows[0].referrer_address : null;
 
@@ -294,7 +294,7 @@ async function processPlatformFeePayout(jobId, freelancerAddress, amountXlm, con
     `INSERT INTO platform_fee_payouts
        (job_id, freelancer_address, recipient_address, recipient_type, amount_xlm, contract_tx_hash)
      VALUES ($1, $2, $3, $4, $5, $6)`,
-    [jobId, freelancerAddress, recipient, recipientType, feeXlm, contractTxHash || null],
+    [jobId, freelancerAddress, recipient, recipientType, feeXlm, contractTxHash || null]
   );
 
   return { recipient, type: recipientType, feeXlm };
@@ -317,9 +317,17 @@ async function processReferralPayout(jobId, refereeAddress, amountXlm, contractT
     return direct ? { referrer: direct.recipient, bonusXlm: direct.bonusXlm } : null;
   }
 
-  const feePayout = await processPlatformFeePayout(jobId, refereeAddress, amountXlm, contractTxHash);
+  const feePayout = await processPlatformFeePayout(
+    jobId,
+    refereeAddress,
+    amountXlm,
+    contractTxHash
+  );
   if (!feePayout) return null;
-  return { referrer: feePayout.type === "referrer" ? feePayout.recipient : null, bonusXlm: feePayout.feeXlm };
+  return {
+    referrer: feePayout.type === "referrer" ? feePayout.recipient : null,
+    bonusXlm: feePayout.feeXlm,
+  };
 }
 
 // ── Queries ───────────────────────────────────────────────────────────────────
@@ -339,7 +347,7 @@ async function getReferralStats(publicKey) {
        COALESCE(SUM(payout_amount) FILTER (WHERE status = 'paid'), 0) AS total_earned_xlm
      FROM referrals
      WHERE referrer_address = $1`,
-    [publicKey],
+    [publicKey]
   );
 
   // Multi-level earnings from multi_level_payouts
@@ -348,7 +356,7 @@ async function getReferralStats(publicKey) {
             COUNT(*) AS tree_payout_count
      FROM multi_level_payouts
      WHERE recipient_address = $1`,
-    [publicKey],
+    [publicKey]
   );
 
   // ISSUE-17: platform fee earnings (escrows released with this user set as
@@ -358,7 +366,7 @@ async function getReferralStats(publicKey) {
             COUNT(*) AS fee_payout_count
      FROM platform_fee_payouts
      WHERE recipient_address = $1 AND recipient_type = 'referrer'`,
-    [publicKey],
+    [publicKey]
   );
 
   // Per-referee detail (direct children only)
@@ -377,7 +385,7 @@ async function getReferralStats(publicKey) {
      LEFT JOIN jobs j     ON j.id = r.job_id
      WHERE r.referrer_address = $1
      ORDER BY r.created_at DESC`,
-    [publicKey],
+    [publicKey]
   );
 
   // Payout history (legacy)
@@ -394,7 +402,7 @@ async function getReferralStats(publicKey) {
      JOIN jobs j ON j.id = rp.job_id
      WHERE rp.referrer_address = $1
      ORDER BY rp.created_at DESC`,
-    [publicKey],
+    [publicKey]
   );
 
   const s = summary[0];
@@ -489,7 +497,7 @@ async function getReferralTree(publicKey) {
        AND mlp.freelancer_address = s.child_address
      GROUP BY s.child_address, s.parent_address, s.rel_level, s.display_name
      ORDER BY s.rel_level, s.child_address`,
-    [publicKey, MAX_DEPTH],
+    [publicKey, MAX_DEPTH]
   );
 
   // ── Build the tree structure ───────────────────────────────────────────────
@@ -526,7 +534,7 @@ async function getReferralTree(publicKey) {
   // Fill in the root's displayName
   const { rows: rootProfile } = await pool.query(
     "SELECT display_name FROM profiles WHERE public_key = $1",
-    [publicKey],
+    [publicKey]
   );
   if (rootProfile.length) root.displayName = rootProfile[0].display_name;
 

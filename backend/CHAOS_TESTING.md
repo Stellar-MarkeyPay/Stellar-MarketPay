@@ -28,6 +28,7 @@ npm run test:chaos
 ### Run in CI/CD
 
 Chaos tests automatically run on:
+
 - Push to `main` or `develop` branches
 - Pull requests to `main`
 - Daily schedule (2 AM UTC)
@@ -55,13 +56,13 @@ View results in GitHub Actions under the **Chaos Engineering Tests** workflow.
 
 ### Injection Methods
 
-| Method | Purpose | Usage |
-|--------|---------|-------|
-| `createLatencyInjectedQuery()` | Simulates slow database responses | Test performance under latency |
-| `createTimeoutInjectedQuery()` | Simulates query timeouts | Test timeout handling |
-| `createConnectionLossQuery()` | Simulates connection failures | Test recovery from disconnection |
-| `createErrorInjectedQuery()` | Injects random database errors | Test error handling |
-| `runChaosScenario()` | Orchestrates a chaos scenario | Run multi-iteration tests |
+| Method                         | Purpose                           | Usage                            |
+| ------------------------------ | --------------------------------- | -------------------------------- |
+| `createLatencyInjectedQuery()` | Simulates slow database responses | Test performance under latency   |
+| `createTimeoutInjectedQuery()` | Simulates query timeouts          | Test timeout handling            |
+| `createConnectionLossQuery()`  | Simulates connection failures     | Test recovery from disconnection |
+| `createErrorInjectedQuery()`   | Injects random database errors    | Test error handling              |
+| `runChaosScenario()`           | Orchestrates a chaos scenario     | Run multi-iteration tests        |
 
 ## Test Scenarios
 
@@ -154,13 +155,13 @@ View results in GitHub Actions under the **Chaos Engineering Tests** workflow.
 
 These are the baseline metrics defining acceptable system behavior:
 
-| Metric | Target | Purpose |
-|--------|--------|---------|
-| **Max Latency** | 500ms (P95) | Prevents user-facing delays |
-| **Max Error Rate** | 1% | Maintains service availability |
-| **Min Success Rate** | 99% | High reliability threshold |
-| **Max Recovery Time** | 5 seconds | Fast failure recovery |
-| **Connection Pool** | <10 total | Resource efficiency |
+| Metric                | Target      | Purpose                        |
+| --------------------- | ----------- | ------------------------------ |
+| **Max Latency**       | 500ms (P95) | Prevents user-facing delays    |
+| **Max Error Rate**    | 1%          | Maintains service availability |
+| **Min Success Rate**  | 99%         | High reliability threshold     |
+| **Max Recovery Time** | 5 seconds   | Fast failure recovery          |
+| **Connection Pool**   | <10 total   | Resource efficiency            |
 
 ## Running Tests
 
@@ -194,13 +195,13 @@ npm test -- tests/chaos.test.js --coverage
 ### Custom Chaos Scenarios
 
 ```javascript
-const { createChaosInjector, CHAOS_SCENARIOS } = require('./tests/chaos-utils');
+const { createChaosInjector, CHAOS_SCENARIOS } = require("./tests/chaos-utils");
 
 const injector = createChaosInjector();
 
 // Run custom scenario
 const metrics = await injector.runChaosScenario(
-  'CUSTOM_SCENARIO',
+  "CUSTOM_SCENARIO",
   async () => {
     // Your test code here
     return { success: true, latency: 100 };
@@ -223,21 +224,22 @@ console.log(`Avg latency: ${metrics.averageLatency}ms`);
 
 ### Key Metrics
 
-| Metric | Result | Status |
-|--------|--------|--------|
-| Database Latency Recovery | 95% success | ✅ Pass |
-| Network Timeout Handling | 100% error classification | ✅ Pass |
-| Connection Loss Recovery | 85% recovery rate | ✅ Pass |
-| Pool Integrity | No leaks detected | ✅ Pass |
-| Concurrent Load (50 req) | 92% success | ✅ Pass |
-| P95 Latency | 480ms | ✅ Pass |
-| Success Rate Under Chaos | 99.2% | ✅ Pass |
+| Metric                    | Result                    | Status  |
+| ------------------------- | ------------------------- | ------- |
+| Database Latency Recovery | 95% success               | ✅ Pass |
+| Network Timeout Handling  | 100% error classification | ✅ Pass |
+| Connection Loss Recovery  | 85% recovery rate         | ✅ Pass |
+| Pool Integrity            | No leaks detected         | ✅ Pass |
+| Concurrent Load (50 req)  | 92% success               | ✅ Pass |
+| P95 Latency               | 480ms                     | ✅ Pass |
+| Success Rate Under Chaos  | 99.2%                     | ✅ Pass |
 
 ## Findings and Recommendations
 
 ### Current State
 
 The backend demonstrates strong resilience:
+
 - ✅ Automatic connection recovery works well
 - ✅ Query timeouts prevent hangs
 - ✅ Error handling is comprehensive
@@ -258,7 +260,7 @@ async function queryWithRetry(sql, params, maxRetries = 3) {
     } catch (error) {
       if (i === maxRetries - 1) throw error;
       const delay = Math.min(100 * Math.pow(2, i), 5000);
-      await new Promise(r => setTimeout(r, delay));
+      await new Promise((r) => setTimeout(r, delay));
     }
   }
 }
@@ -276,9 +278,9 @@ setInterval(() => {
     idle: pool.idleCount,
     waiting: pool.waitingCount,
   };
-  
+
   if (poolStats.waiting > pool.options.max * 0.8) {
-    logger.warn('Connection pool near capacity', poolStats);
+    logger.warn("Connection pool near capacity", poolStats);
     metrics.poolStressEvents.inc();
   }
 }, 5000);
@@ -295,14 +297,14 @@ class CircuitBreaker {
     this.failureCount = 0;
     this.failureThreshold = failureThreshold;
     this.resetTimeout = resetTimeout;
-    this.state = 'CLOSED'; // CLOSED, OPEN, HALF_OPEN
+    this.state = "CLOSED"; // CLOSED, OPEN, HALF_OPEN
   }
 
   async execute(fn) {
-    if (this.state === 'OPEN') {
-      throw new Error('Circuit breaker OPEN');
+    if (this.state === "OPEN") {
+      throw new Error("Circuit breaker OPEN");
     }
-    
+
     try {
       const result = await fn();
       this.onSuccess();
@@ -315,14 +317,16 @@ class CircuitBreaker {
 
   onSuccess() {
     this.failureCount = 0;
-    this.state = 'CLOSED';
+    this.state = "CLOSED";
   }
 
   onFailure() {
     this.failureCount++;
     if (this.failureCount >= this.failureThreshold) {
-      this.state = 'OPEN';
-      setTimeout(() => { this.state = 'HALF_OPEN'; }, this.resetTimeout);
+      this.state = "OPEN";
+      setTimeout(() => {
+        this.state = "HALF_OPEN";
+      }, this.resetTimeout);
     }
   }
 }
@@ -335,17 +339,15 @@ class CircuitBreaker {
 
 ```javascript
 const QUERY_TIMEOUTS = {
-  profile: 2000,      // 2 seconds for user profile
-  search: 5000,       // 5 seconds for complex search
+  profile: 2000, // 2 seconds for user profile
+  search: 5000, // 5 seconds for complex search
   transaction: 10000, // 10 seconds for escrow operations
 };
 
 async function executeWithTimeout(query, params, timeoutMs = 5000) {
   return Promise.race([
     pool.query(query, params),
-    new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Query timeout')), timeoutMs)
-    )
+    new Promise((_, reject) => setTimeout(() => reject(new Error("Query timeout")), timeoutMs)),
   ]);
 }
 ```
@@ -356,24 +358,24 @@ async function executeWithTimeout(query, params, timeoutMs = 5000) {
 **Recommended**: Explicit health check endpoint
 
 ```javascript
-app.get('/health', async (req, res) => {
+app.get("/health", async (req, res) => {
   try {
-    const { rows } = await pool.query('SELECT 1');
+    const { rows } = await pool.query("SELECT 1");
     const poolHealth = {
       total: pool.totalCount,
       idle: pool.idleCount,
       stress: pool.idleCount < 2,
     };
-    
+
     res.json({
-      status: 'healthy',
+      status: "healthy",
       database: rows.length > 0,
       poolHealth,
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
     res.status(503).json({
-      status: 'unhealthy',
+      status: "unhealthy",
       error: error.message,
     });
   }
@@ -387,7 +389,7 @@ app.get('/health', async (req, res) => {
 
 ```javascript
 const criticalPool = new Pool({ max: 5 }); // For transactions
-const searchPool = new Pool({ max: 3 });   // For searches
+const searchPool = new Pool({ max: 3 }); // For searches
 const generalPool = new Pool({ max: 10 }); // For general queries
 ```
 
@@ -399,7 +401,7 @@ const generalPool = new Pool({ max: 10 }); // For general queries
 ```javascript
 function logFailure(context, error, metrics) {
   logger.error({
-    event: 'query_failure',
+    event: "query_failure",
     context,
     error: error.message,
     code: error.code,
@@ -434,7 +436,7 @@ npm run test:chaos -- --scenario database_degradation
 ```javascript
 // chaos-utils.js
 const CHAOS_SCENARIOS = {
-  CUSTOM_SCENARIO: 'custom_scenario',
+  CUSTOM_SCENARIO: "custom_scenario",
 };
 ```
 
@@ -456,14 +458,14 @@ createCustomInjection(originalQuery, config = {}) {
 3. Add test in `chaos.test.js`:
 
 ```javascript
-it('handles custom scenario', async () => {
+it("handles custom scenario", async () => {
   const metrics = await chaosInjector.runChaosScenario(
     CHAOS_SCENARIOS.CUSTOM_SCENARIO,
     async () => {
       // Test implementation
     }
   );
-  
+
   expect(metrics.successRate).toBeGreaterThanOrEqual(0.99);
 });
 ```
@@ -477,12 +479,12 @@ const chaosMetrics = injector.getMetrics();
 
 promClient.collectDefaultMetrics({
   register: metricsRegistry,
-  prefix: 'chaos_',
+  prefix: "chaos_",
 });
 
 const chaosFailuresTotal = new promClient.Counter({
-  name: 'chaos_failures_total',
-  help: 'Total failures injected during chaos tests',
+  name: "chaos_failures_total",
+  help: "Total failures injected during chaos tests",
 });
 
 chaosFailuresTotal.inc(chaosMetrics.failuresInjected);

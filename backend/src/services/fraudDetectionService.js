@@ -28,27 +28,24 @@ const RULES = Object.freeze({
   windowMs: numberFromEnv("FRAUD_WINDOW_MS", DEFAULT_RULES.windowMs),
   maxFreelancerBidsPerWindow: numberFromEnv(
     "FRAUD_MAX_FREELANCER_BIDS_PER_WINDOW",
-    DEFAULT_RULES.maxFreelancerBidsPerWindow,
+    DEFAULT_RULES.maxFreelancerBidsPerWindow
   ),
   maxJobBidsPerWindow: numberFromEnv(
     "FRAUD_MAX_JOB_BIDS_PER_WINDOW",
-    DEFAULT_RULES.maxJobBidsPerWindow,
+    DEFAULT_RULES.maxJobBidsPerWindow
   ),
   maxBidToBudgetRatio: numberFromEnv(
     "FRAUD_MAX_BID_TO_BUDGET_RATIO",
-    DEFAULT_RULES.maxBidToBudgetRatio,
+    DEFAULT_RULES.maxBidToBudgetRatio
   ),
   minBidToBudgetRatio: numberFromEnv(
     "FRAUD_MIN_BID_TO_BUDGET_RATIO",
-    DEFAULT_RULES.minBidToBudgetRatio,
+    DEFAULT_RULES.minBidToBudgetRatio
   ),
-  maxAmountZScore: numberFromEnv(
-    "FRAUD_MAX_AMOUNT_ZSCORE",
-    DEFAULT_RULES.maxAmountZScore,
-  ),
+  maxAmountZScore: numberFromEnv("FRAUD_MAX_AMOUNT_ZSCORE", DEFAULT_RULES.maxAmountZScore),
   minJobBidsForAmountStats: numberFromEnv(
     "FRAUD_MIN_JOB_BIDS_FOR_AMOUNT_STATS",
-    DEFAULT_RULES.minJobBidsForAmountStats,
+    DEFAULT_RULES.minJobBidsForAmountStats
   ),
 });
 
@@ -186,7 +183,7 @@ async function persistAlert(alert) {
         JSON.stringify(alert.context),
         alert.sourceIpHash,
         alert.userAgent,
-      ],
+      ]
     );
   } catch (error) {
     logger.warn({ error: error.message, alert }, "Failed to persist fraud alert");
@@ -238,14 +235,17 @@ async function analyzeBidEvent(input = {}) {
   }
 
   const amount = normalizePositiveNumber(bidAmount, "bidAmount must be a positive number");
-  const budget = jobBudget == null ? null : normalizePositiveNumber(jobBudget, "jobBudget must be a positive number");
+  const budget =
+    jobBudget == null
+      ? null
+      : normalizePositiveNumber(jobBudget, "jobBudget must be a positive number");
   const now = Date.now();
 
   const jobWindow = pruneEntries(state.jobWindows.get(jobId) || [], now, RULES.windowMs);
   const freelancerWindow = pruneEntries(
     state.freelancerWindows.get(freelancerAddress) || [],
     now,
-    RULES.windowMs,
+    RULES.windowMs
   );
 
   const jobAmounts = jobWindow.map((entry) => entry.amount);
@@ -255,60 +255,68 @@ async function analyzeBidEvent(input = {}) {
   const rules = [];
 
   if (freelancerRecentBidCount > RULES.maxFreelancerBidsPerWindow) {
-    rules.push(createRule(
-      "FREELANCER_BID_SPAM",
-      "high",
-      `Freelancer submitted ${freelancerRecentBidCount} bids in ${Math.round(RULES.windowMs / 1000)} seconds`,
-      85,
-      {
-        limit: RULES.maxFreelancerBidsPerWindow,
-        recentBidCount: freelancerRecentBidCount,
-      },
-    ));
+    rules.push(
+      createRule(
+        "FREELANCER_BID_SPAM",
+        "high",
+        `Freelancer submitted ${freelancerRecentBidCount} bids in ${Math.round(RULES.windowMs / 1000)} seconds`,
+        85,
+        {
+          limit: RULES.maxFreelancerBidsPerWindow,
+          recentBidCount: freelancerRecentBidCount,
+        }
+      )
+    );
   }
 
   if (jobRecentBidCount > RULES.maxJobBidsPerWindow) {
-    rules.push(createRule(
-      "JOB_BID_SPAM",
-      "high",
-      `Job received ${jobRecentBidCount} bids in ${Math.round(RULES.windowMs / 1000)} seconds`,
-      80,
-      {
-        limit: RULES.maxJobBidsPerWindow,
-        recentBidCount: jobRecentBidCount,
-      },
-    ));
+    rules.push(
+      createRule(
+        "JOB_BID_SPAM",
+        "high",
+        `Job received ${jobRecentBidCount} bids in ${Math.round(RULES.windowMs / 1000)} seconds`,
+        80,
+        {
+          limit: RULES.maxJobBidsPerWindow,
+          recentBidCount: jobRecentBidCount,
+        }
+      )
+    );
   }
 
   if (budget != null) {
     const bidToBudgetRatio = amount / budget;
 
     if (bidToBudgetRatio > RULES.maxBidToBudgetRatio) {
-      rules.push(createRule(
-        "EXTREME_HIGH_BID",
-        "high",
-        `Bid is ${bidToBudgetRatio.toFixed(2)}x the job budget`,
-        90,
-        {
-          budget: formatAmount(budget),
-          bidToBudgetRatio: Number(bidToBudgetRatio.toFixed(4)),
-          limit: RULES.maxBidToBudgetRatio,
-        },
-      ));
+      rules.push(
+        createRule(
+          "EXTREME_HIGH_BID",
+          "high",
+          `Bid is ${bidToBudgetRatio.toFixed(2)}x the job budget`,
+          90,
+          {
+            budget: formatAmount(budget),
+            bidToBudgetRatio: Number(bidToBudgetRatio.toFixed(4)),
+            limit: RULES.maxBidToBudgetRatio,
+          }
+        )
+      );
     }
 
     if (bidToBudgetRatio < RULES.minBidToBudgetRatio) {
-      rules.push(createRule(
-        "EXTREME_LOW_BID",
-        "medium",
-        `Bid is ${bidToBudgetRatio.toFixed(2)}x the job budget`,
-        65,
-        {
-          budget: formatAmount(budget),
-          bidToBudgetRatio: Number(bidToBudgetRatio.toFixed(4)),
-          limit: RULES.minBidToBudgetRatio,
-        },
-      ));
+      rules.push(
+        createRule(
+          "EXTREME_LOW_BID",
+          "medium",
+          `Bid is ${bidToBudgetRatio.toFixed(2)}x the job budget`,
+          65,
+          {
+            budget: formatAmount(budget),
+            bidToBudgetRatio: Number(bidToBudgetRatio.toFixed(4)),
+            limit: RULES.minBidToBudgetRatio,
+          }
+        )
+      );
     }
   }
 
@@ -316,18 +324,20 @@ async function analyzeBidEvent(input = {}) {
     const zScore = Math.abs((amount - jobStats.mean) / jobStats.stdDev);
 
     if (zScore >= RULES.maxAmountZScore) {
-      rules.push(createRule(
-        "BID_AMOUNT_OUTLIER",
-        "medium",
-        `Bid amount is ${zScore.toFixed(2)} standard deviations from recent bids`,
-        Math.min(95, 50 + zScore * 10),
-        {
-          zScore: Number(zScore.toFixed(2)),
-          meanBid: Number(jobStats.mean.toFixed(7)),
-          stdDevBid: Number(jobStats.stdDev.toFixed(7)),
-          limit: RULES.maxAmountZScore,
-        },
-      ));
+      rules.push(
+        createRule(
+          "BID_AMOUNT_OUTLIER",
+          "medium",
+          `Bid amount is ${zScore.toFixed(2)} standard deviations from recent bids`,
+          Math.min(95, 50 + zScore * 10),
+          {
+            zScore: Number(zScore.toFixed(2)),
+            meanBid: Number(jobStats.mean.toFixed(7)),
+            stdDevBid: Number(jobStats.stdDev.toFixed(7)),
+            limit: RULES.maxAmountZScore,
+          }
+        )
+      );
     }
   }
 
@@ -368,16 +378,16 @@ async function analyzeBidEvent(input = {}) {
 
   const alert = flagged
     ? createAlert({
-      jobId,
-      applicationId,
-      freelancerAddress,
-      bidAmount: amount,
-      currency,
-      rules,
-      context,
-      sourceIp,
-      userAgent,
-    })
+        jobId,
+        applicationId,
+        freelancerAddress,
+        bidAmount: amount,
+        currency,
+        rules,
+        context,
+        sourceIp,
+        userAgent,
+      })
     : null;
 
   if (alert && !shouldSuppressAlert(alert)) {

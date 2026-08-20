@@ -36,10 +36,10 @@ endpoint writable and `/health/ready` returns 200.
 
 ## Recovery objectives
 
-| Objective | Target | Budget and justification |
-| --- | --- | --- |
-| RTO | **10 minutes** | 5 minutes for managed-DB detection/promotion, 2 minutes for application readiness, 1 minute for K8GB detection/reconciliation, and up to 2 minutes for DNS/client caching |
-| RPO | **60 seconds** | Asynchronous cross-region PostgreSQL replay must remain below 60 seconds; alert at 30 seconds and block planned game-day injection above 60 seconds |
+| Objective | Target         | Budget and justification                                                                                                                                                  |
+| --------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| RTO       | **10 minutes** | 5 minutes for managed-DB detection/promotion, 2 minutes for application readiness, 1 minute for K8GB detection/reconciliation, and up to 2 minutes for DNS/client caching |
+| RPO       | **60 seconds** | Asynchronous cross-region PostgreSQL replay must remain below 60 seconds; alert at 30 seconds and block planned game-day injection above 60 seconds                       |
 
 These are service objectives, not guarantees. A production game day is required
 quarterly, and a result outside either target blocks releases until the gap has
@@ -47,14 +47,14 @@ an owner and remediation date.
 
 ## State and configuration
 
-| Dependency | DR treatment |
-| --- | --- |
-| PostgreSQL | Provider-managed cross-region asynchronous replica, continuous WAL/PITR backup, automatic promotion, deletion protection, and a regional endpoint per cluster. Enable synchronous durability within each region. |
-| Redis | Per-cluster, non-persistent cache. No replication is required; all entries must be reconstructable from PostgreSQL or external APIs. |
-| Secrets | A regionally replicated vault is the source of truth. External Secrets refreshes `marketpay/production/backend` and `marketpay/production/frontend` every five minutes in both clusters. Kubernetes Secrets are never copied between clusters. |
-| IPFS evidence | CIDs are stored in PostgreSQL. Pinata credentials come from the replicated vault. Production must pin each CID with a second independent pinning account/provider; game day verifies retrieval through both gateways. |
-| Container images | Immutable tags in GHCR. The same digest must be pullable by both regions before promotion. |
-| Stellar state | Escrow funds and contract state remain on Stellar and are not cluster-local. Contract IDs and network selection are replicated configuration. |
+| Dependency       | DR treatment                                                                                                                                                                                                                                   |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PostgreSQL       | Provider-managed cross-region asynchronous replica, continuous WAL/PITR backup, automatic promotion, deletion protection, and a regional endpoint per cluster. Enable synchronous durability within each region.                               |
+| Redis            | Per-cluster, non-persistent cache. No replication is required; all entries must be reconstructable from PostgreSQL or external APIs.                                                                                                           |
+| Secrets          | A regionally replicated vault is the source of truth. External Secrets refreshes `marketpay/production/backend` and `marketpay/production/frontend` every five minutes in both clusters. Kubernetes Secrets are never copied between clusters. |
+| IPFS evidence    | CIDs are stored in PostgreSQL. Pinata credentials come from the replicated vault. Production must pin each CID with a second independent pinning account/provider; game day verifies retrieval through both gateways.                          |
+| Container images | Immutable tags in GHCR. The same digest must be pullable by both regions before promotion.                                                                                                                                                     |
+| Stellar state    | Escrow funds and contract state remain on Stellar and are not cluster-local. Contract IDs and network selection are replicated configuration.                                                                                                  |
 
 Required backend secret keys include `DATABASE_URL`, `JWT_SECRET`,
 `CONTRACT_ID`, `PINATA_API_KEY`, and `PINATA_SECRET_KEY`. The secondary

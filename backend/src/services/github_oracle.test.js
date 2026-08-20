@@ -10,8 +10,7 @@ const {
 } = require("./github_oracle");
 
 describe("github_oracle service", () => {
-  const githubQuery =
-    "github:stellar:marketpay:commit:abcdef1234567890abcdef1234567890abcdef12";
+  const githubQuery = "github:stellar:marketpay:commit:abcdef1234567890abcdef1234567890abcdef12";
 
   it("builds deterministic verification proofs", () => {
     const proofA = buildVerificationProof(githubQuery);
@@ -52,7 +51,7 @@ describe("github_oracle service", () => {
         headers: expect.objectContaining({
           Accept: "application/vnd.github+json",
         }),
-      }),
+      })
     );
     expect(proof).toEqual(buildVerificationProof(githubQuery));
   });

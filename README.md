@@ -44,12 +44,12 @@ stellar-marketpay/
 
 ### Prerequisites
 
-| Tool | Version |
-|------|---------|
-| Node.js | ≥ 18.x |
-| npm | Latest |
-| Rust + Cargo | ≥ 1.74 (for contracts) |
-| Freighter Wallet | Browser extension |
+| Tool             | Version                |
+| ---------------- | ---------------------- |
+| Node.js          | ≥ 18.x                 |
+| npm              | Latest                 |
+| Rust + Cargo     | ≥ 1.74 (for contracts) |
+| Freighter Wallet | Browser extension      |
 
 ### 1. Clone
 
@@ -90,6 +90,7 @@ See [docs/environment-variables.md](docs/environment-variables.md) for the full 
 Deploy the Soroban escrow contract with [docs/contract-deployment.md](docs/contract-deployment.md).
 
 ### Frontend (`frontend/.env.local`)
+
 ```env
 NEXT_PUBLIC_API_URL=http://localhost:4000
 NEXT_PUBLIC_STELLAR_NETWORK=testnet
@@ -100,6 +101,7 @@ NEXT_PUBLIC_USE_CONTRACT_MOCK=false
 ```
 
 ### Backend (`backend/.env`)
+
 ```env
 PORT=4000
 DATABASE_URL=postgresql://stellarwork:stellarwork_dev@localhost:5432/stellarwork
@@ -117,11 +119,13 @@ ALLOWED_ORIGINS=http://localhost:3000
 For frontend development without a deployed Soroban contract:
 
 1. **Enable mock mode** in `frontend/.env.local`:
+
    ```env
    NEXT_PUBLIC_USE_CONTRACT_MOCK=true
    ```
 
 2. **Start the frontend**:
+
    ```bash
    cd frontend
    npm run dev
@@ -155,12 +159,12 @@ For frontend development without a deployed Soroban contract:
 
 ## Testing
 
-| Suite | Command | Notes |
-|-------|---------|--------|
-| Frontend unit snapshots | `cd frontend && npm test` | Jest + React Testing Library |
-| Update snapshots | `cd frontend && npm run test:update-snapshots` | Regenerate when UI changes are intentional |
-| Backend unit + coverage | `cd backend && npm test` | HTML report in `backend/coverage/` |
-| E2E (Playwright) | `cd frontend && npm run test:e2e` | Includes full client/freelancer marketplace flow |
+| Suite                   | Command                                        | Notes                                            |
+| ----------------------- | ---------------------------------------------- | ------------------------------------------------ |
+| Frontend unit snapshots | `cd frontend && npm test`                      | Jest + React Testing Library                     |
+| Update snapshots        | `cd frontend && npm run test:update-snapshots` | Regenerate when UI changes are intentional       |
+| Backend unit + coverage | `cd backend && npm test`                       | HTML report in `backend/coverage/`               |
+| E2E (Playwright)        | `cd frontend && npm run test:e2e`              | Includes full client/freelancer marketplace flow |
 
 Deploy or upgrade the Soroban escrow contract using [docs/contract-deployment.md](docs/contract-deployment.md).
 

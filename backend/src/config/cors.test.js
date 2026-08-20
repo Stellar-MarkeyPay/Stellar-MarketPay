@@ -20,12 +20,15 @@ describe("CORS configuration", () => {
     expect(result.allowed).toBeUndefined();
     expect(result.error).toEqual(new Error("CORS blocked"));
     expect(logger.warn).toHaveBeenCalledWith(
-      "ALLOWED_ORIGINS is not set; denying all cross-origin requests in production",
+      "ALLOWED_ORIGINS is not set; denying all cross-origin requests in production"
     );
   });
 
   it("allows localhost in development when ALLOWED_ORIGINS is unset", async () => {
-    const options = createCorsOptions({ env: { NODE_ENV: "development" }, logger: { warn: jest.fn() } });
+    const options = createCorsOptions({
+      env: { NODE_ENV: "development" },
+      logger: { warn: jest.fn() },
+    });
 
     await expect(checkOrigin(options, "http://localhost:3000")).resolves.toEqual({
       error: null,
@@ -35,7 +38,10 @@ describe("CORS configuration", () => {
 
   it("only allows configured origins in production", async () => {
     const options = createCorsOptions({
-      env: { NODE_ENV: "production", ALLOWED_ORIGINS: "https://app.example, https://admin.example" },
+      env: {
+        NODE_ENV: "production",
+        ALLOWED_ORIGINS: "https://app.example, https://admin.example",
+      },
       logger: { warn: jest.fn() },
     });
 
@@ -49,9 +55,8 @@ describe("CORS configuration", () => {
   });
 
   it("parses configured origins and trims whitespace", () => {
-    expect(getAllowedOrigins({ ALLOWED_ORIGINS: " https://app.example,https://admin.example " })).toEqual([
-      "https://app.example",
-      "https://admin.example",
-    ]);
+    expect(
+      getAllowedOrigins({ ALLOWED_ORIGINS: " https://app.example,https://admin.example " })
+    ).toEqual(["https://app.example", "https://admin.example"]);
   });
 });

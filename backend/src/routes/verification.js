@@ -90,7 +90,11 @@ router.post("/phone/confirm", async (req, res, next) => {
     const { otp, publicKey } = req.body;
     const verification = verificationTokens.get(otp);
 
-    if (!verification || verification.expiresAt < Date.now() || verification.publicKey !== publicKey) {
+    if (
+      !verification ||
+      verification.expiresAt < Date.now() ||
+      verification.publicKey !== publicKey
+    ) {
       return res.status(400).json({ error: "Invalid or expired OTP" });
     }
 

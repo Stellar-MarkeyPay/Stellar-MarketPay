@@ -105,7 +105,10 @@ class CdnService {
   async _withTimeout(promise, ms, providerName) {
     let timer;
     const timeout = new Promise((_, reject) => {
-      timer = setTimeout(() => reject(new Error(`CDN provider "${providerName}" timed out after ${ms}ms`)), ms);
+      timer = setTimeout(
+        () => reject(new Error(`CDN provider "${providerName}" timed out after ${ms}ms`)),
+        ms
+      );
     });
     try {
       return await Promise.race([promise, timeout]);
@@ -122,7 +125,9 @@ class CdnService {
    */
   async purge({ urls = [], tags = [] } = {}) {
     if (!urls.length && !tags.length) {
-      throw new Error("purge() requires at least one url or tag — refusing an unscoped full-cache flush");
+      throw new Error(
+        "purge() requires at least one url or tag — refusing an unscoped full-cache flush"
+      );
     }
 
     const attempts = [];
@@ -137,7 +142,11 @@ class CdnService {
       const start = Date.now();
       try {
         // eslint-disable-next-line no-await-in-loop
-        const data = await this._withTimeout(provider.purge({ urls, tags }), this.timeoutMs, provider.name);
+        const data = await this._withTimeout(
+          provider.purge({ urls, tags }),
+          this.timeoutMs,
+          provider.name
+        );
         const durationSeconds = (Date.now() - start) / 1000;
 
         this._recordSuccess(provider.name);

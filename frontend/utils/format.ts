@@ -67,21 +67,30 @@ export function formatXLM(amount: string | number, decimals = 4): string {
 }
 
 export function timeAgo(dateString: string): string {
-  try { return formatDistanceToNow(new Date(dateString), { addSuffix: true }); }
-  catch { return dateString; }
+  try {
+    return formatDistanceToNow(new Date(dateString), { addSuffix: true });
+  } catch {
+    return dateString;
+  }
 }
 
 export function formatDate(dateString: string): string {
-  try { return format(new Date(dateString), "MMM d, yyyy"); }
-  catch { return dateString; }
+  try {
+    return format(new Date(dateString), "MMM d, yyyy");
+  } catch {
+    return dateString;
+  }
 }
 
 export function formatDeadline(dateString: string): string {
   const date = new Date(dateString);
   if (Number.isNaN(date.getTime())) return "";
 
-  try { return format(date, "MMM d, yyyy"); }
-  catch { return ""; }
+  try {
+    return format(date, "MMM d, yyyy");
+  } catch {
+    return "";
+  }
 }
 
 export type DeadlineState = "none" | "closing_soon" | "closed";
@@ -117,7 +126,8 @@ export function availabilitySummary(availability?: Availability | null): string 
   const from = availability.availableFrom ? formatDate(availability.availableFrom) : "";
   const until = availability.availableUntil ? formatDate(availability.availableUntil) : "";
 
-  if (from && until) return `${availabilityStatusLabel(availability.status)} from ${from} to ${until}`;
+  if (from && until)
+    return `${availabilityStatusLabel(availability.status)} from ${from} to ${until}`;
   if (from) return `${availabilityStatusLabel(availability.status)} from ${from}`;
   if (until) return `${availabilityStatusLabel(availability.status)} until ${until}`;
   return availabilityStatusLabel(availability.status);
@@ -137,22 +147,53 @@ export function availabilityBadgeClass(status?: Availability["status"] | null): 
 }
 
 export async function copyToClipboard(text: string): Promise<boolean> {
-  try { await navigator.clipboard.writeText(text); return true; }
-  catch { return false; }
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function statusLabel(status: JobStatus): string {
+<<<<<<< add-bulk-actions-to-the-client-dashboard
   return { open: "Open", in_progress: "In Progress", completed: "Completed", cancelled: "Cancelled", disputed: "Disputed", archived: "Archived" }[status];
 }
 
 export function statusClass(status: JobStatus): string {
   return { open: "badge-open", in_progress: "badge-progress", completed: "badge-complete", cancelled: "badge-cancelled", disputed: "badge-disputed", archived: "badge-cancelled" }[status];
+=======
+  return {
+    open: "Open",
+    in_progress: "In Progress",
+    completed: "Completed",
+    cancelled: "Cancelled",
+    disputed: "Disputed",
+  }[status];
+}
+
+export function statusClass(status: JobStatus): string {
+  return {
+    open: "badge-open",
+    in_progress: "badge-progress",
+    completed: "badge-complete",
+    cancelled: "badge-cancelled",
+    disputed: "badge-disputed",
+  }[status];
+>>>>>>> main
 }
 
 export const JOB_CATEGORIES = [
-  "Smart Contracts", "Frontend Development", "Backend Development",
-  "UI/UX Design", "Technical Writing", "DevOps", "Security Audit",
-  "Data Analysis", "Mobile Development", "Other",
+  "Smart Contracts",
+  "Frontend Development",
+  "Backend Development",
+  "UI/UX Design",
+  "Technical Writing",
+  "DevOps",
+  "Security Audit",
+  "Data Analysis",
+  "Mobile Development",
+  "Other",
 ];
 
 export const CATEGORY_ICONS: Record<string, string> = {
@@ -161,19 +202,22 @@ export const CATEGORY_ICONS: Record<string, string> = {
   "Backend Development": "⚙️",
   "UI/UX Design": "🖌️",
   "Technical Writing": "✍️",
-  "DevOps": "🚀",
+  DevOps: "🚀",
   "Security Audit": "🔒",
   "Data Analysis": "📊",
   "Mobile Development": "📱",
-  "Other": "📦",
+  Other: "📦",
 };
 
 export function categoryToSlug(category: string): string {
-  return category.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+  return category
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
 }
 
 export function slugToCategory(slug: string): string | undefined {
-  return JOB_CATEGORIES.find(cat => categoryToSlug(cat) === slug);
+  return JOB_CATEGORIES.find((cat) => categoryToSlug(cat) === slug);
 }
 
 /**
@@ -181,33 +225,80 @@ export function slugToCategory(slug: string): string | undefined {
  */
 export const SKILL_SUGGESTIONS = [
   // Blockchain & Smart Contracts
-  "Rust", "Soroban", "Stellar SDK", "Solidity", "Ethereum", "Smart Contracts",
-  "Web3.js", "Ethers.js", "Hardhat", "Foundry", "Anchor", "Solana",
-  "DeFi", "NFT", "Token Development", "Cryptography",
+  "Rust",
+  "Soroban",
+  "Stellar SDK",
+  "Solidity",
+  "Ethereum",
+  "Smart Contracts",
+  "Web3.js",
+  "Ethers.js",
+  "Hardhat",
+  "Foundry",
+  "Anchor",
+  "Solana",
+  "DeFi",
+  "NFT",
+  "Token Development",
+  "Cryptography",
   // Frontend
-  "React", "Next.js", "TypeScript", "JavaScript", "Vue.js", "Angular",
-  "Tailwind CSS", "CSS", "HTML", "Redux", "Zustand", "React Query",
+  "React",
+  "Next.js",
+  "TypeScript",
+  "JavaScript",
+  "Vue.js",
+  "Angular",
+  "Tailwind CSS",
+  "CSS",
+  "HTML",
+  "Redux",
+  "Zustand",
+  "React Query",
   // Backend
-  "Node.js", "Express", "Python", "Go", "Rust", "PostgreSQL", "MongoDB",
-  "GraphQL", "REST API", "Docker", "Kubernetes", "Redis", "AWS", "GCP",
+  "Node.js",
+  "Express",
+  "Python",
+  "Go",
+  "Rust",
+  "PostgreSQL",
+  "MongoDB",
+  "GraphQL",
+  "REST API",
+  "Docker",
+  "Kubernetes",
+  "Redis",
+  "AWS",
+  "GCP",
   // Design
-  "Figma", "UI Design", "UX Design", "Prototyping", "Wireframing",
+  "Figma",
+  "UI Design",
+  "UX Design",
+  "Prototyping",
+  "Wireframing",
   // DevOps & Security
-  "CI/CD", "Linux", "Security Audit", "Penetration Testing", "DevOps",
+  "CI/CD",
+  "Linux",
+  "Security Audit",
+  "Penetration Testing",
+  "DevOps",
   // Mobile
-  "React Native", "Flutter", "iOS", "Android",
+  "React Native",
+  "Flutter",
+  "iOS",
+  "Android",
   // Other
-  "Technical Writing", "Documentation", "Agile", "Scrum", "Git",
+  "Technical Writing",
+  "Documentation",
+  "Agile",
+  "Scrum",
+  "Git",
 ];
 
 /**
  * Converts an XLM amount to a USD equivalent string.
  * Returns null if price is unavailable.
  */
-export function formatMoney(
-  amount: string | number,
-  currency: string = "XLM",
-): string {
+export function formatMoney(amount: string | number, currency: string = "XLM"): string {
   const num = typeof amount === "string" ? parseFloat(amount) : amount;
   if (isNaN(num)) return `0 ${currency}`;
   const formatted = num.toLocaleString("en-US", { maximumFractionDigits: 4 });
@@ -217,7 +308,7 @@ export function formatMoney(
 export function formatUSDEquivalent(
   amount: string | number,
   xlmPriceUsd: number | null,
-  currency: string = "XLM",
+  currency: string = "XLM"
 ): string | null {
   const num = typeof amount === "string" ? parseFloat(amount) : amount;
   if (isNaN(num)) return null;
@@ -236,14 +327,15 @@ export function formatUSDEquivalent(
 export function formatPrice(
   xlmAmount: string | number,
   xlmPriceUsd: number | null,
-  currencyMode: "XLM" | "USD",
+  currencyMode: "XLM" | "USD"
 ): { display: string; usdEquiv: string | null } {
   const num = typeof xlmAmount === "string" ? parseFloat(xlmAmount) : xlmAmount;
   if (isNaN(num)) return { display: "0 XLM", usdEquiv: null };
 
-  const usdEquiv = xlmPriceUsd !== null
-    ? `$${(num * xlmPriceUsd).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-    : null;
+  const usdEquiv =
+    xlmPriceUsd !== null
+      ? `$${(num * xlmPriceUsd).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+      : null;
 
   if (currencyMode === "USD" && xlmPriceUsd !== null) {
     const usd = num * xlmPriceUsd;
@@ -263,7 +355,10 @@ export function formatPrice(
  * Calculates a monthly equivalent estimate for a given budget.
  * If no duration is provided, it assumes the budget is for a month of work.
  */
-export function getMonthlyEstimate(xlmAmount: string | number, xlmPriceUsd: number | null): string | null {
+export function getMonthlyEstimate(
+  xlmAmount: string | number,
+  xlmPriceUsd: number | null
+): string | null {
   if (xlmPriceUsd === null) return null;
   const num = typeof xlmAmount === "string" ? parseFloat(xlmAmount) : xlmAmount;
   if (isNaN(num)) return null;
@@ -313,9 +408,27 @@ export function calculateJobProgress(job: Job): ProgressData | null {
 }
 
 export const POPULAR_SKILLS: string[] = [
-  "JavaScript", "TypeScript", "Python", "React", "Node.js",
-  "Solidity", "Rust", "Go", "AWS", "Docker",
-  "Stellar", "Soroban", "Smart Contracts", "DeFi", "Web3",
-  "PostgreSQL", "MongoDB", "GraphQL", "Next.js", "Tailwind CSS",
-  "UI/UX Design", "Full Stack", "Smart Contract",
+  "JavaScript",
+  "TypeScript",
+  "Python",
+  "React",
+  "Node.js",
+  "Solidity",
+  "Rust",
+  "Go",
+  "AWS",
+  "Docker",
+  "Stellar",
+  "Soroban",
+  "Smart Contracts",
+  "DeFi",
+  "Web3",
+  "PostgreSQL",
+  "MongoDB",
+  "GraphQL",
+  "Next.js",
+  "Tailwind CSS",
+  "UI/UX Design",
+  "Full Stack",
+  "Smart Contract",
 ];

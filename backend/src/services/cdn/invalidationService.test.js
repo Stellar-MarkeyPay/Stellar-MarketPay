@@ -21,7 +21,9 @@ const cache = require("../cacheService");
 const CdnInvalidationService = require("./invalidationService");
 
 function fakeCdnService(purgeImpl) {
-  return { purge: jest.fn(purgeImpl || (() => Promise.resolve({ success: true, provider: "mock" }))) };
+  return {
+    purge: jest.fn(purgeImpl || (() => Promise.resolve({ success: true, provider: "mock" }))),
+  };
 }
 
 describe("CdnInvalidationService", () => {
@@ -66,7 +68,9 @@ describe("CdnInvalidationService", () => {
       "https://app.example/freelancers/GCLIENT",
       "https://app.example/freelancers/GFREELANCER",
     ]);
-    expect(tags).toEqual(expect.arrayContaining(["job-job-42", "jobs-list", "profile-GCLIENT", "profile-GFREELANCER"]));
+    expect(tags).toEqual(
+      expect.arrayContaining(["job-job-42", "jobs-list", "profile-GCLIENT", "profile-GFREELANCER"])
+    );
     // Exactly these four surrogate keys — nothing broader.
     expect(tags).toHaveLength(4);
   });
@@ -87,14 +91,19 @@ describe("CdnInvalidationService", () => {
   });
 
   test("still purges the job URL when the job has no freelancer yet (unassigned)", async () => {
-    pool.query.mockResolvedValueOnce({ rows: [{ client_address: "GCLIENT", freelancer_address: null }] });
+    pool.query.mockResolvedValueOnce({
+      rows: [{ client_address: "GCLIENT", freelancer_address: null }],
+    });
     const cdnService = fakeCdnService();
     const svc = new CdnInvalidationService({ cdnService, publicBaseUrl: "https://app.example" });
 
     await svc.handleContractEvent("escrow_created", "job-7");
 
     const [{ urls }] = cdnService.purge.mock.calls[0];
-    expect(urls).toEqual(["https://app.example/jobs/job-7", "https://app.example/freelancers/GCLIENT"]);
+    expect(urls).toEqual([
+      "https://app.example/jobs/job-7",
+      "https://app.example/freelancers/GCLIENT",
+    ]);
   });
 
   test("degrades gracefully when the job-parties lookup fails", async () => {
@@ -108,20 +117,29 @@ describe("CdnInvalidationService", () => {
   });
 
   test("emits invalidation:completed with latency and re-throws on total purge failure", async () => {
-    pool.query.mockResolvedValueOnce({ rows: [{ client_address: "GCLIENT", freelancer_address: null }] });
+    pool.query.mockResolvedValueOnce({
+      rows: [{ client_address: "GCLIENT", freelancer_address: null }],
+    });
     const cdnService = fakeCdnService(() => Promise.reject(new Error("all providers down")));
     const svc = new CdnInvalidationService({ cdnService });
 
     const failedHandler = jest.fn();
     svc.on("invalidation:failed", failedHandler);
 
-    await expect(svc.handleContractEvent("escrow_released", "job-1")).rejects.toThrow("all providers down");
+    await expect(svc.handleContractEvent("escrow_released", "job-1")).rejects.toThrow(
+      "all providers down"
+    );
     expect(failedHandler).toHaveBeenCalledTimes(1);
-    expect(failedHandler.mock.calls[0][0]).toMatchObject({ jobId: "job-1", eventType: "escrow_released" });
+    expect(failedHandler.mock.calls[0][0]).toMatchObject({
+      jobId: "job-1",
+      eventType: "escrow_released",
+    });
   });
 
   test("records sub-5s latency for a fast purge (SLA smoke check)", async () => {
-    pool.query.mockResolvedValueOnce({ rows: [{ client_address: "GCLIENT", freelancer_address: null }] });
+    pool.query.mockResolvedValueOnce({
+      rows: [{ client_address: "GCLIENT", freelancer_address: null }],
+    });
     const cdnService = fakeCdnService();
     const svc = new CdnInvalidationService({ cdnService });
 

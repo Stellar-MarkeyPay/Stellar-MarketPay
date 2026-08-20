@@ -14,8 +14,7 @@ const {
 
 describe("fraudDetectionService", () => {
   const jobId = "job-fraud-1";
-  const freelancerAddress =
-    "GBBCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABC";
+  const freelancerAddress = "GBBCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABC";
 
   beforeEach(() => {
     jest.useRealTimers();
@@ -58,9 +57,7 @@ describe("fraudDetectionService", () => {
 
     expect(result.flagged).toBe(true);
     expect(result.rules).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ ruleCode: "FREELANCER_BID_SPAM" }),
-      ]),
+      expect.arrayContaining([expect.objectContaining({ ruleCode: "FREELANCER_BID_SPAM" })])
     );
     expect(result.freelancer.recentBidCount).toBe(6);
   });
@@ -84,9 +81,7 @@ describe("fraudDetectionService", () => {
 
     expect(result.flagged).toBe(true);
     expect(result.rules).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ ruleCode: "JOB_BID_SPAM" }),
-      ]),
+      expect.arrayContaining([expect.objectContaining({ ruleCode: "JOB_BID_SPAM" })])
     );
     expect(result.job.recentBidCount).toBe(21);
   });
@@ -102,9 +97,7 @@ describe("fraudDetectionService", () => {
 
     expect(highBid.flagged).toBe(true);
     expect(highBid.rules).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ ruleCode: "EXTREME_HIGH_BID" }),
-      ]),
+      expect.arrayContaining([expect.objectContaining({ ruleCode: "EXTREME_HIGH_BID" })])
     );
 
     const lowBid = await analyzeBidEvent({
@@ -117,9 +110,7 @@ describe("fraudDetectionService", () => {
 
     expect(lowBid.flagged).toBe(true);
     expect(lowBid.rules).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ ruleCode: "EXTREME_LOW_BID" }),
-      ]),
+      expect.arrayContaining([expect.objectContaining({ ruleCode: "EXTREME_LOW_BID" })])
     );
   });
 
@@ -154,9 +145,7 @@ describe("fraudDetectionService", () => {
 
     expect(result.flagged).toBe(true);
     expect(result.rules).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ ruleCode: "BID_AMOUNT_OUTLIER" }),
-      ]),
+      expect.arrayContaining([expect.objectContaining({ ruleCode: "BID_AMOUNT_OUTLIER" })])
     );
     expect(result.job.max).toBe("250.0000000");
   });

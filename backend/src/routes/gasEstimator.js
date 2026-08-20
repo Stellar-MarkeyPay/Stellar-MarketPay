@@ -29,12 +29,12 @@ function serialiseEstimate(estimate) {
   });
 
   return {
-    slow:          tierToJson(estimate.slow),
-    medium:        tierToJson(estimate.medium),
-    fast:          tierToJson(estimate.fast),
+    slow: tierToJson(estimate.slow),
+    medium: tierToJson(estimate.medium),
+    fast: tierToJson(estimate.fast),
     spikeDetected: estimate.spikeDetected,
-    fetchedAt:     estimate.fetchedAt,
-    cached:        estimate.cached,
+    fetchedAt: estimate.fetchedAt,
+    cached: estimate.cached,
   };
 }
 

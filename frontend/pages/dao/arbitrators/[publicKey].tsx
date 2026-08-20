@@ -36,9 +36,7 @@ export default function ArbitratorProfilePage() {
             {arbitrator.displayName || shortenAddress(arbitrator.publicKey)}
           </h1>
           <p className="font-mono text-sm text-amber-800 mb-4">{arbitrator.publicKey}</p>
-          {arbitrator.bio && (
-            <p className="text-amber-700 mb-4">{arbitrator.bio}</p>
-          )}
+          {arbitrator.bio && <p className="text-amber-700 mb-4">{arbitrator.bio}</p>}
           <dl className="grid grid-cols-2 gap-4 text-sm">
             <div>
               <dt className="text-amber-800">Votes received</dt>

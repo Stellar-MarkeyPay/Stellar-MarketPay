@@ -107,10 +107,7 @@ function ProgressBar({ step }: { step: Step }) {
         <div
           className="absolute left-0 top-4 h-0.5 bg-market-400 z-0 transition-all duration-700"
           style={{
-            width:
-              active <= 0 ? "0%" :
-              active === 1 ? "33%" :
-              active === 2 ? "66%" : "100%",
+            width: active <= 0 ? "0%" : active === 1 ? "33%" : active === 2 ? "66%" : "100%",
           }}
         />
         {STEPS.map((s, i) => {
@@ -122,20 +119,29 @@ function ProgressBar({ step }: { step: Step }) {
               <div
                 className={[
                   "w-8 h-8 rounded-full flex items-center justify-center border-2 text-xs font-bold transition-all duration-500",
-                  done ? "bg-market-400 border-market-400 text-ink-900" :
-                  current && !errored ? "bg-ink-900 border-market-400 text-market-400 animate-pulse" :
-                  errored ? "bg-red-500 border-red-500 text-white" :
-                  "bg-ink-800 border-market-500/20 text-amber-700",
+                  done
+                    ? "bg-market-400 border-market-400 text-ink-900"
+                    : current && !errored
+                      ? "bg-ink-900 border-market-400 text-market-400 animate-pulse"
+                      : errored
+                        ? "bg-red-500 border-red-500 text-white"
+                        : "bg-ink-800 border-market-500/20 text-amber-700",
                 ].join(" ")}
               >
                 {done ? "✓" : errored ? "✕" : i + 1}
               </div>
-              <span className={[
-                "text-xs font-medium whitespace-nowrap",
-                done ? "text-market-400" :
-                current && !errored ? "text-amber-100" :
-                errored ? "text-red-400" : "text-amber-700",
-              ].join(" ")}>
+              <span
+                className={[
+                  "text-xs font-medium whitespace-nowrap",
+                  done
+                    ? "text-market-400"
+                    : current && !errored
+                      ? "text-amber-100"
+                      : errored
+                        ? "text-red-400"
+                        : "text-amber-700",
+                ].join(" ")}
+              >
                 {s.label}
               </span>
             </div>
@@ -160,10 +166,10 @@ function loadLocalDraft(): JobFormData | null {
 function hasFormContent(form: JobFormData): boolean {
   return Boolean(
     form.title.trim() ||
-      form.description.trim() ||
-      form.skills.trim() ||
-      form.deadline ||
-      form.budget !== "50"
+    form.description.trim() ||
+    form.skills.trim() ||
+    form.deadline ||
+    form.budget !== "50"
   );
 }
 
@@ -180,17 +186,19 @@ export default function PostJobForm({
 
   const [form, setForm] = useState<JobFormData>(() => {
     const draft = loadLocalDraft();
-    return draft || {
-      title: "",
-      description: "",
-      budget: "50",
-      currency: "XLM",
-      category: initialCategory || VALID_CATEGORIES[0],
-      skills: "",
-      deadline: "",
-      milestones: [{ description: "Final delivery", amount: "50" }],
-      visibility: "public",
-    };
+    return (
+      draft || {
+        title: "",
+        description: "",
+        budget: "50",
+        currency: "XLM",
+        category: initialCategory || VALID_CATEGORIES[0],
+        skills: "",
+        deadline: "",
+        milestones: [{ description: "Final delivery", amount: "50" }],
+        visibility: "public",
+      }
+    );
   });
 
   const [step, setStep] = useState<Step>("idle");
@@ -207,17 +215,26 @@ export default function PostJobForm({
   const milestoneSum = milestoneTotal(form.milestones);
 
   const fieldErrors = {
-    title: !form.title.trim() ? "Title is required"
-      : form.title.trim().length < 10 ? "Title must be at least 10 characters"
-      : undefined,
-    description: !form.description.trim() ? "Description is required"
-      : form.description.trim().length < 30 ? "Description must be at least 30 characters"
-      : undefined,
-    milestones: form.milestones.length > 10 ? "Use 10 milestones or fewer"
-      : form.milestones.some((m) => !m.description.trim()) ? "Every milestone needs a description"
-      : form.milestones.some((m) => !parseFloat(m.amount) || parseFloat(m.amount) <= 0) ? "Every milestone needs a positive amount"
-      : Math.abs(milestoneSum - budgetValue) > 0.000001 ? "Milestones must add up to the job budget"
-      : undefined,
+    title: !form.title.trim()
+      ? "Title is required"
+      : form.title.trim().length < 10
+        ? "Title must be at least 10 characters"
+        : undefined,
+    description: !form.description.trim()
+      ? "Description is required"
+      : form.description.trim().length < 30
+        ? "Description must be at least 30 characters"
+        : undefined,
+    milestones:
+      form.milestones.length > 10
+        ? "Use 10 milestones or fewer"
+        : form.milestones.some((m) => !m.description.trim())
+          ? "Every milestone needs a description"
+          : form.milestones.some((m) => !parseFloat(m.amount) || parseFloat(m.amount) <= 0)
+            ? "Every milestone needs a positive amount"
+            : Math.abs(milestoneSum - budgetValue) > 0.000001
+              ? "Milestones must add up to the job budget"
+              : undefined,
   };
   const isFormValid = !fieldErrors.title && !fieldErrors.description && !fieldErrors.milestones;
 
@@ -237,16 +254,11 @@ export default function PostJobForm({
     setTouched((prev) => ({ ...prev, [name]: true }));
   }
 
-
-  function updateMilestone(
-    index: number,
-    field: keyof Milestone,
-    value: string | boolean,
-  ) {
+  function updateMilestone(index: number, field: keyof Milestone, value: string | boolean) {
     setForm((prev) => ({
       ...prev,
       milestones: prev.milestones.map((milestone, currentIndex) =>
-        currentIndex === index ? { ...milestone, [field]: value } : milestone,
+        currentIndex === index ? { ...milestone, [field]: value } : milestone
       ),
     }));
     setTouched((prev) => ({ ...prev, milestones: true }));
@@ -333,7 +345,6 @@ export default function PostJobForm({
       setTxHash(hash);
       setStep("complete");
       localStorage.removeItem(DRAFT_STORAGE_KEY);
-
     } catch (err) {
       const msg = err instanceof Error ? err.message : "An unexpected error occurred.";
       // Roll back orphaned job
@@ -405,8 +416,18 @@ export default function PostJobForm({
 
         <div className="flex flex-col items-center gap-3 pt-2">
           <div className="w-16 h-16 rounded-full bg-indigo-100 flex items-center justify-center">
-            <svg className="w-8 h-8 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            <svg
+              className="w-8 h-8 text-indigo-500"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M5 13l4 4L19 7"
+              />
             </svg>
           </div>
           <h2 className="text-2xl font-bold text-gray-900 dark:text-amber-100">Job Posted!</h2>
@@ -466,9 +487,7 @@ export default function PostJobForm({
       {step === "error" && (
         <div className="mb-5 rounded-xl bg-red-50 border border-red-200 p-4 space-y-1">
           <ProgressBar step="error" />
-          <p className="text-sm font-semibold text-red-700">
-            Something went wrong
-          </p>
+          <p className="text-sm font-semibold text-red-700">Something went wrong</p>
           <p className="text-xs text-red-600">{errorMsg}</p>
           {jobId && (
             <p className="text-xs text-red-500">

@@ -3,10 +3,7 @@
 const express = require("express");
 const { verifyJWT, requireAdminRole } = require("../middleware/auth");
 const { createRateLimiter } = require("../middleware/rateLimiter");
-const {
-  analyzeBidEvent,
-  getJobFraudStats,
-} = require("../services/fraudDetectionService");
+const { analyzeBidEvent, getJobFraudStats } = require("../services/fraudDetectionService");
 
 const router = express.Router();
 const fraudRateLimiter = createRateLimiter(60, 1);
@@ -33,16 +30,22 @@ router.post("/bids", fraudRateLimiter, verifyJWT, requireAdminRole, async (req, 
   }
 });
 
-router.get("/jobs/:jobId/stats", fraudRateLimiter, verifyJWT, requireAdminRole, async (req, res, next) => {
-  try {
-    const stats = getJobFraudStats(req.params.jobId);
-    res.json({
-      success: true,
-      data: stats,
-    });
-  } catch (error) {
-    next(error);
+router.get(
+  "/jobs/:jobId/stats",
+  fraudRateLimiter,
+  verifyJWT,
+  requireAdminRole,
+  async (req, res, next) => {
+    try {
+      const stats = getJobFraudStats(req.params.jobId);
+      res.json({
+        success: true,
+        data: stats,
+      });
+    } catch (error) {
+      next(error);
+    }
   }
-});
+);
 
 module.exports = router;

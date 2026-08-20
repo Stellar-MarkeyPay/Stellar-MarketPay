@@ -51,7 +51,7 @@ export default function XlmPriceWidget() {
   const chartData = useMemo(
     () => ({
       labels: points.map((p) =>
-        new Date(p.timestamp).toLocaleDateString("en-US", { weekday: "short" }),
+        new Date(p.timestamp).toLocaleDateString("en-US", { weekday: "short" })
       ),
       datasets: [
         {
@@ -65,7 +65,7 @@ export default function XlmPriceWidget() {
         },
       ],
     }),
-    [points],
+    [points]
   );
 
   const chartOptions = useMemo(
@@ -85,7 +85,7 @@ export default function XlmPriceWidget() {
         y: { display: false },
       },
     }),
-    [],
+    []
   );
 
   const toggleCollapsed = () => {
@@ -104,11 +104,7 @@ export default function XlmPriceWidget() {
     <div className="card bg-gradient-to-br from-ink-800 to-ink-900 border-market-500/18">
       <div className="flex items-center justify-between">
         <h3 className="font-display text-lg font-semibold text-amber-100">XLM / USD</h3>
-        <button
-          type="button"
-          onClick={toggleCollapsed}
-          className="btn-secondary text-xs py-1 px-2"
-        >
+        <button type="button" onClick={toggleCollapsed} className="btn-secondary text-xs py-1 px-2">
           {collapsed ? "Expand" : "Collapse"}
         </button>
       </div>

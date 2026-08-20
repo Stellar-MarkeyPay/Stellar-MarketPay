@@ -3,7 +3,7 @@
  */
 "use strict";
 const express = require("express");
-const router  = express.Router();
+const router = express.Router();
 const { addProgressUpdate, getProgressUpdates } = require("../services/progressService");
 
 router.get("/:jobId", async (req, res, next) => {

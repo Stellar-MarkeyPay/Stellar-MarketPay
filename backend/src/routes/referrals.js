@@ -44,11 +44,12 @@ router.get("/info", (req, res) => {
         level: i + 1,
         bps,
         percent: (bps / 100).toFixed(2),
-        description: i === 0
-          ? "Direct referral"
-          : i === 1
-          ? "Referral of your referral"
-          : "3rd-degree referral",
+        description:
+          i === 0
+            ? "Direct referral"
+            : i === 1
+              ? "Referral of your referral"
+              : "3rd-degree referral",
       })),
       description: `Earn up to ${LEVEL_BPS.reduce((a, b) => a + b, 0) / 100}% in multi-level referral bonuses`,
       // ISSUE-17: platform fee split — applies to escrows whose freelancer has
@@ -74,28 +75,23 @@ router.get("/info", (req, res) => {
  *         required: true
  *         schema: { type: string }
  */
-router.get(
-  "/:publicKey",
-  verifyJWT,
-  generalRateLimiter,
-  async (req, res, next) => {
-    try {
-      const { publicKey } = req.params;
+router.get("/:publicKey", verifyJWT, generalRateLimiter, async (req, res, next) => {
+  try {
+    const { publicKey } = req.params;
 
-      if (!/^G[A-Z0-9]{55}$/.test(publicKey)) {
-        return res.status(400).json({ success: false, error: "Invalid public key" });
-      }
-      if (req.user?.publicKey && req.user.publicKey !== publicKey) {
-        return res.status(403).json({ success: false, error: "Forbidden" });
-      }
-
-      const stats = await getReferralStats(publicKey);
-      res.json({ success: true, data: stats });
-    } catch (e) {
-      next(e);
+    if (!/^G[A-Z0-9]{55}$/.test(publicKey)) {
+      return res.status(400).json({ success: false, error: "Invalid public key" });
     }
-  },
-);
+    if (req.user?.publicKey && req.user.publicKey !== publicKey) {
+      return res.status(403).json({ success: false, error: "Forbidden" });
+    }
+
+    const stats = await getReferralStats(publicKey);
+    res.json({ success: true, data: stats });
+  } catch (e) {
+    next(e);
+  }
+});
 
 /**
  * @swagger
@@ -111,28 +107,23 @@ router.get(
  *         required: true
  *         schema: { type: string }
  */
-router.get(
-  "/:publicKey/tree",
-  verifyJWT,
-  generalRateLimiter,
-  async (req, res, next) => {
-    try {
-      const { publicKey } = req.params;
+router.get("/:publicKey/tree", verifyJWT, generalRateLimiter, async (req, res, next) => {
+  try {
+    const { publicKey } = req.params;
 
-      if (!/^G[A-Z0-9]{55}$/.test(publicKey)) {
-        return res.status(400).json({ success: false, error: "Invalid public key" });
-      }
-      if (req.user?.publicKey && req.user.publicKey !== publicKey) {
-        return res.status(403).json({ success: false, error: "Forbidden" });
-      }
-
-      const tree = await getReferralTree(publicKey);
-      res.json({ success: true, data: tree });
-    } catch (e) {
-      next(e);
+    if (!/^G[A-Z0-9]{55}$/.test(publicKey)) {
+      return res.status(400).json({ success: false, error: "Invalid public key" });
     }
-  },
-);
+    if (req.user?.publicKey && req.user.publicKey !== publicKey) {
+      return res.status(403).json({ success: false, error: "Forbidden" });
+    }
+
+    const tree = await getReferralTree(publicKey);
+    res.json({ success: true, data: tree });
+  } catch (e) {
+    next(e);
+  }
+});
 
 /**
  * @swagger

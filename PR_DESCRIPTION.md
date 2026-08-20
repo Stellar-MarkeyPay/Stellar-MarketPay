@@ -29,19 +29,19 @@ Each (freelancer, job) pair is scored on:
 
 ## API endpoints
 
-| Endpoint | Description |
-|----------|-------------|
-| `GET /api/ranking/jobs/:publicKey` | ML-ranked open jobs for a freelancer |
-| `GET /api/ranking/freelancers/:jobId` | ML-ranked freelancers for a job |
-| `GET /api/ranking/health` | Model and config status |
-| `GET /api/ranking/shadow-stats` | Shadow-mode comparison stats (7-day window) |
-| `GET /api/ranking/fairness-audit` | New vs established freelancer exposure audit |
+| Endpoint                              | Description                                  |
+| ------------------------------------- | -------------------------------------------- |
+| `GET /api/ranking/jobs/:publicKey`    | ML-ranked open jobs for a freelancer         |
+| `GET /api/ranking/freelancers/:jobId` | ML-ranked freelancers for a job              |
+| `GET /api/ranking/health`             | Model and config status                      |
+| `GET /api/ranking/shadow-stats`       | Shadow-mode comparison stats (7-day window)  |
+| `GET /api/ranking/fairness-audit`     | New vs established freelancer exposure audit |
 
 ## Evaluation (bootstrap model)
 
-| Metric | Model | Baseline |
-|--------|-------|----------|
-| NDCG@10 | 0.71 | 0.54 (popularity/recency) |
+| Metric  | Model | Baseline                  |
+| ------- | ----- | ------------------------- |
+| NDCG@10 | 0.71  | 0.54 (popularity/recency) |
 
 Re-run `python ml/train.py` against production data to refresh metrics after deployment.
 
@@ -60,6 +60,7 @@ Re-run `python ml/train.py` against production data to refresh metrics after dep
 ## Files added/changed
 
 ### Backend
+
 - `backend/src/ml/` — feature engineering, ranker, default model artifact
 - `backend/src/services/mlRankingService.js` — serving, fallback, shadow mode, fairness
 - `backend/src/routes/ranking.js` — API routes
@@ -67,10 +68,12 @@ Re-run `python ml/train.py` against production data to refresh metrics after dep
 - `backend/src/server.js` — mount `/api/ranking`
 
 ### ML / docs
+
 - `ml/train.py`, `ml/fairness_audit.py`, `ml/requirements.txt`, `ml/README.md`
 - `docs/ml-ranking.md`, `docs/environment-variables.md`
 
 ### Frontend
+
 - `frontend/lib/api.ts` — `fetchMlRankedJobs`, `fetchMlRankedFreelancers`
 - `frontend/pages/jobs/index.tsx` — ML recommendations with fallback
 - `frontend/pages/freelancers/index.tsx` — job-scoped ML ranking via `?jobId=`

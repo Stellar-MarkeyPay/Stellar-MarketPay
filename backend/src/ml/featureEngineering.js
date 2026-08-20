@@ -145,7 +145,7 @@ async function loadFreelancerStats(publicKey) {
     FROM profiles p
     WHERE p.public_key = $1
     `,
-    [publicKey],
+    [publicKey]
   );
 
   if (!rows.length) {
@@ -176,7 +176,7 @@ async function loadFreelancerStats(publicKey) {
     WHERE a.freelancer_address = $1 AND a.status = 'accepted'
     GROUP BY j.category
     `,
-    [publicKey],
+    [publicKey]
   );
 
   const categoryRates = new Map(categoryRows.map((r) => [r.category, Number(r.rate) || 0]));
@@ -198,7 +198,7 @@ async function loadFreelancerStats(publicKey) {
 async function loadFreelancerProfile(publicKey) {
   const { rows } = await pool.query(
     `SELECT public_key, skills, completed_jobs, rating, created_at FROM profiles WHERE public_key = $1`,
-    [publicKey],
+    [publicKey]
   );
   if (!rows.length) return null;
   return {
@@ -216,7 +216,7 @@ async function loadJobRow(jobId) {
      FROM jobs j
      LEFT JOIN profiles p ON p.public_key = j.client_address
      WHERE j.id = $1`,
-    [jobId],
+    [jobId]
   );
   return rows[0] || null;
 }
@@ -271,7 +271,7 @@ async function buildFreelancerBatchFeatures(freelancerRows, jobRow) {
         features: buildFeatureVector(freelancer, jobRow, stats),
         completedJobs: freelancer.completed_jobs || 0,
       };
-    }),
+    })
   );
 
   return results;

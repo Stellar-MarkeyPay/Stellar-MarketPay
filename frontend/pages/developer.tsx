@@ -111,7 +111,10 @@ export default function DeveloperPage({ publicKey, onConnect }: DeveloperPagePro
     <>
       <Head>
         <title>Developer Portal - Stellar MarketPay</title>
-        <meta name="description" content="Create and manage API keys for public marketplace integrations." />
+        <meta
+          name="description"
+          content="Create and manage API keys for public marketplace integrations."
+        />
         <meta name="robots" content="noindex,nofollow" />
       </Head>
 
@@ -122,7 +125,8 @@ export default function DeveloperPage({ publicKey, onConnect }: DeveloperPagePro
             <h1 className="font-display text-3xl font-bold text-amber-100">Developer Portal</h1>
           </div>
           <p className="text-amber-800 max-w-3xl">
-            Create hashed API keys for integrations, inspect usage per key, and revoke access when needed.
+            Create hashed API keys for integrations, inspect usage per key, and revoke access when
+            needed.
           </p>
           <p className="text-xs font-mono text-amber-900 break-all">
             Connected wallet: {publicKey}
@@ -186,11 +190,9 @@ export default function DeveloperPage({ publicKey, onConnect }: DeveloperPagePro
 
           <Panel title="How to Use">
             <div className="space-y-4 text-sm text-amber-800">
-              <p>
-                Send the key in the `X-API-Key` header to access the public endpoints.
-              </p>
+              <p>Send the key in the `X-API-Key` header to access the public endpoints.</p>
               <pre className="overflow-x-auto rounded-xl bg-ink-950/70 border border-market-500/10 p-4 text-xs text-amber-200">
-{`curl -H "X-API-Key: sk_live_..." \\
+                {`curl -H "X-API-Key: sk_live_..." \\
   "${process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000"}/api/public/jobs"`}
               </pre>
               <div className="grid grid-cols-1 gap-3">
@@ -238,9 +240,7 @@ export default function DeveloperPage({ publicKey, onConnect }: DeveloperPagePro
                         </span>
                       )}
                     </div>
-                    <p className="text-xs font-mono text-amber-800 break-all">
-                      {key.key_prefix}
-                    </p>
+                    <p className="text-xs font-mono text-amber-800 break-all">{key.key_prefix}</p>
                     <p className="text-xs text-amber-900">
                       Created {timeAgo(key.created_at)} · Requests today: {key.requests_today}
                       {key.last_used_at ? ` · Last used ${timeAgo(key.last_used_at)}` : ""}

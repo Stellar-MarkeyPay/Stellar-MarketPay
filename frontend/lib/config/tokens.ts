@@ -2,8 +2,7 @@
  * Stellar asset / Soroban token contract addresses (#277).
  */
 
-const NETWORK =
-  (process.env.NEXT_PUBLIC_STELLAR_NETWORK || "testnet").toLowerCase();
+const NETWORK = (process.env.NEXT_PUBLIC_STELLAR_NETWORK || "testnet").toLowerCase();
 
 /** USDC Stellar Asset Contract (SAC) addresses per network */
 export const USDC_CONTRACT_BY_NETWORK: Record<string, string> = {

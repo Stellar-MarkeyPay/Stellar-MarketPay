@@ -4,9 +4,16 @@
  */
 "use strict";
 const express = require("express");
-const router  = express.Router();
+const router = express.Router();
 const { verifyJWT } = require("../middleware/auth");
-const { generateSecret, enable2FA, verify2FA, verifyBackupCode, disable2FA, get2FAStatus } = require("../services/twoFactorService");
+const {
+  generateSecret,
+  enable2FA,
+  verify2FA,
+  verifyBackupCode,
+  disable2FA,
+  get2FAStatus,
+} = require("../services/twoFactorService");
 const QRCode = require("qrcode");
 const speakeasy = require("speakeasy");
 
@@ -17,7 +24,9 @@ router.get("/status", verifyJWT, async (req, res, next) => {
   try {
     const status = await get2FAStatus(req.user.publicKey);
     res.json({ success: true, data: status });
-  } catch (e) { next(e); }
+  } catch (e) {
+    next(e);
+  }
 });
 
 // POST /api/2fa/setup — generate secret and QR code
@@ -26,7 +35,9 @@ router.post("/setup", verifyJWT, async (req, res, next) => {
     const { publicKey } = req.user;
 
     // Check if admin
-    const { rows } = await pool.query("SELECT id, email FROM admin_profiles WHERE id = $1", [publicKey]);
+    const { rows } = await pool.query("SELECT id, email FROM admin_profiles WHERE id = $1", [
+      publicKey,
+    ]);
     if (!rows[0]) return res.status(403).json({ success: false, error: "Admin access required" });
 
     const secret = generateSecret(rows[0].email || publicKey);
@@ -43,9 +54,11 @@ router.post("/setup", verifyJWT, async (req, res, next) => {
       data: {
         secret: secret.base32,
         qrCode: qrCodeUrl,
-      }
+      },
     });
-  } catch (e) { next(e); }
+  } catch (e) {
+    next(e);
+  }
 });
 
 // POST /api/2fa/verify — verify TOTP code and enable 2FA
@@ -56,7 +69,9 @@ router.post("/verify", verifyJWT, async (req, res, next) => {
 
     if (!token) return res.status(400).json({ success: false, error: "Token is required" });
 
-    const { rows } = await pool.query("SELECT totp_secret FROM admin_profiles WHERE id = $1", [publicKey]);
+    const { rows } = await pool.query("SELECT totp_secret FROM admin_profiles WHERE id = $1", [
+      publicKey,
+    ]);
     if (!rows[0] || !rows[0].totp_secret) {
       return res.status(400).json({ success: false, error: "2FA setup not initiated" });
     }
@@ -83,10 +98,12 @@ router.post("/verify", verifyJWT, async (req, res, next) => {
       success: true,
       data: {
         backupCodes,
-        message: "2FA enabled successfully. Save these backup codes!"
-      }
+        message: "2FA enabled successfully. Save these backup codes!",
+      },
     });
-  } catch (e) { next(e); }
+  } catch (e) {
+    next(e);
+  }
 });
 
 // POST /api/2fa/disable — disable 2FA (requires wallet + TOTP or backup code)
@@ -114,7 +131,9 @@ router.post("/disable", verifyJWT, async (req, res, next) => {
 
     await disable2FA(publicKey);
     res.json({ success: true, message: "2FA disabled successfully" });
-  } catch (e) { next(e); }
+  } catch (e) {
+    next(e);
+  }
 });
 
 // POST /api/2fa/validate — validate TOTP during login
@@ -127,7 +146,9 @@ router.post("/validate", verifyJWT, async (req, res, next) => {
 
     const result = await verify2FA(publicKey, token);
     res.json({ success: result.success, error: result.error });
-  } catch (e) { next(e); }
+  } catch (e) {
+    next(e);
+  }
 });
 
 module.exports = router;

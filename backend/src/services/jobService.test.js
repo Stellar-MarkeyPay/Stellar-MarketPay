@@ -4,28 +4,20 @@ jest.mock("../db/pool", () => {
 });
 
 const pool = require("../db/pool");
-const {
-  createJob,
-  getJob,
-  listJobs,
-  listJobsByClient,
-  updateJobStatus,
-} = require("./jobService");
+const { createJob, getJob, listJobs, listJobsByClient, updateJobStatus } = require("./jobService");
 
 describe("jobService", () => {
   beforeEach(() => {
     pool.reset();
   });
 
-  const validClientAddress =
-    "GABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABC";
+  const validClientAddress = "GABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABC";
 
   describe("createJob", () => {
     it("creates and stores a valid job", async () => {
       const job = await createJob({
         title: "Build a decentralized app",
-        description:
-          "Looking for a full-stack developer to build a dApp on Stellar.",
+        description: "Looking for a full-stack developer to build a dApp on Stellar.",
         budget: "500",
         category: "Smart Contracts",
         skills: ["Rust", "Soroban"],
@@ -45,31 +37,29 @@ describe("jobService", () => {
       await expect(
         createJob({
           title: "Short",
-          description:
-            "Looking for a full-stack developer to build a dApp on Stellar.",
+          description: "Looking for a full-stack developer to build a dApp on Stellar.",
           budget: "500",
           category: "Smart Contracts",
           clientAddress: validClientAddress,
           currency: "XLM",
-        }),
+        })
       ).rejects.toThrow("Title must be at least 10 characters");
     });
 
     it("rejects invalid budgets", async () => {
       const base = {
         title: "Build a decentralized app",
-        description:
-          "Looking for a full-stack developer to build a dApp on Stellar.",
+        description: "Looking for a full-stack developer to build a dApp on Stellar.",
         category: "Smart Contracts",
         clientAddress: validClientAddress,
         currency: "XLM",
       };
 
       await expect(createJob({ ...base, budget: "-100" })).rejects.toThrow(
-        "Budget must be a positive number",
+        "Budget must be a positive number"
       );
       await expect(createJob({ ...base, budget: "abc" })).rejects.toThrow(
-        "Budget must be a positive number",
+        "Budget must be a positive number"
       );
     });
   });
@@ -89,8 +79,7 @@ describe("jobService", () => {
     beforeEach(async () => {
       await createJob({
         title: "Open Job 1 long enough",
-        description:
-          "This is an open job description that is long enough to pass validation.",
+        description: "This is an open job description that is long enough to pass validation.",
         budget: "100",
         category: "Frontend Development",
         clientAddress: validClientAddress,
@@ -110,8 +99,7 @@ describe("jobService", () => {
 
       await createJob({
         title: "Open Job 2 long enough",
-        description:
-          "This is another open job description that is long enough to pass validation.",
+        description: "This is another open job description that is long enough to pass validation.",
         budget: "300",
         category: "Frontend Development",
         clientAddress: validClientAddress,
@@ -131,21 +119,17 @@ describe("jobService", () => {
         status: "open",
       });
       expect(frontendJobs.length).toBeGreaterThanOrEqual(1);
-      expect(
-        frontendJobs.every((job) => job.category === "Frontend Development"),
-      ).toBe(true);
+      expect(frontendJobs.every((job) => job.category === "Frontend Development")).toBe(true);
     });
   });
 
   describe("listJobsByClient and updateJobStatus", () => {
     it("returns jobs for a client and updates status", async () => {
-      const otherClientAddress =
-        "GBBCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABC";
+      const otherClientAddress = "GBBCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABC";
 
       await createJob({
         title: "Job from client A long enough",
-        description:
-          "Description format that is long enough to pass validation.",
+        description: "Description format that is long enough to pass validation.",
         budget: "100",
         category: "Frontend Development",
         clientAddress: validClientAddress,
@@ -154,8 +138,7 @@ describe("jobService", () => {
 
       await createJob({
         title: "Job from client B long enough",
-        description:
-          "Description format that is long enough to pass validation.",
+        description: "Description format that is long enough to pass validation.",
         budget: "100",
         category: "Backend Development",
         clientAddress: otherClientAddress,
@@ -168,8 +151,7 @@ describe("jobService", () => {
 
       const job = await createJob({
         title: "Job to be updated",
-        description:
-          "Description format that is long enough to pass validation.",
+        description: "Description format that is long enough to pass validation.",
         budget: "100",
         category: "Frontend Development",
         clientAddress: validClientAddress,
@@ -178,9 +160,7 @@ describe("jobService", () => {
 
       const updatedJob = await updateJobStatus(job.id, "cancelled");
       expect(updatedJob.status).toBe("cancelled");
-      await expect(updateJobStatus(job.id, "invalid_status")).rejects.toThrow(
-        "Invalid status",
-      );
+      await expect(updateJobStatus(job.id, "invalid_status")).rejects.toThrow("Invalid status");
     });
   });
 });

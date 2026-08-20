@@ -41,7 +41,9 @@ router.post("/", verifyJWT, async (req, res, next) => {
     const { query_params, notify_in_app, notify_email } = req.body;
 
     if (!query_params || typeof query_params !== "object") {
-      return res.status(400).json({ success: false, error: "query_params is required and must be an object" });
+      return res
+        .status(400)
+        .json({ success: false, error: "query_params is required and must be an object" });
     }
 
     // Check limit

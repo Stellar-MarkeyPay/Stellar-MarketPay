@@ -153,7 +153,9 @@ test.describe("accessibility", () => {
     await expectNoA11yViolations(page);
   });
 
-  test("job detail timeline and application confirmation flow have no axe violations", async ({ page }) => {
+  test("job detail timeline and application confirmation flow have no axe violations", async ({
+    page,
+  }) => {
     await page.goto("/jobs/job-1");
     await expect(page.getByRole("heading", { name: job.title })).toBeVisible();
     await expectNoA11yViolations(page);
@@ -161,7 +163,9 @@ test.describe("accessibility", () => {
     await page.getByRole("button", { name: "Apply for this Job" }).click();
     await page.getByLabel("Cover Letter").fill(proposalText);
     await page.getByLabel("Your Bid (XLM)").fill("450");
-    await page.getByLabel(/Describe your Soroban escrow experience/).fill("I have shipped Soroban escrow flows with release and refund coverage.");
+    await page
+      .getByLabel(/Describe your Soroban escrow experience/)
+      .fill("I have shipped Soroban escrow flows with release and refund coverage.");
     await page.getByRole("button", { name: "Submit Proposal" }).click();
 
     await expect(page.getByRole("dialog", { name: "Confirm Your Application" })).toBeVisible();

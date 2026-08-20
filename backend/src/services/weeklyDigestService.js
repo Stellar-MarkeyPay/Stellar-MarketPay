@@ -95,9 +95,13 @@ function buildJobCard(job, baseUrl) {
                                  text-transform:uppercase;padding:3px 10px;border-radius:20px;">
                       ${category}
                     </span>
-                    ${matchPct ? `<span style="display:inline-block;margin-left:8px;background:#1d4ed8;color:#bfdbfe;
+                    ${
+                      matchPct
+                        ? `<span style="display:inline-block;margin-left:8px;background:#1d4ed8;color:#bfdbfe;
                                  font-size:11px;font-weight:600;letter-spacing:.4px;
-                                 padding:3px 10px;border-radius:20px;">${matchPct}</span>` : ""}
+                                 padding:3px 10px;border-radius:20px;">${matchPct}</span>`
+                        : ""
+                    }
                   </td>
                 </tr>
               </table>

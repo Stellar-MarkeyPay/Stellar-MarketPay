@@ -12,12 +12,13 @@ const router = express.Router();
 const pool = require("../db/pool");
 const { getJob, updateJobStatus } = require("../services/jobService");
 const { logContractInteraction } = require("../services/contractAuditService");
-const {
-  notifyEscrowEvent,
-  EVENT_TYPES,
-} = require("../services/notificationService");
+const { notifyEscrowEvent, EVENT_TYPES } = require("../services/notificationService");
 const { processReferralPayout } = require("../services/referralService");
-const { releaseMilestone, disputeMilestone, verifyMilestoneViaOracle } = require("../services/escrowService");
+const {
+  releaseMilestone,
+  disputeMilestone,
+  verifyMilestoneViaOracle,
+} = require("../services/escrowService");
 
 /**
  * POST /api/escrow/:jobId/release
@@ -50,7 +51,7 @@ router.post("/:jobId/release", async (req, res, next) => {
     // DB status is updated asynchronously by the indexer when it processes the on-chain event.
     const { rows: escrowRows } = await pool.query(
       `SELECT amount_xlm FROM escrows WHERE job_id = $1`,
-      [jobId],
+      [jobId]
     );
 
     // Process referral bonus payout (2% of earnings to referrer on referee's first job).
@@ -61,7 +62,7 @@ router.post("/:jobId/release", async (req, res, next) => {
       jobId,
       job.freelancerAddress,
       amountXlm,
-      contractTxHash || null,
+      contractTxHash || null
     );
     await updateJobStatus(jobId, "completed");
 
@@ -83,133 +84,108 @@ router.post("/:jobId/release", async (req, res, next) => {
 /**
  * POST /api/escrow/:jobId/partial_release
  */
-router.post(
-  "/:jobId/partial_release",
-  escrowActionRateLimiter,
-  async (req, res, next) => {
-    try {
-      const { jobId } = req.params;
-      const { clientAddress, contractTxHash } = req.body;
+router.post("/:jobId/partial_release", escrowActionRateLimiter, async (req, res, next) => {
+  try {
+    const { jobId } = req.params;
+    const { clientAddress, contractTxHash } = req.body;
 
-      if (!clientAddress || !/^G[A-Z0-9]{55}$/.test(clientAddress)) {
-        const e = new Error("Invalid client address");
-        e.status = 400;
-        throw e;
-      }
-
-      const job = await getJob(jobId);
-
-      if (job.clientAddress !== clientAddress) {
-        const e = new Error("Only the job client can release milestones");
-        e.status = 403;
-        throw e;
-      }
-
-      await logContractInteraction({
-        functionName: "partial_release",
-        callerAddress: clientAddress,
-        jobId,
-        txHash: contractTxHash || `offchain-${Date.now()}`,
-      });
-
-      // Notify users about escrow release
-      await notifyEscrowEvent({
-        eventType: EVENT_TYPES.ESCROW_RELEASED,
-        jobId,
-        clientAddress: job.clientAddress,
-        freelancerAddress: job.freelancerAddress,
-        data: {
-          jobTitle: job.title,
-          jobId,
-          amount: job.budget,
-          currency: job.currency,
-        },
-      });
-
-      res.json({ success: true, message: "Escrow released and job completed" });
-    } catch (e) {
-      next(e);
+    if (!clientAddress || !/^G[A-Z0-9]{55}$/.test(clientAddress)) {
+      const e = new Error("Invalid client address");
+      e.status = 400;
+      throw e;
     }
-  },
-);
+
+    const job = await getJob(jobId);
+
+    if (job.clientAddress !== clientAddress) {
+      const e = new Error("Only the job client can release milestones");
+      e.status = 403;
+      throw e;
+    }
+
+    await logContractInteraction({
+      functionName: "partial_release",
+      callerAddress: clientAddress,
+      jobId,
+      txHash: contractTxHash || `offchain-${Date.now()}`,
+    });
+
+    // Notify users about escrow release
+    await notifyEscrowEvent({
+      eventType: EVENT_TYPES.ESCROW_RELEASED,
+      jobId,
+      clientAddress: job.clientAddress,
+      freelancerAddress: job.freelancerAddress,
+      data: {
+        jobTitle: job.title,
+        jobId,
+        amount: job.budget,
+        currency: job.currency,
+      },
+    });
+
+    res.json({ success: true, message: "Escrow released and job completed" });
+  } catch (e) {
+    next(e);
+  }
+});
 
 /**
  * POST /api/escrow/:jobId/release-milestone
  */
-router.post(
-  "/:jobId/release-milestone",
-  escrowActionRateLimiter,
-  async (req, res, next) => {
-    try {
-      const { jobId } = req.params;
-      const { clientAddress, contractTxHash, milestoneIndex } = req.body;
+router.post("/:jobId/release-milestone", escrowActionRateLimiter, async (req, res, next) => {
+  try {
+    const { jobId } = req.params;
+    const { clientAddress, contractTxHash, milestoneIndex } = req.body;
 
-      if (!clientAddress || !/^G[A-Z0-9]{55}$/.test(clientAddress)) {
-        const e = new Error("Invalid client address");
-        e.status = 400;
-        throw e;
-      }
-
-      const result = await releaseMilestone(
-        jobId,
-        milestoneIndex,
-        clientAddress,
-        contractTxHash,
-      );
-      res.json({ success: true, data: result });
-    } catch (e) {
-      next(e);
+    if (!clientAddress || !/^G[A-Z0-9]{55}$/.test(clientAddress)) {
+      const e = new Error("Invalid client address");
+      e.status = 400;
+      throw e;
     }
-  },
-);
+
+    const result = await releaseMilestone(jobId, milestoneIndex, clientAddress, contractTxHash);
+    res.json({ success: true, data: result });
+  } catch (e) {
+    next(e);
+  }
+});
 
 /**
  * POST /api/escrow/:jobId/dispute-milestone
  */
-router.post(
-  "/:jobId/dispute-milestone",
-  escrowActionRateLimiter,
-  async (req, res, next) => {
-    try {
-      const { jobId } = req.params;
-      const { raisedBy, milestoneIndex } = req.body;
+router.post("/:jobId/dispute-milestone", escrowActionRateLimiter, async (req, res, next) => {
+  try {
+    const { jobId } = req.params;
+    const { raisedBy, milestoneIndex } = req.body;
 
-      if (!raisedBy || !/^G[A-Z0-9]{55}$/.test(raisedBy)) {
-        const e = new Error("Invalid wallet address");
-        e.status = 400;
-        throw e;
-      }
-
-      const result = await disputeMilestone(jobId, milestoneIndex, raisedBy);
-      res.json({ success: true, data: result });
-    } catch (e) {
-      next(e);
+    if (!raisedBy || !/^G[A-Z0-9]{55}$/.test(raisedBy)) {
+      const e = new Error("Invalid wallet address");
+      e.status = 400;
+      throw e;
     }
-  },
-);
+
+    const result = await disputeMilestone(jobId, milestoneIndex, raisedBy);
+    res.json({ success: true, data: result });
+  } catch (e) {
+    next(e);
+  }
+});
 
 /**
  * POST /api/escrow/:jobId/verify-milestone-oracle
  */
-router.post(
-  "/:jobId/verify-milestone-oracle",
-  escrowActionRateLimiter,
-  async (req, res, next) => {
-    try {
-      const { jobId } = req.params;
-      const { contractTxHash, milestoneIndex } = req.body;
+router.post("/:jobId/verify-milestone-oracle", escrowActionRateLimiter, async (req, res, next) => {
+  try {
+    const { jobId } = req.params;
+    const { contractTxHash, milestoneIndex } = req.body;
 
-      const result = await verifyMilestoneViaOracle(
-        jobId,
-        milestoneIndex,
-        contractTxHash,
-      );
-      res.json({ success: true, data: result });
-    } catch (e) {
-      next(e);
-    }
-  },
-);
+    const result = await verifyMilestoneViaOracle(jobId, milestoneIndex, contractTxHash);
+    res.json({ success: true, data: result });
+  } catch (e) {
+    next(e);
+  }
+});
 
 /**
  * POST /api/escrow/:jobId/refund
@@ -293,10 +269,9 @@ router.post("/:jobId/timeout-refund", async (req, res, next) => {
  */
 router.get("/:jobId", escrowActionRateLimiter, async (req, res, next) => {
   try {
-    const { rows } = await pool.query(
-      "SELECT * FROM escrows WHERE job_id = $1",
-      [req.params.jobId],
-    );
+    const { rows } = await pool.query("SELECT * FROM escrows WHERE job_id = $1", [
+      req.params.jobId,
+    ]);
 
     if (!rows.length) {
       const e = new Error("No escrow record found for this job");

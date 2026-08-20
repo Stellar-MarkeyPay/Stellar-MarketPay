@@ -85,35 +85,33 @@ describe("escrowService", () => {
         JOB_ID,
         FREELANCER_ADDRESS,
         "500",
-        TX_HASH,
+        TX_HASH
       );
     });
 
     it("rejects release by non-client", async () => {
       getJob.mockResolvedValue(makeJob());
 
-      await expect(
-        releaseFunds(JOB_ID, OTHER_ADDRESS, TX_HASH),
-      ).rejects.toThrow("Only the job client can release escrow");
+      await expect(releaseFunds(JOB_ID, OTHER_ADDRESS, TX_HASH)).rejects.toThrow(
+        "Only the job client can release escrow"
+      );
     });
 
     it("rejects double-release of same escrow", async () => {
       getJob.mockResolvedValue(makeJob());
-      mockQuery
-        .mockReset()
-        .mockResolvedValueOnce({ rows: [{ status: "completed" }] });
+      mockQuery.mockReset().mockResolvedValueOnce({ rows: [{ status: "completed" }] });
 
-      await expect(
-        releaseFunds(JOB_ID, CLIENT_ADDRESS, TX_HASH),
-      ).rejects.toThrow("Escrow already released");
+      await expect(releaseFunds(JOB_ID, CLIENT_ADDRESS, TX_HASH)).rejects.toThrow(
+        "Escrow already released"
+      );
     });
 
     it("rejects release when job is not in_progress", async () => {
       getJob.mockResolvedValue(makeJob({ status: "open" }));
 
-      await expect(
-        releaseFunds(JOB_ID, CLIENT_ADDRESS, TX_HASH),
-      ).rejects.toThrow("Job is not in progress");
+      await expect(releaseFunds(JOB_ID, CLIENT_ADDRESS, TX_HASH)).rejects.toThrow(
+        "Job is not in progress"
+      );
     });
   });
 
@@ -130,30 +128,30 @@ describe("escrowService", () => {
     it("rejects refund by non-client", async () => {
       getJob.mockResolvedValue(makeJob());
 
-      await expect(
-        refundClient(JOB_ID, OTHER_ADDRESS, TX_HASH),
-      ).rejects.toThrow("Only the job client can refund escrow");
+      await expect(refundClient(JOB_ID, OTHER_ADDRESS, TX_HASH)).rejects.toThrow(
+        "Only the job client can refund escrow"
+      );
     });
 
     it("rejects double-refund", async () => {
       getJob.mockResolvedValue(makeJob());
-      mockQuery
-        .mockReset()
-        .mockResolvedValueOnce({ rows: [{ status: "refunded" }] });
+      mockQuery.mockReset().mockResolvedValueOnce({ rows: [{ status: "refunded" }] });
 
-      await expect(
-        refundClient(JOB_ID, CLIENT_ADDRESS, TX_HASH),
-      ).rejects.toThrow("Escrow already released");
+      await expect(refundClient(JOB_ID, CLIENT_ADDRESS, TX_HASH)).rejects.toThrow(
+        "Escrow already released"
+      );
     });
   });
 
   describe("timeoutRefund", () => {
     it("refunds client after 7-day timeout", async () => {
       const oldDate = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
-      getJob.mockResolvedValue(makeJob({
-        createdAt: oldDate.toISOString(),
-        created_at: oldDate.toISOString(),
-      }));
+      getJob.mockResolvedValue(
+        makeJob({
+          createdAt: oldDate.toISOString(),
+          created_at: oldDate.toISOString(),
+        })
+      );
 
       const result = await timeoutRefund(JOB_ID, CLIENT_ADDRESS, TX_HASH);
 
@@ -163,22 +161,24 @@ describe("escrowService", () => {
 
     it("rejects timeout refund before 7 days elapse", async () => {
       const recentDate = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
-      getJob.mockResolvedValue(makeJob({
-        createdAt: recentDate.toISOString(),
-        created_at: recentDate.toISOString(),
-      }));
+      getJob.mockResolvedValue(
+        makeJob({
+          createdAt: recentDate.toISOString(),
+          created_at: recentDate.toISOString(),
+        })
+      );
 
-      await expect(
-        timeoutRefund(JOB_ID, CLIENT_ADDRESS, TX_HASH),
-      ).rejects.toThrow(`${ESCROW_TIMEOUT_DAYS}-day timeout has not elapsed`);
+      await expect(timeoutRefund(JOB_ID, CLIENT_ADDRESS, TX_HASH)).rejects.toThrow(
+        `${ESCROW_TIMEOUT_DAYS}-day timeout has not elapsed`
+      );
     });
 
     it("rejects timeout refund by non-client", async () => {
       getJob.mockResolvedValue(makeJob());
 
-      await expect(
-        timeoutRefund(JOB_ID, OTHER_ADDRESS, TX_HASH),
-      ).rejects.toThrow("Only the job client can request a timeout refund");
+      await expect(timeoutRefund(JOB_ID, OTHER_ADDRESS, TX_HASH)).rejects.toThrow(
+        "Only the job client can request a timeout refund"
+      );
     });
   });
 
@@ -189,12 +189,14 @@ describe("escrowService", () => {
         .mockReset()
         .mockResolvedValueOnce({ rows: [] })
         .mockResolvedValueOnce({
-          rows: [{
-            id: "dispute-1",
-            job_id: JOB_ID,
-            raised_by: FREELANCER_ADDRESS,
-            status: "open",
-          }],
+          rows: [
+            {
+              id: "dispute-1",
+              job_id: JOB_ID,
+              raised_by: FREELANCER_ADDRESS,
+              status: "open",
+            },
+          ],
         });
 
       const result = await markDisputed(JOB_ID, FREELANCER_ADDRESS);
@@ -206,20 +208,18 @@ describe("escrowService", () => {
     it("rejects dispute raised by non-participant", async () => {
       getJob.mockResolvedValue(makeJob());
 
-      await expect(
-        markDisputed(JOB_ID, OTHER_ADDRESS),
-      ).rejects.toThrow("Only the client or freelancer can raise a dispute");
+      await expect(markDisputed(JOB_ID, OTHER_ADDRESS)).rejects.toThrow(
+        "Only the client or freelancer can raise a dispute"
+      );
     });
 
     it("rejects duplicate dispute on same job", async () => {
       getJob.mockResolvedValue(makeJob());
-      mockQuery
-        .mockReset()
-        .mockResolvedValueOnce({ rows: [{ id: "existing-dispute" }] });
+      mockQuery.mockReset().mockResolvedValueOnce({ rows: [{ id: "existing-dispute" }] });
 
-      await expect(
-        markDisputed(JOB_ID, FREELANCER_ADDRESS),
-      ).rejects.toThrow("A dispute already exists for this job");
+      await expect(markDisputed(JOB_ID, FREELANCER_ADDRESS)).rejects.toThrow(
+        "A dispute already exists for this job"
+      );
     });
   });
 
@@ -236,29 +236,33 @@ describe("escrowService", () => {
     it("rejects partial release by non-client", async () => {
       getJob.mockResolvedValue(makeJob());
 
-      await expect(
-        partialRelease(JOB_ID, OTHER_ADDRESS, TX_HASH),
-      ).rejects.toThrow("Only the job client can release milestones");
+      await expect(partialRelease(JOB_ID, OTHER_ADDRESS, TX_HASH)).rejects.toThrow(
+        "Only the job client can release milestones"
+      );
     });
 
     it("rejects duplicate partial release", async () => {
       getJob.mockResolvedValue(makeJob());
-      mockQuery
-        .mockReset()
-        .mockResolvedValueOnce({ rows: [{ milestones: [{ description: "Final delivery", amount: "500", status: "released" }] }] });
+      mockQuery.mockReset().mockResolvedValueOnce({
+        rows: [
+          { milestones: [{ description: "Final delivery", amount: "500", status: "released" }] },
+        ],
+      });
 
-      await expect(
-        partialRelease(JOB_ID, CLIENT_ADDRESS, TX_HASH),
-      ).rejects.toThrow("Milestone already released");
+      await expect(partialRelease(JOB_ID, CLIENT_ADDRESS, TX_HASH)).rejects.toThrow(
+        "Milestone already released"
+      );
     });
 
     it("releases a selected milestone", async () => {
-      getJob.mockResolvedValue(makeJob({
-        milestones: [
-          { description: "Design", amount: "200", status: "pending" },
-          { description: "Build", amount: "300", status: "pending" },
-        ],
-      }));
+      getJob.mockResolvedValue(
+        makeJob({
+          milestones: [
+            { description: "Design", amount: "200", status: "pending" },
+            { description: "Build", amount: "300", status: "pending" },
+          ],
+        })
+      );
 
       const result = await releaseMilestone(JOB_ID, 1, CLIENT_ADDRESS, TX_HASH);
 
@@ -268,9 +272,11 @@ describe("escrowService", () => {
     });
 
     it("disputes a selected milestone", async () => {
-      getJob.mockResolvedValue(makeJob({
-        milestones: [{ description: "Design", amount: "500", status: "pending" }],
-      }));
+      getJob.mockResolvedValue(
+        makeJob({
+          milestones: [{ description: "Design", amount: "500", status: "pending" }],
+        })
+      );
       mockQuery.mockImplementation(async (sql) => {
         const text = sql.replace(/\s+/g, " ").trim();
         if (text.startsWith("INSERT INTO disputes")) {
@@ -293,9 +299,7 @@ describe("escrowService", () => {
         amount_xlm: "500",
         status: "held",
       };
-      mockQuery
-        .mockReset()
-        .mockResolvedValueOnce({ rows: [escrowData] });
+      mockQuery.mockReset().mockResolvedValueOnce({ rows: [escrowData] });
 
       const result = await getEscrow(JOB_ID);
 
@@ -303,13 +307,9 @@ describe("escrowService", () => {
     });
 
     it("throws 404 when escrow not found", async () => {
-      mockQuery
-        .mockReset()
-        .mockResolvedValueOnce({ rows: [] });
+      mockQuery.mockReset().mockResolvedValueOnce({ rows: [] });
 
-      await expect(getEscrow(JOB_ID)).rejects.toThrow(
-        "No escrow record found for this job",
-      );
+      await expect(getEscrow(JOB_ID)).rejects.toThrow("No escrow record found for this job");
     });
   });
 });

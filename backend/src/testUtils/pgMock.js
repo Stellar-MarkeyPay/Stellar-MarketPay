@@ -6,8 +6,7 @@ function defaultJobRow(overrides = {}) {
     id: overrides.id || `job-${Date.now()}`,
     title: overrides.title || "Build a decentralized app",
     description:
-      overrides.description ||
-      "Looking for a full-stack developer to build a dApp on Stellar.",
+      overrides.description || "Looking for a full-stack developer to build a dApp on Stellar.",
     budget: overrides.budget || "500.0000000",
     currency: overrides.currency || "XLM",
     category: overrides.category || "Smart Contracts",
@@ -79,12 +78,9 @@ function createPgMock() {
     }
 
     if (text.startsWith("SELECT * FROM jobs WHERE client_address")) {
-      const rows = [...jobs.values()].filter(
-        (job) => job.client_address === params[0],
-      );
+      const rows = [...jobs.values()].filter((job) => job.client_address === params[0]);
       return { rows };
     }
-
 
     if (text.startsWith("UPDATE jobs SET escrow_contract_id")) {
       const row = jobs.get(params[1]);
@@ -126,16 +122,14 @@ function createPgMock() {
       text.includes("freelancer_address")
     ) {
       const exists = [...applications.values()].some(
-        (app) =>
-          app.job_id === params[0] && app.freelancer_address === params[1],
+        (app) => app.job_id === params[0] && app.freelancer_address === params[1]
       );
       return { rows: exists ? [{ "?column?": 1 }] : [] };
     }
 
     if (text.includes("INSERT INTO applications")) {
       const duplicate = [...applications.values()].some(
-        (app) =>
-          app.job_id === params[0] && app.freelancer_address === params[1],
+        (app) => app.job_id === params[0] && app.freelancer_address === params[1]
       );
       if (duplicate) {
         const err = new Error("duplicate");
@@ -174,10 +168,7 @@ function createPgMock() {
 
     if (text.includes("UPDATE applications") && text.includes("status = 'rejected'")) {
       const jobApps = [...applications.values()].filter(
-        (app) =>
-          app.job_id === params[0] &&
-          app.id !== params[1] &&
-          app.status === "pending",
+        (app) => app.job_id === params[0] && app.id !== params[1] && app.status === "pending"
       );
       jobApps.forEach((app) => {
         app.status = "rejected";

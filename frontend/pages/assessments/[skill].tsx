@@ -30,12 +30,12 @@ function pad(n: number) {
 
 export default function AssessmentPage({ publicKey, onConnect }: Props) {
   const router = useRouter();
-  const skill  = typeof router.query.skill === "string" ? router.query.skill : "";
+  const skill = typeof router.query.skill === "string" ? router.query.skill : "";
 
-  const [phase, setPhase]       = useState<Phase>({ name: "loading" });
-  const [answers, setAnswers]   = useState<Record<number, number>>({});
+  const [phase, setPhase] = useState<Phase>({ name: "loading" });
+  const [answers, setAnswers] = useState<Record<number, number>>({});
   const [timeLeft, setTimeLeft] = useState(0);
-  const timerRef                = useRef<ReturnType<typeof setInterval> | null>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   // Load assessment info
@@ -110,7 +110,12 @@ export default function AssessmentPage({ publicKey, onConnect }: Props) {
       try {
         const data = await fetchAssessment(skill);
         setAnswers({});
-        setPhase({ name: "quiz", label: data.label, questions: data.questions, durationSeconds: data.durationSeconds });
+        setPhase({
+          name: "quiz",
+          label: data.label,
+          questions: data.questions,
+          durationSeconds: data.durationSeconds,
+        });
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Failed to start quiz.";
         setPhase({ name: "error", message: msg });
@@ -127,7 +132,10 @@ export default function AssessmentPage({ publicKey, onConnect }: Props) {
     <>
       <Head>
         <title>{pageTitle}</title>
-        <meta name="description" content="Verify your skills with a timed quiz on Stellar MarketPay." />
+        <meta
+          name="description"
+          content="Verify your skills with a timed quiz on Stellar MarketPay."
+        />
       </Head>
 
       <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8 sm:py-12 animate-fade-in">
@@ -141,7 +149,9 @@ export default function AssessmentPage({ publicKey, onConnect }: Props) {
         {/* Wallet not connected */}
         {!publicKey && (
           <div className="card border-market-500/20 text-center py-12">
-            <p className="font-display text-xl text-amber-100 mb-4">Connect your wallet to take an assessment</p>
+            <p className="font-display text-xl text-amber-100 mb-4">
+              Connect your wallet to take an assessment
+            </p>
             <WalletConnect onConnect={onConnect} />
           </div>
         )}
@@ -178,7 +188,9 @@ export default function AssessmentPage({ publicKey, onConnect }: Props) {
               You can retake this assessment after{" "}
               <span className="text-amber-300">
                 {new Date(phase.retakeAt).toLocaleDateString(undefined, {
-                  year: "numeric", month: "long", day: "numeric",
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
                 })}
               </span>
               .
@@ -275,12 +287,16 @@ export default function AssessmentPage({ publicKey, onConnect }: Props) {
 
         {/* Result */}
         {phase.name === "result" && (
-          <div className={`card text-center py-12 ${phase.passed ? "border-emerald-500/20" : "border-red-500/20"}`}>
+          <div
+            className={`card text-center py-12 ${phase.passed ? "border-emerald-500/20" : "border-red-500/20"}`}
+          >
             <p className="text-5xl mb-4">{phase.passed ? "🏆" : "📚"}</p>
             <h1 className="font-display text-2xl font-bold text-amber-100 mb-2">
               {phase.passed ? "Assessment Passed!" : "Not quite there"}
             </h1>
-            <p className={`text-4xl font-bold font-display mb-2 ${phase.passed ? "text-emerald-400" : "text-red-400"}`}>
+            <p
+              className={`text-4xl font-bold font-display mb-2 ${phase.passed ? "text-emerald-400" : "text-red-400"}`}
+            >
               {phase.score}%
             </p>
             <p className="text-amber-700/90 text-sm mb-6">

@@ -14,10 +14,10 @@ measures, it does not perform promotion.
 These are real measured numbers from an actual run of the tool (not values
 copied from the unit tests), reproduced twice for consistency:
 
-| Measurement | Target | Observed | Result |
-| --- | ---: | ---: | --- |
-| RTO | 600 seconds | 8.07s, then 8.06s on a repeat run | Pass |
-| RPO upper bound (replica replay lag at injection) | 60 seconds | 4.0 seconds | Pass |
+| Measurement                                       |      Target |                          Observed | Result |
+| ------------------------------------------------- | ----------: | --------------------------------: | ------ |
+| RTO                                               | 600 seconds | 8.07s, then 8.06s on a repeat run | Pass   |
+| RPO upper bound (replica replay lag at injection) |  60 seconds |                       4.0 seconds | Pass   |
 
 Raw output of the first run:
 

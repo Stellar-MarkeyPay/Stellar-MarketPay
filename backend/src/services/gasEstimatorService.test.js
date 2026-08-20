@@ -18,12 +18,7 @@ jest.mock("./cacheService", () => ({
 const axios = require("axios");
 const cacheService = require("./cacheService");
 
-const {
-  computeTiers,
-  parseFee,
-  stroopsToXlm,
-  getGasEstimate,
-} = require("./gasEstimatorService");
+const { computeTiers, parseFee, stroopsToXlm, getGasEstimate } = require("./gasEstimatorService");
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
 
@@ -128,9 +123,9 @@ describe("computeTiers", () => {
     const stats = { fee_charged: { p10: "200", p50: "500", p95: "1200" } };
     const tiers = computeTiers(stats);
     // without soroban bucket, resource falls back to inclusion values
-    expect(tiers.slow.feeStroops).toBe(400n);   // p10+p10 = 200+200
+    expect(tiers.slow.feeStroops).toBe(400n); // p10+p10 = 200+200
     expect(tiers.medium.feeStroops).toBe(1000n); // p50+p50 = 500+500
-    expect(tiers.fast.feeStroops).toBe(2400n);   // p95+p95 = 1200+1200
+    expect(tiers.fast.feeStroops).toBe(2400n); // p95+p95 = 1200+1200
   });
 
   it("slow ≤ medium ≤ fast", () => {
@@ -179,9 +174,27 @@ describe("getGasEstimate", () => {
   it("returns cached: true when cache is warm", async () => {
     // Simulate a warm cache entry (stored values are already serialised strings)
     cacheService.get.mockResolvedValue({
-      slow:   { feeStroops: "350",  feeXlm: "0.000035",  label: "Slow",   description: "...", estimatedWaitLedgers: 6 },
-      medium: { feeStroops: "1000", feeXlm: "0.0001",    label: "Medium", description: "...", estimatedWaitLedgers: 2 },
-      fast:   { feeStroops: "2500", feeXlm: "0.00025",   label: "Fast",   description: "...", estimatedWaitLedgers: 1 },
+      slow: {
+        feeStroops: "350",
+        feeXlm: "0.000035",
+        label: "Slow",
+        description: "...",
+        estimatedWaitLedgers: 6,
+      },
+      medium: {
+        feeStroops: "1000",
+        feeXlm: "0.0001",
+        label: "Medium",
+        description: "...",
+        estimatedWaitLedgers: 2,
+      },
+      fast: {
+        feeStroops: "2500",
+        feeXlm: "0.00025",
+        label: "Fast",
+        description: "...",
+        estimatedWaitLedgers: 1,
+      },
       spikeDetected: false,
       fetchedAt: new Date().toISOString(),
     });
@@ -205,7 +218,7 @@ describe("getGasEstimate", () => {
   it("sets spikeDetected = false with insufficient history", async () => {
     // main cache miss → null, history → 1 entry (not enough for spike detection)
     cacheService.get
-      .mockResolvedValueOnce(null)   // main cache miss
+      .mockResolvedValueOnce(null) // main cache miss
       .mockResolvedValueOnce([400]); // history with 1 entry
 
     const result = await getGasEstimate();
@@ -216,8 +229,8 @@ describe("getGasEstimate", () => {
     // Build history where p50 was consistently low (~1000 stroops)
     const lowHistory = Array(10).fill(1000);
     cacheService.get
-      .mockResolvedValueOnce(null)          // main cache miss
-      .mockResolvedValueOnce(lowHistory);   // low rolling history
+      .mockResolvedValueOnce(null) // main cache miss
+      .mockResolvedValueOnce(lowHistory); // low rolling history
 
     // Current fee_stats produce a much higher medium tier
     axios.get.mockResolvedValue({

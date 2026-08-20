@@ -3,165 +3,163 @@
  * Swagger/OpenAPI configuration for Stellar MarketPay API
  */
 
-const swaggerJsdoc = require('swagger-jsdoc');
+const swaggerJsdoc = require("swagger-jsdoc");
 
 const options = {
   definition: {
-    openapi: '3.0.0',
+    openapi: "3.0.0",
     info: {
-      title: 'Stellar MarketPay API',
-      version: '1.0.0',
-      description: 'Backend API for Stellar MarketPay - A decentralized freelance marketplace built on Stellar blockchain',
+      title: "Stellar MarketPay API",
+      version: "1.0.0",
+      description:
+        "Backend API for Stellar MarketPay - A decentralized freelance marketplace built on Stellar blockchain",
       contact: {
-        name: 'Stellar MarketPay Team',
-        email: 'support@stellarmarketpay.com'
+        name: "Stellar MarketPay Team",
+        email: "support@stellarmarketpay.com",
       },
       license: {
-        name: 'MIT',
-        url: 'https://opensource.org/licenses/MIT'
-      }
+        name: "MIT",
+        url: "https://opensource.org/licenses/MIT",
+      },
     },
     servers: [
       {
-        url: process.env.API_BASE_URL || 'http://localhost:4000',
-        description: 'Development server'
+        url: process.env.API_BASE_URL || "http://localhost:4000",
+        description: "Development server",
       },
       {
-        url: 'https://api.stellarmarketpay.com',
-        description: 'Production server'
-      }
+        url: "https://api.stellarmarketpay.com",
+        description: "Production server",
+      },
     ],
     components: {
       securitySchemes: {
         bearerAuth: {
-          type: 'http',
-          scheme: 'bearer',
-          bearerFormat: 'JWT'
+          type: "http",
+          scheme: "bearer",
+          bearerFormat: "JWT",
         },
         cookieAuth: {
-          type: 'apiKey',
-          in: 'cookie',
-          name: 'jwt'
-        }
+          type: "apiKey",
+          in: "cookie",
+          name: "jwt",
+        },
       },
       schemas: {
         Error: {
-          type: 'object',
+          type: "object",
           properties: {
             error: {
-              type: 'string',
-              description: 'Error message'
-            }
-          }
+              type: "string",
+              description: "Error message",
+            },
+          },
         },
         Success: {
-          type: 'object',
+          type: "object",
           properties: {
             success: {
-              type: 'boolean',
-              description: 'Success status'
+              type: "boolean",
+              description: "Success status",
             },
             message: {
-              type: 'string',
-              description: 'Success message'
-            }
-          }
+              type: "string",
+              description: "Success message",
+            },
+          },
         },
         StellarAccount: {
-          type: 'object',
+          type: "object",
           properties: {
             publicKey: {
-              type: 'string',
-              description: 'Stellar public key',
-              example: 'GD5JQHFZLLM7H45AEB5S7M2E7EYQ3M3K5Y6R7B8C9D0E1F2G3H4I5J6K7L8M9N0O'
-            }
-          }
+              type: "string",
+              description: "Stellar public key",
+              example: "GD5JQHFZLLM7H45AEB5S7M2E7EYQ3M3K5Y6R7B8C9D0E1F2G3H4I5J6K7L8M9N0O",
+            },
+          },
         },
         Job: {
-          type: 'object',
+          type: "object",
           properties: {
             id: {
-              type: 'string',
-              format: 'uuid',
-              description: 'Job ID'
+              type: "string",
+              format: "uuid",
+              description: "Job ID",
             },
             title: {
-              type: 'string',
-              description: 'Job title'
+              type: "string",
+              description: "Job title",
             },
             description: {
-              type: 'string',
-              description: 'Job description'
+              type: "string",
+              description: "Job description",
             },
             budget: {
-              type: 'number',
-              description: 'Job budget in XLM'
+              type: "number",
+              description: "Job budget in XLM",
             },
             clientId: {
-              type: 'string',
-              description: 'Client Stellar address'
+              type: "string",
+              description: "Client Stellar address",
             },
             status: {
-              type: 'string',
-              enum: ['open', 'in_progress', 'completed', 'cancelled'],
-              description: 'Job status'
+              type: "string",
+              enum: ["open", "in_progress", "completed", "cancelled"],
+              description: "Job status",
             },
             createdAt: {
-              type: 'string',
-              format: 'date-time',
-              description: 'Creation timestamp'
+              type: "string",
+              format: "date-time",
+              description: "Creation timestamp",
             },
             expiresAt: {
-              type: 'string',
-              format: 'date-time',
-              description: 'Expiration timestamp'
-            }
-          }
+              type: "string",
+              format: "date-time",
+              description: "Expiration timestamp",
+            },
+          },
         },
         Application: {
-          type: 'object',
+          type: "object",
           properties: {
             id: {
-              type: 'string',
-              format: 'uuid',
-              description: 'Application ID'
+              type: "string",
+              format: "uuid",
+              description: "Application ID",
             },
             jobId: {
-              type: 'string',
-              format: 'uuid',
-              description: 'Job ID'
+              type: "string",
+              format: "uuid",
+              description: "Job ID",
             },
             freelancerId: {
-              type: 'string',
-              description: 'Freelancer Stellar address'
+              type: "string",
+              description: "Freelancer Stellar address",
             },
             proposal: {
-              type: 'string',
-              description: 'Application proposal'
+              type: "string",
+              description: "Application proposal",
             },
             bidAmount: {
-              type: 'number',
-              description: 'Bid amount in XLM'
+              type: "number",
+              description: "Bid amount in XLM",
             },
             status: {
-              type: 'string',
-              enum: ['pending', 'accepted', 'rejected'],
-              description: 'Application status'
+              type: "string",
+              enum: ["pending", "accepted", "rejected"],
+              description: "Application status",
             },
             createdAt: {
-              type: 'string',
-              format: 'date-time',
-              description: 'Creation timestamp'
-            }
-          }
-        }
-      }
-    }
+              type: "string",
+              format: "date-time",
+              description: "Creation timestamp",
+            },
+          },
+        },
+      },
+    },
   },
-  apis: [
-    './src/routes/*.js',
-    './src/server.js'
-  ]
+  apis: ["./src/routes/*.js", "./src/server.js"],
 };
 
 const specs = swaggerJsdoc(options);

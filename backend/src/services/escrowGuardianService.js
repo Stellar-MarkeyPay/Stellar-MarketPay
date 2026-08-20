@@ -22,10 +22,7 @@ async function setGuardian(jobId, guardianAddress, highValueThreshold) {
 
 async function approveRelease(jobId, guardianAddress) {
   try {
-    const escrow = await pool.query(
-      `SELECT * FROM escrows WHERE job_id = $1`,
-      [jobId]
-    );
+    const escrow = await pool.query(`SELECT * FROM escrows WHERE job_id = $1`, [jobId]);
 
     if (escrow.rows.length === 0) {
       const err = new Error("Escrow not found");
@@ -87,11 +84,7 @@ async function canReleaseEscrow(jobId, releaserAddress) {
     }
 
     // If high value and guardian not approved yet
-    if (
-      e.high_value_threshold &&
-      e.amount_xlm > e.high_value_threshold &&
-      !e.guardian_approved
-    ) {
+    if (e.high_value_threshold && e.amount_xlm > e.high_value_threshold && !e.guardian_approved) {
       // Check if timeout passed
       const now = new Date();
       const timeoutTime = new Date(e.release_timeout_at);

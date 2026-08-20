@@ -118,34 +118,29 @@ api.interceptors.response.use(
       }
     }
     throw error;
-  },
+  }
 );
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 
 export async function fetchAuthChallenge(publicKey: string) {
-  const { data } = await api.get<{ transaction: string }>(
-    `/api/auth?account=${publicKey}`,
-  );
+  const { data } = await api.get<{ transaction: string }>(`/api/auth?account=${publicKey}`);
   return data.transaction;
 }
 
 export async function verifyAuthChallenge(transaction: string) {
-  const { data } = await api.post<{ success: boolean; token: string }>(
-    "/api/auth",
-    { transaction },
-  );
+  const { data } = await api.post<{ success: boolean; token: string }>("/api/auth", {
+    transaction,
+  });
   return data.token;
 }
 
 export async function refreshAccessToken() {
   if (!refreshPromise) {
     refreshPromise = api
-      .post<{ success: boolean; token: string }>(
-        "/api/auth/refresh",
-        undefined,
-        { skipAuthRefresh: true } as any,
-      )
+      .post<{ success: boolean; token: string }>("/api/auth/refresh", undefined, {
+        skipAuthRefresh: true,
+      } as any)
       .then(({ data }) => {
         setJwtToken(data.token);
         return data.token;
@@ -188,14 +183,8 @@ export async function fetchJobs(params?: {
   postedSince?: string;
   maxApplications?: string;
 }) {
-  const {
-    minBudget,
-    maxBudget,
-    minClientRating,
-    postedSince,
-    maxApplications,
-    ...rest
-  } = params || {};
+  const { minBudget, maxBudget, minClientRating, postedSince, maxApplications, ...rest } =
+    params || {};
 
   const { data } = await api.get<{
     success: boolean;
@@ -229,7 +218,7 @@ export async function fetchJobSuggestions(query: string): Promise<JobSuggestion[
   try {
     const { data } = await api.get<{ success: boolean; data: JobSuggestion[] }>(
       "/api/jobs/suggestions",
-      { params: { q: query } },
+      { params: { q: query } }
     );
     return data.data;
   } catch {
@@ -308,7 +297,7 @@ export async function fetchInsightCategories(limit = 20) {
 export async function fetchInsightSkills(limit = 20) {
   const { data } = await api.get<{ success: boolean; data: InsightSkill[] }>(
     "/api/insights/skills",
-    { params: { limit } },
+    { params: { limit } }
   );
   return data.data;
 }
@@ -316,7 +305,7 @@ export async function fetchInsightSkills(limit = 20) {
 export async function fetchInsightCompetitive(limit = 20) {
   const { data } = await api.get<{ success: boolean; data: InsightCompetitiveJob[] }>(
     "/api/insights/competitive",
-    { params: { limit } },
+    { params: { limit } }
   );
   return data.data;
 }
@@ -324,7 +313,7 @@ export async function fetchInsightCompetitive(limit = 20) {
 export async function fetchInsightPayTrends(days = 30) {
   const { data } = await api.get<{ success: boolean; data: InsightPayTrend[] }>(
     "/api/insights/trends/pay",
-    { params: { days } },
+    { params: { days } }
   );
   return data.data;
 }
@@ -338,12 +327,9 @@ export async function fetchInsightPayTrends(days = 30) {
  * @see backend/src/routes/jobs.js
  */
 export async function fetchJob(id: string, viewerAddress?: string) {
-  const { data } = await api.get<{ success: boolean; data: Job }>(
-    `/api/jobs/${id}`,
-    {
-      params: viewerAddress ? { viewerAddress } : undefined,
-    },
-  );
+  const { data } = await api.get<{ success: boolean; data: Job }>(`/api/jobs/${id}`, {
+    params: viewerAddress ? { viewerAddress } : undefined,
+  });
   return data.data;
 }
 
@@ -361,16 +347,13 @@ export async function createJob(payload: {
   visibility?: "public" | "private" | "invite_only";
   milestones?: { description: string; amount: string }[];
 }) {
-  const { data } = await api.post<{ success: boolean; data: Job }>(
-    "/api/jobs",
-    payload,
-  );
+  const { data } = await api.post<{ success: boolean; data: Job }>("/api/jobs", payload);
   return data.data;
 }
 
 export async function fetchMyJobs(publicKey: string) {
   const { data } = await api.get<{ success: boolean; data: Job[] }>(
-    `/api/jobs/client/${publicKey}`,
+    `/api/jobs/client/${publicKey}`
   );
   return data.data;
 }
@@ -397,7 +380,7 @@ export async function scoreProposals(jobId: string) {
  */
 export async function fetchJobAnalytics(jobId: string) {
   const { data } = await api.get<{ success: boolean; data: JobAnalytics }>(
-    `/api/jobs/${jobId}/analytics`,
+    `/api/jobs/${jobId}/analytics`
   );
   return data.data;
 }
@@ -411,10 +394,9 @@ export async function fetchJobAnalytics(jobId: string) {
  * @returns Updated job record.
  */
 export async function extendJobExpiry(jobId: string, days = 30) {
-  const { data } = await api.patch<{ success: boolean; data: Job }>(
-    `/api/jobs/${jobId}/extend`,
-    { days },
-  );
+  const { data } = await api.patch<{ success: boolean; data: Job }>(`/api/jobs/${jobId}/extend`, {
+    days,
+  });
   return data.data;
 }
 
@@ -424,9 +406,7 @@ export async function extendJobExpiry(jobId: string, days = 30) {
  * @returns Array of expiring jobs.
  */
 export async function fetchExpiringJobs() {
-  const { data } = await api.get<{ success: boolean; data: Job[] }>(
-    "/api/jobs/expiring",
-  );
+  const { data } = await api.get<{ success: boolean; data: Job[] }>("/api/jobs/expiring");
   return data.data;
 }
 
@@ -448,7 +428,7 @@ export async function expireOldJobs() {
 export async function fetchApplications(jobId: string, tier?: string) {
   const { data } = await api.get<{ success: boolean; data: Application[] }>(
     `/api/applications/job/${jobId}`,
-    { params: tier ? { tier } : undefined },
+    { params: tier ? { tier } : undefined }
   );
   return data.data;
 }
@@ -466,7 +446,7 @@ export async function submitApplication(payload: {
 }) {
   const { data } = await api.post<{ success: boolean; data: Application }>(
     "/api/applications",
-    payload,
+    payload
   );
   return data.data;
 }
@@ -480,16 +460,13 @@ export async function closeBidding(jobId: string, clientAddress: string) {
 
 export async function revealApplicationBid(
   applicationId: string,
-  payload: { freelancerAddress: string; bidAmount: string; nonce: string },
+  payload: { freelancerAddress: string; bidAmount: string; nonce: string }
 ) {
   const { data } = await api.post(`/api/applications/${applicationId}/reveal`, payload);
   return data.data;
 }
 
-export async function acceptApplication(
-  applicationId: string,
-  clientAddress: string,
-) {
+export async function acceptApplication(applicationId: string, clientAddress: string) {
   const { data } = await api.post(`/api/applications/${applicationId}/accept`, {
     clientAddress,
   });
@@ -498,7 +475,7 @@ export async function acceptApplication(
 
 export async function fetchMyApplications(publicKey: string) {
   const { data } = await api.get<{ success: boolean; data: Application[] }>(
-    `/api/applications/freelancer/${publicKey}`,
+    `/api/applications/freelancer/${publicKey}`
   );
   return data.data;
 }
@@ -507,7 +484,7 @@ export async function fetchMyApplications(publicKey: string) {
 
 export async function fetchProfile(publicKey: string) {
   const { data } = await api.get<{ success: boolean; data: UserProfile }>(
-    `/api/profiles/${publicKey}`,
+    `/api/profiles/${publicKey}`
   );
   return data.data;
 }
@@ -520,12 +497,10 @@ export async function fetchProfileResponseTime(publicKey: string) {
   return data.data;
 }
 
-export async function fetchPublicProfile(
-  publicKey: string,
-): Promise<UserProfile | null> {
+export async function fetchPublicProfile(publicKey: string): Promise<UserProfile | null> {
   try {
     const { data } = await api.get<{ success: boolean; data: UserProfile }>(
-      `/api/profiles/${encodeURIComponent(publicKey)}`,
+      `/api/profiles/${encodeURIComponent(publicKey)}`
     );
     return data.data;
   } catch (e) {
@@ -540,44 +515,38 @@ export async function fetchProfiles(params?: {
   search?: string;
   limit?: number;
 }) {
-  const { data } = await api.get<{ success: boolean; data: UserProfile[] }>(
-    "/api/profiles",
-    { params },
-  );
+  const { data } = await api.get<{ success: boolean; data: UserProfile[] }>("/api/profiles", {
+    params,
+  });
   return data.data;
 }
 
 export async function fetchProfileStats(publicKey: string): Promise<ProfileStats> {
   const { data } = await api.get<{ success: boolean; data: ProfileStats }>(
-    `/api/profiles/${encodeURIComponent(publicKey)}/stats`,
+    `/api/profiles/${encodeURIComponent(publicKey)}/stats`
   );
   return data.data;
 }
 
 export async function fetchResponseTime(publicKey: string): Promise<ResponseTime> {
   const { data } = await api.get<{ success: boolean; data: ResponseTime }>(
-    `/api/profiles/${encodeURIComponent(publicKey)}/response-time`,
+    `/api/profiles/${encodeURIComponent(publicKey)}/response-time`
   );
   return data.data;
 }
 
-export async function upsertProfile(
-  payload: Partial<UserProfile> & { publicKey: string },
-) {
+export async function upsertProfile(payload: Partial<UserProfile> & { publicKey: string }) {
   const { data } = await api.post<{ success: boolean; data: UserProfile }>(
     "/api/profiles",
-    payload,
+    payload
   );
   return data.data;
 }
 
-export async function updateProfileAvailability(
-  publicKey: string,
-  payload: Availability,
-) {
+export async function updateProfileAvailability(publicKey: string, payload: Availability) {
   const { data } = await api.post<{ success: boolean; data: UserProfile }>(
     `/api/profiles/${encodeURIComponent(publicKey)}/availability`,
-    payload,
+    payload
   );
   return data.data;
 }
@@ -592,7 +561,7 @@ export async function updateProfileAvailability(
 export async function verifyIdentity(publicKey: string, didHash: string) {
   const { data } = await api.post<{ success: boolean; data: UserProfile }>(
     `/api/profiles/${encodeURIComponent(publicKey)}/verify`,
-    { didHash },
+    { didHash }
   );
   return data.data;
 }
@@ -600,9 +569,7 @@ export async function verifyIdentity(publicKey: string, didHash: string) {
 // ─── Escrow ───────────────────────────────────────────────────────────────────
 
 export async function fetchEscrow(jobId: string) {
-  const { data } = await api.get<{ success: boolean; data: any }>(
-    `/api/escrow/${jobId}`,
-  );
+  const { data } = await api.get<{ success: boolean; data: any }>(`/api/escrow/${jobId}`);
   return data.data;
 }
 
@@ -610,7 +577,7 @@ export async function releaseEscrow(
   jobId: string,
   clientAddress: string,
   contractTxHash?: string,
-  releaseCurrency?: "XLM" | "USDC",
+  releaseCurrency?: "XLM" | "USDC"
 ) {
   const { data } = await api.post(`/api/escrow/${jobId}/release`, {
     clientAddress,
@@ -624,7 +591,7 @@ export async function releaseMilestone(
   jobId: string,
   clientAddress: string,
   milestoneIndex: number,
-  contractTxHash?: string,
+  contractTxHash?: string
 ) {
   const { data } = await api.post(`/api/escrow/${jobId}/release-milestone`, {
     clientAddress,
@@ -634,11 +601,7 @@ export async function releaseMilestone(
   return data.data;
 }
 
-export async function disputeMilestone(
-  jobId: string,
-  raisedBy: string,
-  milestoneIndex: number,
-) {
+export async function disputeMilestone(jobId: string, raisedBy: string, milestoneIndex: number) {
   const { data } = await api.post(`/api/escrow/${jobId}/dispute-milestone`, {
     raisedBy,
     milestoneIndex,
@@ -646,11 +609,7 @@ export async function disputeMilestone(
   return data.data;
 }
 
-export async function timeoutRefund(
-  jobId: string,
-  clientAddress: string,
-  contractTxHash?: string,
-) {
+export async function timeoutRefund(jobId: string, clientAddress: string, contractTxHash?: string) {
   const { data } = await api.post(`/api/escrow/${jobId}/timeout-refund`, {
     clientAddress,
     ...(contractTxHash ? { contractTxHash } : {}),
@@ -658,16 +617,10 @@ export async function timeoutRefund(
   return data.data;
 }
 
-export async function inviteFreelancer(
-  jobId: string,
-  freelancerAddress: string,
-) {
-  const { data } = await api.post<{ success: boolean; data: any }>(
-    `/api/jobs/${jobId}/invite`,
-    {
-      freelancerAddress,
-    },
-  );
+export async function inviteFreelancer(jobId: string, freelancerAddress: string) {
+  const { data } = await api.post<{ success: boolean; data: any }>(`/api/jobs/${jobId}/invite`, {
+    freelancerAddress,
+  });
   return data.data;
 }
 
@@ -679,20 +632,17 @@ export async function fetchProposalTemplates() {
   return data.data;
 }
 
-export async function createProposalTemplate(payload: {
-  name: string;
-  content: string;
-}) {
+export async function createProposalTemplate(payload: { name: string; content: string }) {
   const { data } = await api.post<{ success: boolean; data: ProposalTemplate }>(
     "/api/proposal-templates",
-    payload,
+    payload
   );
   return data.data;
 }
 
 export async function updateProposalTemplate(
   id: string,
-  payload: { name?: string; content?: string },
+  payload: { name?: string; content?: string }
 ) {
   const { data } = await api.patch<{
     success: boolean;
@@ -743,7 +693,7 @@ export interface XlmPriceHistory {
 
 export async function fetchXlmPriceHistory(): Promise<XlmPriceHistory> {
   const { data } = await api.get<{ success: boolean; data: XlmPriceHistory }>(
-    "/api/stats/xlm-price-history",
+    "/api/stats/xlm-price-history"
   );
   return data.data;
 }
@@ -755,7 +705,7 @@ export async function upsertPriceAlertPreference(
     maxXlmPriceUsd?: number | null;
     emailNotificationsEnabled?: boolean;
     email?: string;
-  },
+  }
 ) {
   const { data } = await api.post<{
     success: boolean;
@@ -777,12 +727,12 @@ export async function upsertPriceAlertPreference(
 export async function updateJobEscrowId(
   jobId: string,
   escrowContractId: string,
-  referrerAddress?: string | null,
+  referrerAddress?: string | null
 ) {
-  const { data } = await api.patch<{ success: boolean; data: Job }>(
-    `/api/jobs/${jobId}/escrow`,
-    { escrowContractId, referrerAddress: referrerAddress || undefined },
-  );
+  const { data } = await api.patch<{ success: boolean; data: Job }>(`/api/jobs/${jobId}/escrow`, {
+    escrowContractId,
+    referrerAddress: referrerAddress || undefined,
+  });
   return data.data;
 }
 
@@ -799,11 +749,11 @@ export async function deleteJob(jobId: string) {
  */
 export async function raiseDispute(
   jobId: string,
-  payload: { reason: string; description: string },
+  payload: { reason: string; description: string }
 ) {
   const { data } = await api.post<{ success: boolean; data: Job }>(
     `/api/jobs/${jobId}/dispute`,
-    payload,
+    payload
   );
   return data.data;
 }
@@ -817,10 +767,10 @@ export async function raiseDispute(
  * @returns The updated job record.
  */
 export async function resolveDispute(jobId: string, note?: string, releaseTo?: string) {
-  const { data } = await api.post<{ success: boolean; data: Job }>(
-    `/api/jobs/${jobId}/resolve`,
-    { note, releaseTo },
-  );
+  const { data } = await api.post<{ success: boolean; data: Job }>(`/api/jobs/${jobId}/resolve`, {
+    note,
+    releaseTo,
+  });
   return data.data;
 }
 
@@ -834,43 +784,37 @@ export async function logTimeEntry(payload: {
 }) {
   const { data } = await api.post<{ success: boolean; data: TimeEntry }>(
     "/api/time-entries",
-    payload,
+    payload
   );
   return data.data;
 }
 
 export async function fetchTimeEntries(jobId: string): Promise<TimeEntry[]> {
   const { data } = await api.get<{ success: boolean; data: TimeEntry[] }>(
-    `/api/time-entries/job/${jobId}`,
+    `/api/time-entries/job/${jobId}`
   );
   return data.data;
 }
 
 export async function fetchTimeInvoices(jobId: string): Promise<TimeInvoice[]> {
   const { data } = await api.get<{ success: boolean; data: TimeInvoice[] }>(
-    `/api/time-entries/job/${jobId}/invoices`,
+    `/api/time-entries/job/${jobId}/invoices`
   );
   return data.data;
 }
 
-export async function generateTimeInvoice(payload: {
-  jobId: string;
-  hourlyRateXlm: number;
-}) {
+export async function generateTimeInvoice(payload: { jobId: string; hourlyRateXlm: number }) {
   const { data } = await api.post<{ success: boolean; data: TimeInvoice }>(
     "/api/time-entries/invoice",
-    payload,
+    payload
   );
   return data.data;
 }
 
-export async function reviewTimeInvoice(
-  invoiceId: string,
-  decision: "approved" | "rejected",
-) {
+export async function reviewTimeInvoice(invoiceId: string, decision: "approved" | "rejected") {
   const { data } = await api.patch<{ success: boolean; data: TimeInvoice }>(
     `/api/time-entries/invoice/${invoiceId}/review`,
-    { decision },
+    { decision }
   );
   return data.data;
 }
@@ -883,17 +827,12 @@ export async function submitRating(payload: {
   stars: number;
   review?: string;
 }) {
-  const { data } = await api.post<{ success: boolean; data: Rating }>(
-    "/api/ratings",
-    payload,
-  );
+  const { data } = await api.post<{ success: boolean; data: Rating }>("/api/ratings", payload);
   return data.data;
 }
 
 export async function fetchRatings(publicKey: string) {
-  const { data } = await api.get<{ success: boolean; data: Rating[] }>(
-    `/api/ratings/${publicKey}`,
-  );
+  const { data } = await api.get<{ success: boolean; data: Rating[] }>(`/api/ratings/${publicKey}`);
   return data.data;
 }
 
@@ -931,7 +870,7 @@ export interface RankingMeta {
 
 export async function fetchMlRankedJobs(
   publicKey: string,
-  limit = 10,
+  limit = 10
 ): Promise<{ jobs: RankedJob[]; meta: RankingMeta }> {
   const { data } = await api.get<{
     success: boolean;
@@ -943,7 +882,7 @@ export async function fetchMlRankedJobs(
 
 export async function fetchMlRankedFreelancers(
   jobId: string,
-  limit = 12,
+  limit = 12
 ): Promise<{ freelancers: RankedFreelancer[]; meta: RankingMeta }> {
   const { data } = await api.get<{
     success: boolean;
@@ -954,7 +893,7 @@ export async function fetchMlRankedFreelancers(
 }
 
 export async function fetchRecommendedJobs(
-  publicKey: string,
+  publicKey: string
 ): Promise<(Job & { matchScore: number })[]> {
   const { data } = await api.get<{
     success: boolean;
@@ -964,16 +903,12 @@ export async function fetchRecommendedJobs(
 }
 
 export async function fetchDrafts() {
-  const { data } = await api.get<{ success: boolean; data: any[] }>(
-    "/api/jobs/drafts",
-  );
+  const { data } = await api.get<{ success: boolean; data: any[] }>("/api/jobs/drafts");
   return data.data;
 }
 
 export async function fetchDraft(draftId: string) {
-  const { data } = await api.get<{ success: boolean; data: any }>(
-    `/api/jobs/drafts/${draftId}`,
-  );
+  const { data } = await api.get<{ success: boolean; data: any }>(`/api/jobs/drafts/${draftId}`);
   return data.data;
 }
 
@@ -986,7 +921,10 @@ export async function saveDraft(draft: {
   skills?: string[];
   deadline?: string;
 }) {
-  const { data } = await api.post<{ success: boolean; data: { id: string } }>("/api/jobs/drafts", draft);
+  const { data } = await api.post<{ success: boolean; data: { id: string } }>(
+    "/api/jobs/drafts",
+    draft
+  );
   return data.data;
 }
 
@@ -1012,10 +950,7 @@ export async function fetchAssessment(skill: string) {
   return data.data;
 }
 
-export async function submitAssessment(
-  skill: string,
-  answers: Record<number, number>,
-) {
+export async function submitAssessment(skill: string, answers: Record<number, number>) {
   const { data } = await api.post<{
     success: boolean;
     data: {
@@ -1060,7 +995,7 @@ export async function verifyAdmin2FA(token: string, setup = false) {
 export async function bulkCancelJobs(jobIds: string[]): Promise<BulkActionResponse> {
   const { data } = await api.post<{ success: boolean; data: BulkActionResponse }>(
     "/api/jobs/bulk-cancel",
-    { jobIds },
+    { jobIds }
   );
   return data.data;
 }
@@ -1068,7 +1003,7 @@ export async function bulkCancelJobs(jobIds: string[]): Promise<BulkActionRespon
 export async function bulkExtendJobs(jobIds: string[], days: number): Promise<BulkActionResponse> {
   const { data } = await api.post<{ success: boolean; data: BulkActionResponse }>(
     "/api/jobs/bulk-extend",
-    { jobIds, days },
+    { jobIds, days }
   );
   return data.data;
 }
@@ -1076,7 +1011,7 @@ export async function bulkExtendJobs(jobIds: string[], days: number): Promise<Bu
 export async function bulkBoostJobs(jobIds: string[], txHash: string): Promise<BulkActionResponse> {
   const { data } = await api.post<{ success: boolean; data: BulkActionResponse }>(
     "/api/jobs/bulk-boost",
-    { jobIds, txHash },
+    { jobIds, txHash }
   );
   return data.data;
 }
@@ -1213,10 +1148,7 @@ export async function validateTokenContract(contractId: string) {
 
 // ─── Stellar Turrets (Issue #224) ───────────────────────────────────────────
 
-export async function submitViaTurrets(
-  transactionXDR: string,
-  useTurret?: boolean,
-) {
+export async function submitViaTurrets(transactionXDR: string, useTurret?: boolean) {
   const { data } = await api.post<{
     success: boolean;
     data: {
@@ -1292,7 +1224,7 @@ export async function getTurretsConfig() {
  */
 export async function fetchMessages(jobId: string): Promise<Message[]> {
   const { data } = await api.get<{ success: boolean; data: Message[] }>(
-    `/api/messages/job/${jobId}`,
+    `/api/messages/job/${jobId}`
   );
   return data.data;
 }
@@ -1312,11 +1244,11 @@ export async function fetchMessages(jobId: string): Promise<Message[]> {
 export async function sendMessage(
   jobId: string,
   content: string,
-  contractTxHash?: string,
+  contractTxHash?: string
 ): Promise<Message> {
   const { data } = await api.post<{ success: boolean; data: Message }>(
     `/api/messages/job/${jobId}`,
-    { content, contractTxHash },
+    { content, contractTxHash }
   );
   return data.data;
 }
@@ -1342,7 +1274,6 @@ export interface NotificationsResponse {
   nextCursor: string | null;
 }
 
-
 export interface NotificationPreferencesResponse {
   notificationTypes: string[];
   preferences: Record<string, Record<string, boolean>>;
@@ -1357,7 +1288,7 @@ export async function fetchNotificationPreferences(): Promise<NotificationPrefer
 }
 
 export async function updateNotificationPreferences(
-  preferences: Record<string, Record<string, boolean>>,
+  preferences: Record<string, Record<string, boolean>>
 ): Promise<Record<string, Record<string, boolean>>> {
   const { data } = await api.patch<{
     success: boolean;
@@ -1402,13 +1333,10 @@ export async function markAllNotificationsRead(): Promise<{ updatedCount: number
  * Attaches an on-chain Soroban transaction hash to a message record.
  * Called after the frontend signs and submits the publish_message event.
  */
-export async function attachMessageTxHash(
-  messageId: string,
-  txHash: string,
-): Promise<Message> {
+export async function attachMessageTxHash(messageId: string, txHash: string): Promise<Message> {
   const { data } = await api.patch<{ success: boolean; data: Message }>(
     `/api/messages/${messageId}/tx-hash`,
-    { txHash },
+    { txHash }
   );
   return data.data;
 }
@@ -1436,11 +1364,9 @@ export interface EarningsData {
   monthly: MonthlyEarning[];
 }
 
-export async function fetchFreelancerEarnings(
-  publicKey: string,
-): Promise<EarningsData> {
+export async function fetchFreelancerEarnings(publicKey: string): Promise<EarningsData> {
   const { data } = await api.get<{ success: boolean; data: EarningsData }>(
-    `/api/profiles/${encodeURIComponent(publicKey)}/earnings`,
+    `/api/profiles/${encodeURIComponent(publicKey)}/earnings`
   );
   return data.data;
 }
@@ -1470,11 +1396,9 @@ export interface DisputeDetail {
   evidence: DisputeEvidence[];
 }
 
-export async function fetchDisputeDetail(
-  jobId: string,
-): Promise<DisputeDetail> {
+export async function fetchDisputeDetail(jobId: string): Promise<DisputeDetail> {
   const { data } = await api.get<{ success: boolean; data: DisputeDetail }>(
-    `/api/disputes/${jobId}`,
+    `/api/disputes/${jobId}`
   );
   return data.data;
 }
@@ -1482,7 +1406,7 @@ export async function fetchDisputeDetail(
 export async function uploadDisputeEvidence(
   jobId: string,
   file: File,
-  onProgress?: (pct: number) => void,
+  onProgress?: (pct: number) => void
 ): Promise<DisputeEvidence> {
   const formData = new FormData();
   formData.append("file", file);
@@ -1493,9 +1417,11 @@ export async function uploadDisputeEvidence(
       headers: { "Content-Type": "multipart/form-data" },
       timeout: 60000,
       onUploadProgress: onProgress
-        ? (e) => { if (e.total) onProgress(Math.round((e.loaded / e.total) * 100)); }
+        ? (e) => {
+            if (e.total) onProgress(Math.round((e.loaded / e.total) * 100));
+          }
         : undefined,
-    },
+    }
   );
   return data.data;
 }
@@ -1511,7 +1437,7 @@ export interface PasskeyCredential {
 export async function fetchPasskeyRegistrationOptions(publicKey: string) {
   const { data } = await api.post<{ success: boolean; data: any }>(
     "/api/webauthn/register-options",
-    { publicKey },
+    { publicKey }
   );
   return data.data;
 }
@@ -1519,23 +1445,22 @@ export async function fetchPasskeyRegistrationOptions(publicKey: string) {
 export async function verifyPasskeyRegistration(credential: any, name: string) {
   const { data } = await api.post<{ success: boolean; message: string }>(
     "/api/webauthn/register-verify",
-    { credential, name },
+    { credential, name }
   );
   return data;
 }
 
 export async function fetchPasskeyLoginOptions(publicKey: string) {
-  const { data } = await api.post<{ success: boolean; data: any }>(
-    "/api/webauthn/login-options",
-    { publicKey },
-  );
+  const { data } = await api.post<{ success: boolean; data: any }>("/api/webauthn/login-options", {
+    publicKey,
+  });
   return data.data;
 }
 
 export async function verifyPasskeyLogin(credential: any, publicKey: string) {
   const { data } = await api.post<{ success: boolean; token: string }>(
     "/api/webauthn/login-verify",
-    { credential, publicKey },
+    { credential, publicKey }
   );
   return data;
 }
@@ -1578,17 +1503,15 @@ function buildApiKeyHeaders(apiKey: string) {
 
 export async function fetchDeveloperApiKeys(): Promise<DeveloperApiKey[]> {
   const { data } = await api.get<{ success: boolean; data: DeveloperApiKey[] }>(
-    "/api/developer/keys",
+    "/api/developer/keys"
   );
   return data.data;
 }
 
-export async function createDeveloperApiKey(
-  label?: string,
-): Promise<CreatedDeveloperApiKey> {
+export async function createDeveloperApiKey(label?: string): Promise<CreatedDeveloperApiKey> {
   const { data } = await api.post<{ success: boolean; data: CreatedDeveloperApiKey }>(
     "/api/developer/keys",
-    { label },
+    { label }
   );
   return data.data;
 }
@@ -1598,31 +1521,25 @@ export async function revokeDeveloperApiKey(id: string): Promise<void> {
 }
 
 export async function fetchPublicJobs(apiKey: string, limit = 20) {
-  const { data } = await api.get<{ success: boolean; data: any[] }>(
-    "/api/public/jobs",
-    {
-      params: { limit },
-      ...buildApiKeyHeaders(apiKey),
-    },
-  );
+  const { data } = await api.get<{ success: boolean; data: any[] }>("/api/public/jobs", {
+    params: { limit },
+    ...buildApiKeyHeaders(apiKey),
+  });
   return data.data;
 }
 
 export async function fetchPublicJob(apiKey: string, id: string) {
   const { data } = await api.get<{ success: boolean; data: any }>(
     `/api/public/jobs/${encodeURIComponent(id)}`,
-    buildApiKeyHeaders(apiKey),
+    buildApiKeyHeaders(apiKey)
   );
   return data.data;
 }
 
-export async function fetchPublicFreelancerProfile(
-  apiKey: string,
-  publicKey: string,
-) {
+export async function fetchPublicFreelancerProfile(apiKey: string, publicKey: string) {
   const { data } = await api.get<{ success: boolean; data: any }>(
     `/api/public/freelancers/${encodeURIComponent(publicKey)}`,
-    buildApiKeyHeaders(apiKey),
+    buildApiKeyHeaders(apiKey)
   );
   return data.data;
 }
@@ -1644,14 +1561,12 @@ export interface CertificateData {
 
 export async function fetchCertificate(id: string): Promise<CertificateData> {
   const { data } = await api.get<{ success: boolean; data: CertificateData }>(
-    `/api/certificates/${id}`,
+    `/api/certificates/${id}`
   );
   return data.data;
 }
 
-export async function fetchUserCertificates(
-  publicKey: string,
-): Promise<CertificateData[]> {
+export async function fetchUserCertificates(publicKey: string): Promise<CertificateData[]> {
   const { data } = await api.get<{
     success: boolean;
     data: CertificateData[];
@@ -1667,9 +1582,7 @@ export interface SkillEndorsementData {
   endorsers: string[];
 }
 
-export async function fetchSkillEndorsements(
-  publicKey: string,
-): Promise<SkillEndorsementData[]> {
+export async function fetchSkillEndorsements(publicKey: string): Promise<SkillEndorsementData[]> {
   const { data } = await api.get<{
     success: boolean;
     data: SkillEndorsementData[];
@@ -1677,18 +1590,13 @@ export async function fetchSkillEndorsements(
   return data.data;
 }
 
-export async function endorseSkill(
-  publicKey: string,
-  skill: string,
-): Promise<void> {
+export async function endorseSkill(publicKey: string, skill: string): Promise<void> {
   await api.post(`/api/profiles/${encodeURIComponent(publicKey)}/endorse`, {
     skill,
   });
 }
 
-export async function fetchSkillBadges(
-  publicKey: string,
-): Promise<SkillBadge[]> {
+export async function fetchSkillBadges(publicKey: string): Promise<SkillBadge[]> {
   const { data } = await api.get<{
     success: boolean;
     data: SkillBadge[];
@@ -1752,37 +1660,29 @@ export async function fetchAdminMetrics(period: "7d" | "30d" | "90d" = "30d") {
 }
 
 export async function fetchAdminJobReports() {
-  const { data } = await api.get<{ success: boolean; data: any[] }>(
-    "/api/admin/reports/jobs",
-  );
+  const { data } = await api.get<{ success: boolean; data: any[] }>("/api/admin/reports/jobs");
   return data.data;
 }
 
 export async function fetchAdminDisputes() {
-  const { data } = await api.get<{ success: boolean; data: any[] }>(
-    "/api/admin/disputes",
-  );
+  const { data } = await api.get<{ success: boolean; data: any[] }>("/api/admin/disputes");
   return data.data;
 }
 
 export async function fetchAdminLogs() {
-  const { data } = await api.get<{ success: boolean; data: any[] }>(
-    "/api/admin/logs",
-  );
+  const { data } = await api.get<{ success: boolean; data: any[] }>("/api/admin/logs");
   return data.data;
 }
 
 export async function fetchFrozenWallets() {
-  const { data } = await api.get<{ success: boolean; data: any[] }>(
-    "/api/admin/wallets/frozen",
-  );
+  const { data } = await api.get<{ success: boolean; data: any[] }>("/api/admin/wallets/frozen");
   return data.data;
 }
 
 export async function adminCancelJob(jobId: string, reason: string) {
   const { data } = await api.patch<{ success: boolean; message: string }>(
     `/api/admin/jobs/${jobId}/cancel`,
-    { reason },
+    { reason }
   );
   return data;
 }
@@ -1790,14 +1690,14 @@ export async function adminCancelJob(jobId: string, reason: string) {
 export async function freezeWallet(address: string, reason: string) {
   const { data } = await api.post<{ success: boolean; message: string }>(
     `/api/admin/wallets/${address}/freeze`,
-    { reason },
+    { reason }
   );
   return data;
 }
 
 export async function unfreezeWallet(address: string) {
   const { data } = await api.delete<{ success: boolean; message: string }>(
-    `/api/admin/wallets/${address}/freeze`,
+    `/api/admin/wallets/${address}/freeze`
   );
   return data;
 }
@@ -1807,11 +1707,9 @@ export async function unfreezeWallet(address: string) {
 /**
  * Fetch referral stats and history for a referrer.
  */
-export async function fetchReferralStats(
-  publicKey: string,
-): Promise<ReferralStats> {
+export async function fetchReferralStats(publicKey: string): Promise<ReferralStats> {
   const { data } = await api.get<{ success: boolean; data: ReferralStats }>(
-    `/api/referrals/${encodeURIComponent(publicKey)}`,
+    `/api/referrals/${encodeURIComponent(publicKey)}`
   );
   return data.data;
 }
@@ -1821,7 +1719,7 @@ export async function fetchReferralStats(
  */
 export async function registerReferral(
   referrerAddress: string,
-  refereeAddress: string,
+  refereeAddress: string
 ): Promise<void> {
   await api.post("/api/referrals/register", {
     referrerAddress,
@@ -1833,11 +1731,12 @@ export async function registerReferral(
  * Fetch the full referral tree for visualization.
  */
 export async function fetchReferralTree(
-  publicKey: string,
+  publicKey: string
 ): Promise<import("@/utils/types").ReferralTreeNode> {
-  const { data } = await api.get<{ success: boolean; data: import("@/utils/types").ReferralTreeNode }>(
-    `/api/referrals/${encodeURIComponent(publicKey)}/tree`,
-  );
+  const { data } = await api.get<{
+    success: boolean;
+    data: import("@/utils/types").ReferralTreeNode;
+  }>(`/api/referrals/${encodeURIComponent(publicKey)}/tree`);
   return data.data;
 }
 
@@ -1855,9 +1754,7 @@ export interface SavedSearch {
 }
 
 export async function fetchSavedSearches(): Promise<SavedSearch[]> {
-  const { data } = await api.get<{ success: boolean; data: SavedSearch[] }>(
-    "/api/saved-searches"
-  );
+  const { data } = await api.get<{ success: boolean; data: SavedSearch[] }>("/api/saved-searches");
   return data.data;
 }
 
@@ -1894,15 +1791,11 @@ export async function deleteSavedSearch(id: string): Promise<void> {
  * Notify the backend that a boost payment was made on-chain.
  * The backend sets boosted=true and calculates the expiry from amountXlm.
  */
-export async function boostJob(
-  jobId: string,
-  txHash: string,
-  amountXlm: number,
-): Promise<Job> {
-  const { data } = await api.patch<{ success: boolean; data: Job }>(
-    `/api/jobs/${jobId}/boost`,
-    { txHash, amountXlm },
-  );
+export async function boostJob(jobId: string, txHash: string, amountXlm: number): Promise<Job> {
+  const { data } = await api.patch<{ success: boolean; data: Job }>(`/api/jobs/${jobId}/boost`, {
+    txHash,
+    amountXlm,
+  });
   return data.data;
 }
 
@@ -1925,9 +1818,7 @@ export interface JobInvitation {
  * Fetch all pending invitations for the authenticated freelancer.
  */
 export async function fetchMyInvitations(): Promise<JobInvitation[]> {
-  const { data } = await api.get<{ success: boolean; data: JobInvitation[] }>(
-    "/api/invitations",
-  );
+  const { data } = await api.get<{ success: boolean; data: JobInvitation[] }>("/api/invitations");
   return data.data;
 }
 
@@ -1967,10 +1858,9 @@ export interface DaoArbitrator {
 }
 
 export async function fetchDaoProposals(status?: string): Promise<DaoProposal[]> {
-  const { data } = await api.get<{ success: boolean; data: DaoProposal[] }>(
-    "/api/dao/proposals",
-    { params: status ? { status } : {} },
-  );
+  const { data } = await api.get<{ success: boolean; data: DaoProposal[] }>("/api/dao/proposals", {
+    params: status ? { status } : {},
+  });
   return data.data;
 }
 
@@ -1984,7 +1874,7 @@ export async function createDaoProposal(body: {
 }): Promise<DaoProposal> {
   const { data } = await api.post<{ success: boolean; data: DaoProposal }>(
     "/api/dao/proposals",
-    body,
+    body
   );
   return data.data;
 }
@@ -1993,11 +1883,11 @@ export async function voteDaoProposal(
   proposalId: string,
   support: boolean,
   weight: number,
-  txHash?: string,
+  txHash?: string
 ): Promise<DaoProposal> {
   const { data } = await api.post<{ success: boolean; data: DaoProposal }>(
     `/api/dao/proposals/${proposalId}/vote`,
-    { support, weight, txHash },
+    { support, weight, txHash }
   );
   return data.data;
 }
@@ -2031,18 +1921,18 @@ export async function registerDaoArbitrator(body: {
 }): Promise<DaoArbitrator> {
   const { data } = await api.post<{ success: boolean; data: DaoArbitrator }>(
     "/api/dao/arbitrators",
-    body,
+    body
   );
   return data.data;
 }
 
 export async function voteDaoArbitrator(
   arbitratorKey: string,
-  weight: number,
+  weight: number
 ): Promise<DaoArbitrator[]> {
   const { data } = await api.post<{ success: boolean; data: DaoArbitrator[] }>(
     `/api/dao/arbitrators/${arbitratorKey}/vote`,
-    { weight },
+    { weight }
   );
   return data.data;
 }
@@ -2053,13 +1943,11 @@ export async function voteDaoArbitrator(
 export async function acceptInvitation(
   invitationId: string,
   proposal: string,
-  bidAmount: string,
+  bidAmount: string
 ): Promise<Application> {
   const { data } = await api.post<{ success: boolean; data: Application }>(
     `/api/invitations/${invitationId}/accept`,
-    { proposal, bidAmount },
+    { proposal, bidAmount }
   );
   return data.data;
 }
-
-

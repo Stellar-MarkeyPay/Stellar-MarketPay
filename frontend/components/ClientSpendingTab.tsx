@@ -17,7 +17,9 @@ export default function ClientSpendingTab({ analytics, loading, xlmPriceUsd }: P
   if (loading) {
     return (
       <div className="space-y-3">
-        {[1, 2, 3].map((i) => <div key={i} className="card animate-pulse h-20" />)}
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="card animate-pulse h-20" />
+        ))}
       </div>
     );
   }
@@ -26,7 +28,9 @@ export default function ClientSpendingTab({ analytics, loading, xlmPriceUsd }: P
     return (
       <div className="card text-center py-16">
         <p className="font-display text-xl text-amber-100 mb-2">No completed jobs yet</p>
-        <p className="text-amber-800 text-sm">Spending insights will appear after your first completed escrow payout.</p>
+        <p className="text-amber-800 text-sm">
+          Spending insights will appear after your first completed escrow payout.
+        </p>
       </div>
     );
   }
@@ -45,20 +49,30 @@ export default function ClientSpendingTab({ analytics, loading, xlmPriceUsd }: P
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="card">
           <p className="text-xs text-amber-700">Total Spent</p>
-          <p className="font-display text-2xl text-market-300 mt-1">{formatXLM(totalSpentNumber)}</p>
-          <p className="text-xs text-amber-800 mt-1">{formatUSDEquivalent(totalSpentNumber, xlmPriceUsd) || "USD price unavailable"}</p>
+          <p className="font-display text-2xl text-market-300 mt-1">
+            {formatXLM(totalSpentNumber)}
+          </p>
+          <p className="text-xs text-amber-800 mt-1">
+            {formatUSDEquivalent(totalSpentNumber, xlmPriceUsd) || "USD price unavailable"}
+          </p>
         </div>
         <div className="card">
           <p className="text-xs text-amber-700">Jobs Posted</p>
-          <p className="font-display text-2xl text-amber-100 mt-1">{analytics.jobsBreakdown.posted}</p>
+          <p className="font-display text-2xl text-amber-100 mt-1">
+            {analytics.jobsBreakdown.posted}
+          </p>
         </div>
         <div className="card">
           <p className="text-xs text-amber-700">Avg Budget</p>
-          <p className="font-display text-2xl text-amber-100 mt-1">{formatXLM(averageBudgetNumber)}</p>
+          <p className="font-display text-2xl text-amber-100 mt-1">
+            {formatXLM(averageBudgetNumber)}
+          </p>
         </div>
         <div className="card">
           <p className="text-xs text-amber-700">Avg Paid</p>
-          <p className="font-display text-2xl text-amber-100 mt-1">{formatXLM(averagePaidNumber)}</p>
+          <p className="font-display text-2xl text-amber-100 mt-1">
+            {formatXLM(averagePaidNumber)}
+          </p>
         </div>
       </div>
 
@@ -114,10 +128,17 @@ export default function ClientSpendingTab({ analytics, loading, xlmPriceUsd }: P
         ) : (
           <div className="space-y-3">
             {analytics.topFreelancers.map((entry) => (
-              <div key={entry.freelancerAddress} className="flex items-center justify-between gap-4">
+              <div
+                key={entry.freelancerAddress}
+                className="flex items-center justify-between gap-4"
+              >
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm text-amber-100 truncate">{shortenAddress(entry.freelancerAddress, 8)}</p>
-                  <p className="text-xs text-amber-700">{entry.jobsCount} completed job{entry.jobsCount === 1 ? "" : "s"}</p>
+                  <p className="text-sm text-amber-100 truncate">
+                    {shortenAddress(entry.freelancerAddress, 8)}
+                  </p>
+                  <p className="text-xs text-amber-700">
+                    {entry.jobsCount} completed job{entry.jobsCount === 1 ? "" : "s"}
+                  </p>
                 </div>
                 <div className="w-40">
                   <div className="w-full h-2 rounded bg-ink-900/60">
@@ -127,7 +148,9 @@ export default function ClientSpendingTab({ analytics, loading, xlmPriceUsd }: P
                     />
                   </div>
                 </div>
-                <p className="text-sm text-market-300 font-medium">{formatXLM(parseAmount(entry.totalPaidXlm))}</p>
+                <p className="text-sm text-market-300 font-medium">
+                  {formatXLM(parseAmount(entry.totalPaidXlm))}
+                </p>
               </div>
             ))}
           </div>

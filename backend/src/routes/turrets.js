@@ -6,11 +6,11 @@
 const express = require("express");
 const router = express.Router();
 const { createRateLimiter } = require("../middleware/rateLimiter");
-const { 
+const {
   submitTransaction,
   getTurretStatus,
   estimateTurretFee,
-  shouldUseTurret
+  shouldUseTurret,
 } = require("../services/turretsService");
 
 // Rate limiting: 10 requests per minute for transaction submissions
@@ -23,20 +23,20 @@ const turretRateLimiter = createRateLimiter(10, 60);
 router.post("/submit", turretRateLimiter, async (req, res, next) => {
   try {
     const { transactionXDR, useTurret } = req.body;
-    
+
     if (!transactionXDR) {
       return res.status(400).json({
         success: false,
-        error: "Transaction XDR is required"
+        error: "Transaction XDR is required",
       });
     }
 
     const options = { useTurret };
     const result = await submitTransaction(transactionXDR, options);
-    
+
     res.json({
       success: true,
-      data: result
+      data: result,
     });
   } catch (e) {
     next(e);
@@ -52,7 +52,7 @@ router.get("/status", async (req, res, next) => {
     const status = await getTurretStatus();
     res.json({
       success: true,
-      data: status
+      data: status,
     });
   } catch (e) {
     next(e);
@@ -66,18 +66,18 @@ router.get("/status", async (req, res, next) => {
 router.post("/estimate", turretRateLimiter, async (req, res, next) => {
   try {
     const { transactionXDR } = req.body;
-    
+
     if (!transactionXDR) {
       return res.status(400).json({
         success: false,
-        error: "Transaction XDR is required"
+        error: "Transaction XDR is required",
       });
     }
 
     const estimation = await estimateTurretFee(transactionXDR);
     res.json({
       success: true,
-      data: estimation
+      data: estimation,
     });
   } catch (e) {
     next(e);
@@ -91,15 +91,15 @@ router.post("/estimate", turretRateLimiter, async (req, res, next) => {
 router.get("/config", (req, res) => {
   const TURRET_URL = process.env.TURRET_URL;
   const TURRET_API_KEY = process.env.TURRET_API_KEY;
-  
+
   res.json({
     success: true,
     data: {
       configured: !!TURRET_URL,
       url: TURRET_URL || null,
       hasApiKey: !!TURRET_API_KEY,
-      shouldUseByDefault: shouldUseTurret()
-    }
+      shouldUseByDefault: shouldUseTurret(),
+    },
   });
 });
 

@@ -28,10 +28,9 @@ async function ensureAdminProfile(adminId) {
 }
 
 async function getDecryptedSecret(adminId) {
-  const { rows } = await pool.query(
-    "SELECT totp_secret FROM admin_profiles WHERE id = $1",
-    [adminId]
-  );
+  const { rows } = await pool.query("SELECT totp_secret FROM admin_profiles WHERE id = $1", [
+    adminId,
+  ]);
   if (!rows[0]?.totp_secret) return null;
   return decrypt(rows[0].totp_secret);
 }
@@ -58,7 +57,10 @@ async function verify2FA(adminId, token) {
   if (!admin || !admin.totp_enabled) return { success: false, error: "2FA not enabled" };
 
   if (admin.totp_locked_until && new Date(admin.totp_locked_until) > new Date()) {
-    return { success: false, error: "Account locked due to too many failed attempts. Try again later." };
+    return {
+      success: false,
+      error: "Account locked due to too many failed attempts. Try again later.",
+    };
   }
 
   const secret = decrypt(admin.totp_secret);
@@ -84,15 +86,17 @@ async function verify2FA(adminId, token) {
     return { success: false, error: "Too many failed attempts. Account locked for 15 minutes." };
   }
 
-  await pool.query("UPDATE admin_profiles SET totp_attempts = $1 WHERE id = $2", [newAttempts, adminId]);
+  await pool.query("UPDATE admin_profiles SET totp_attempts = $1 WHERE id = $2", [
+    newAttempts,
+    adminId,
+  ]);
   return { success: false, error: "Invalid 2FA code" };
 }
 
 async function verifyBackupCode(adminId, code) {
-  const { rows } = await pool.query(
-    "SELECT backup_codes FROM admin_profiles WHERE id = $1",
-    [adminId]
-  );
+  const { rows } = await pool.query("SELECT backup_codes FROM admin_profiles WHERE id = $1", [
+    adminId,
+  ]);
   const admin = rows[0];
   if (!admin?.backup_codes) return { success: false, error: "No backup codes found" };
 
@@ -101,10 +105,10 @@ async function verifyBackupCode(adminId, code) {
   if (index === -1) return { success: false, error: "Invalid backup code" };
 
   codes.splice(index, 1);
-  await pool.query(
-    "UPDATE admin_profiles SET backup_codes = $1 WHERE id = $2",
-    [encrypt(JSON.stringify(codes)), adminId]
-  );
+  await pool.query("UPDATE admin_profiles SET backup_codes = $1 WHERE id = $2", [
+    encrypt(JSON.stringify(codes)),
+    adminId,
+  ]);
   return { success: true };
 }
 
@@ -119,10 +123,9 @@ async function disable2FA(adminId) {
 }
 
 async function get2FAStatus(adminId) {
-  const { rows } = await pool.query(
-    "SELECT totp_enabled FROM admin_profiles WHERE id = $1",
-    [adminId]
-  );
+  const { rows } = await pool.query("SELECT totp_enabled FROM admin_profiles WHERE id = $1", [
+    adminId,
+  ]);
   return rows[0] || { totp_enabled: false };
 }
 

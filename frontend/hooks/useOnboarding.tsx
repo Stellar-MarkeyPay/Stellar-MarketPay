@@ -27,9 +27,7 @@ export interface OnboardingProgress {
   isComplete: boolean;
 }
 
-function calculateOnboardingProgress(
-  profile: UserProfile | null,
-): OnboardingProgress {
+function calculateOnboardingProgress(profile: UserProfile | null): OnboardingProgress {
   if (!profile) {
     return {
       hasAvatar: false,
@@ -42,26 +40,18 @@ function calculateOnboardingProgress(
     };
   }
 
-  const hasAvatar = Boolean(
-    profile.displayName && profile.displayName.length >= 3,
-  );
+  const hasAvatar = Boolean(profile.displayName && profile.displayName.length >= 3);
   const hasBio = Boolean(profile.bio && profile.bio.length >= 10);
   const hasSkills = Boolean(profile.skills && profile.skills.length > 0);
   const hasPortfolio = Boolean(
     (profile.portfolioItems && profile.portfolioItems.length > 0) ||
-      (profile.portfolioFiles && profile.portfolioFiles.length > 0),
+    (profile.portfolioFiles && profile.portfolioFiles.length > 0)
   );
-  const hasAvailability = Boolean(
-    profile.availability && profile.availability.status,
-  );
+  const hasAvailability = Boolean(profile.availability && profile.availability.status);
 
-  const completedItems = [
-    hasAvatar,
-    hasBio,
-    hasSkills,
-    hasPortfolio,
-    hasAvailability,
-  ].filter(Boolean).length;
+  const completedItems = [hasAvatar, hasBio, hasSkills, hasPortfolio, hasAvailability].filter(
+    Boolean
+  ).length;
   const totalItems = 5;
   const completionPercentage = Math.round((completedItems / totalItems) * 100);
 
@@ -82,7 +72,7 @@ function isCompleteEnoughForOnboarding(progress: OnboardingProgress): boolean {
 
 function persistOnboardingState(
   state: OnboardingState,
-  profileCompletionPercentage?: number,
+  profileCompletionPercentage?: number
 ): void {
   if (typeof window === "undefined") return;
 
@@ -93,12 +83,9 @@ function persistOnboardingState(
       checklistDismissed: state.checklistDismissed,
       profileCompletionPercentage,
       syncedAt: new Date().toISOString(),
-    }),
+    })
   );
-  localStorage.setItem(
-    TOOLTIPS_DISMISSED_KEY,
-    JSON.stringify(state.dismissedTooltips),
-  );
+  localStorage.setItem(TOOLTIPS_DISMISSED_KEY, JSON.stringify(state.dismissedTooltips));
 }
 
 export function useOnboarding(publicKey: string | null) {
@@ -116,9 +103,7 @@ export function useOnboarding(publicKey: string | null) {
 
     try {
       const stored = localStorage.getItem(ONBOARDING_STORAGE_KEY);
-      const dismissedTooltips = JSON.parse(
-        localStorage.getItem(TOOLTIPS_DISMISSED_KEY) || "[]",
-      );
+      const dismissedTooltips = JSON.parse(localStorage.getItem(TOOLTIPS_DISMISSED_KEY) || "[]");
 
       if (stored) {
         const parsed = JSON.parse(stored);
@@ -156,10 +141,7 @@ export function useOnboarding(publicKey: string | null) {
               }
             : current;
 
-          persistOnboardingState(
-            syncedState,
-            serverProgress.completionPercentage,
-          );
+          persistOnboardingState(syncedState, serverProgress.completionPercentage);
 
           return syncedState;
         });
@@ -190,12 +172,7 @@ export function useOnboarding(publicKey: string | null) {
         completed: progress.hasAvatar,
         route: "/dashboard?tab=edit_profile",
         icon: (
-          <svg
-            className="w-5 h-5"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -211,12 +188,7 @@ export function useOnboarding(publicKey: string | null) {
         completed: progress.hasBio,
         route: "/dashboard?tab=edit_profile",
         icon: (
-          <svg
-            className="w-5 h-5"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -232,12 +204,7 @@ export function useOnboarding(publicKey: string | null) {
         completed: progress.hasSkills,
         route: "/dashboard?tab=edit_profile",
         icon: (
-          <svg
-            className="w-5 h-5"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -253,12 +220,7 @@ export function useOnboarding(publicKey: string | null) {
         completed: progress.hasPortfolio,
         route: "/dashboard?tab=edit_profile",
         icon: (
-          <svg
-            className="w-5 h-5"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -274,12 +236,7 @@ export function useOnboarding(publicKey: string | null) {
         completed: progress.hasAvailability,
         route: "/dashboard?tab=edit_profile",
         icon: (
-          <svg
-            className="w-5 h-5"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -338,10 +295,7 @@ export function useOnboarding(publicKey: string | null) {
 
   // Check if user should see onboarding
   const shouldShowWelcome =
-    !loading &&
-    !serverCompletedOnboarding &&
-    !onboardingState.hasSeenWelcome &&
-    publicKey !== null;
+    !loading && !serverCompletedOnboarding && !onboardingState.hasSeenWelcome && publicKey !== null;
   const shouldShowChecklist =
     !loading &&
     !serverCompletedOnboarding &&

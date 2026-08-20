@@ -3,15 +3,17 @@
  */
 "use strict";
 const express = require("express");
-const router  = express.Router();
+const router = express.Router();
 const { createRateLimiter } = require("../middleware/rateLimiter");
 
 const applicationRateLimiter = createRateLimiter(5, 1); // 100 requests per 15 minutes
 const generalApplicationRateLimiter = createRateLimiter(30, 1); // 100 requests per minute for listing/getting applications
 
 const {
-  submitApplication, getApplicationsForJob,
-  getApplicationsForFreelancer, acceptApplication,
+  submitApplication,
+  getApplicationsForJob,
+  getApplicationsForFreelancer,
+  acceptApplication,
   withdrawApplication,
   closeBiddingForJob,
   revealApplicationBid,
@@ -73,11 +75,11 @@ router.get("/job/:jobId", generalApplicationRateLimiter, async (req, res, next) 
     }
 
     const applications = await getApplicationsForJob(req.params.jobId, { tier });
-    
+
     // Add prediction details for each application!
     const { predictJobCompletion } = require("../services/analytics");
     const job = await getJob(req.params.jobId);
-    
+
     const applicationsWithPredictions = await Promise.all(
       applications.map(async (app) => {
         const prediction = await predictJobCompletion(job, app.freelancerAddress);
@@ -185,14 +187,17 @@ router.post("/", applicationRateLimiter, async (req, res, next) => {
       });
       fraudAlert = fraudResult.alert;
     } catch (error) {
-      applicationLogger.warn({ error: error.message, applicationId: app.id }, "Fraud analysis failed");
+      applicationLogger.warn(
+        { error: error.message, applicationId: app.id },
+        "Fraud analysis failed"
+      );
     }
-    
+
     // Emit WebSocket event for real-time bid updates
     const broadcastRealtime = req.app.locals.broadcastRealtime;
     if (broadcastRealtime) {
       broadcastRealtime(`job:${app.jobId}:bids`, {
-        type: 'new_bid',
+        type: "new_bid",
         application: {
           id: app.id,
           freelancerAddress: app.freelancerAddress,
@@ -200,27 +205,29 @@ router.post("/", applicationRateLimiter, async (req, res, next) => {
           proposal: app.proposal,
           estimatedDuration: app.estimatedDuration,
           createdAt: app.createdAt,
-          status: app.status
+          status: app.status,
         },
-        jobTitle: job.title
+        jobTitle: job.title,
       });
 
       if (fraudAlert) {
         broadcastRealtime(`job:${app.jobId}:fraud`, {
-          type: 'bid_alert',
+          type: "bid_alert",
           alert: fraudAlert,
           application: {
             id: app.id,
             freelancerAddress: app.freelancerAddress,
             bidAmount: app.bidAmount,
-            status: app.status
-          }
+            status: app.status,
+          },
         });
       }
     }
-    
+
     res.status(201).json({ success: true, data: app });
-  } catch (e) { next(e); }
+  } catch (e) {
+    next(e);
+  }
 });
 
 // POST /api/applications/job/:jobId/close-bidding — client closes bidding round
@@ -240,7 +247,7 @@ router.post("/:id/reveal", applicationRateLimiter, async (req, res, next) => {
       req.params.id,
       req.body.freelancerAddress,
       req.body.bidAmount,
-      req.body.nonce,
+      req.body.nonce
     );
     res.json({ success: true, data: app });
   } catch (e) {
@@ -275,7 +282,9 @@ router.post("/:id/accept", applicationRateLimiter, async (req, res, next) => {
     });
 
     res.json({ success: true, data: app });
-  } catch (e) { next(e); }
+  } catch (e) {
+    next(e);
+  }
 });
 
 // DELETE /api/applications/:id — freelancer withdraws their application
@@ -283,7 +292,9 @@ router.delete("/:id", applicationRateLimiter, async (req, res, next) => {
   try {
     const app = await withdrawApplication(req.params.id, req.body.freelancerAddress);
     res.json({ success: true, data: app });
-  } catch (e) { next(e); }
+  } catch (e) {
+    next(e);
+  }
 });
 
 module.exports = router;

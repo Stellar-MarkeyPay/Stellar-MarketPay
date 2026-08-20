@@ -4,8 +4,8 @@
 "use strict";
 
 const express = require("express");
-const router  = express.Router();
-const pool    = require("../db/pool");
+const router = express.Router();
+const pool = require("../db/pool");
 const { createRating, getRatingsForUser } = require("../services/ratingService");
 const { verifyJWT } = require("../middleware/auth");
 
@@ -44,16 +44,22 @@ router.post("/", verifyJWT, async (req, res, next) => {
       return res.status(400).json({ error: "Job must be completed before rating" });
     }
 
-    const isParty =
-      raterAddress === job.client_address ||
-      raterAddress === job.freelancer_address;
+    const isParty = raterAddress === job.client_address || raterAddress === job.freelancer_address;
     if (!isParty) {
       return res.status(403).json({ error: "Only job participants can submit a rating" });
     }
 
-    const rating = await createRating({ jobId, raterAddress, ratedAddress, stars: parsedStars, review });
+    const rating = await createRating({
+      jobId,
+      raterAddress,
+      ratedAddress,
+      stars: parsedStars,
+      review,
+    });
     res.status(201).json({ success: true, data: rating });
-  } catch (e) { next(e); }
+  } catch (e) {
+    next(e);
+  }
 });
 
 // GET /api/ratings/:publicKey — list all ratings for a user
@@ -61,7 +67,9 @@ router.get("/:publicKey", async (req, res, next) => {
   try {
     const ratings = await getRatingsForUser(req.params.publicKey);
     res.json({ success: true, data: ratings });
-  } catch (e) { next(e); }
+  } catch (e) {
+    next(e);
+  }
 });
 
 module.exports = router;

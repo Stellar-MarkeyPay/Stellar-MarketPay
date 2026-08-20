@@ -72,8 +72,7 @@ export default function OfflineBanner() {
 
         {/* Message */}
         <p className="flex-1 text-sm font-medium text-yellow-300">
-          You are offline — cached data is shown. Changes will sync when you
-          reconnect.
+          You are offline — cached data is shown. Changes will sync when you reconnect.
         </p>
 
         {/* Link to offline page with cached jobs */}

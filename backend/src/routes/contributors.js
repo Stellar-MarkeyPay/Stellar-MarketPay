@@ -16,11 +16,13 @@ async function fetchGitHubContributors() {
       "https://api.github.com/repos/Emmy123222/Stellar-MarketPay-/contributors",
       {
         params: { per_page: 20, sort: "contributions" },
-        headers: process.env.GITHUB_TOKEN ? { Authorization: `token ${process.env.GITHUB_TOKEN}` } : {},
+        headers: process.env.GITHUB_TOKEN
+          ? { Authorization: `token ${process.env.GITHUB_TOKEN}` }
+          : {},
       }
     );
 
-    const contributors = response.data.map(c => ({
+    const contributors = response.data.map((c) => ({
       login: c.login,
       avatar_url: c.avatar_url,
       profile_url: c.html_url,

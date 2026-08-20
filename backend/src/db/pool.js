@@ -13,13 +13,11 @@ const DATABASE_URL = requireEnv("DATABASE_URL");
 const pool = new Pool({
   connectionString: DATABASE_URL,
   // Keep a modest pool; tune per deployment.
-  max:             10,
+  max: 10,
   idleTimeoutMillis: 30_000,
   connectionTimeoutMillis: 5_000,
   // Enforce SSL in production but allow plain-text in local Docker.
-  ssl: process.env.NODE_ENV === "production"
-    ? { rejectUnauthorized: true }
-    : false,
+  ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: true } : false,
 });
 
 pool.on("error", (err) => {

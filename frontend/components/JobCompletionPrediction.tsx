@@ -28,7 +28,7 @@ export default function JobCompletionPredictionPanel({
         <span
           className={clsx(
             "px-2 py-0.5 rounded-full border font-medium",
-            confidenceTone(prediction.confidenceScore),
+            confidenceTone(prediction.confidenceScore)
           )}
         >
           {prediction.confidenceScore}% confidence
@@ -40,13 +40,11 @@ export default function JobCompletionPredictionPanel({
   return (
     <div className="rounded-xl border border-market-500/20 bg-market-500/5 p-4">
       <div className="flex items-center justify-between gap-3 mb-3">
-        <h4 className="font-display text-sm font-semibold text-amber-100">
-          Completion Prediction
-        </h4>
+        <h4 className="font-display text-sm font-semibold text-amber-100">Completion Prediction</h4>
         <span
           className={clsx(
             "text-xs px-2.5 py-1 rounded-full border font-medium",
-            confidenceTone(prediction.confidenceScore),
+            confidenceTone(prediction.confidenceScore)
           )}
         >
           {prediction.confidenceScore}% confidence
@@ -57,7 +55,8 @@ export default function JobCompletionPredictionPanel({
         <div>
           <p className="text-xs text-amber-700 mb-1">Estimated Duration</p>
           <p className="font-mono text-market-400">
-            {prediction.estimatedDurationDays} day{prediction.estimatedDurationDays === 1 ? "" : "s"}
+            {prediction.estimatedDurationDays} day
+            {prediction.estimatedDurationDays === 1 ? "" : "s"}
           </p>
         </div>
         <div>

@@ -107,5 +107,5 @@ async function getRecommendations(freelancerAddress, limit = 10) {
 }
 
 module.exports = {
-  getRecommendations
+  getRecommendations,
 };

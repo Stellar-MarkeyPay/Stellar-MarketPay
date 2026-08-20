@@ -1,0 +1,12 @@
+{
+  "frontend/**/*.{js,jsx,ts,tsx}": [
+    "sh -c 'cd frontend && npm run lint -- --fix'",
+    "prettier --write"
+  ],
+  "backend/**/*.js": ["sh -c 'cd backend && npm run lint -- --fix'", "prettier --write"],
+  "contracts/marketpay-contract/**/*.rs": [
+    "cargo fmt --manifest-path contracts/marketpay-contract/Cargo.toml --",
+    "cargo clippy --manifest-path contracts/marketpay-contract/Cargo.toml -- -D warnings"
+  ],
+  "*.{json,md,yml,yaml}": ["prettier --write"]
+}

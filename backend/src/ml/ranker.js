@@ -96,7 +96,8 @@ function rankItems(items, modelPath) {
       ...base,
       score: adjustedScore,
       matchScore: Math.round(Math.min(adjustedScore, 1) * 100),
-      isExploration: (item.completedJobs || 0) < (model.fairness?.new_freelancer_threshold_jobs ?? 3),
+      isExploration:
+        (item.completedJobs || 0) < (model.fairness?.new_freelancer_threshold_jobs ?? 3),
     };
   });
 

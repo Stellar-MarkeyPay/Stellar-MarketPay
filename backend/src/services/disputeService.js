@@ -26,7 +26,7 @@ async function createDispute(jobId, raisedBy) {
 
   const { rows: jobRows } = await pool.query(
     "SELECT client_address, freelancer_address FROM jobs WHERE id = $1",
-    [jobId],
+    [jobId]
   );
 
   if (!jobRows.length) {
@@ -42,10 +42,7 @@ async function createDispute(jobId, raisedBy) {
     throw e;
   }
 
-  const { rows: existing } = await pool.query(
-    "SELECT id FROM disputes WHERE job_id = $1",
-    [jobId],
-  );
+  const { rows: existing } = await pool.query("SELECT id FROM disputes WHERE job_id = $1", [jobId]);
   if (existing.length > 0) {
     const e = new Error("A dispute already exists for this job");
     e.status = 400;
@@ -56,7 +53,7 @@ async function createDispute(jobId, raisedBy) {
     `INSERT INTO disputes (job_id, raised_by, status, created_at)
      VALUES ($1, $2, 'open', NOW())
      RETURNING *`,
-    [jobId, raisedBy],
+    [jobId, raisedBy]
   );
 
   return { success: true, dispute: rows[0] };
@@ -71,7 +68,7 @@ async function uploadEvidence(jobId, uploaderAddress, fileBuffer, fileName, mime
 
   const { rows: jobRows } = await pool.query(
     "SELECT client_address, freelancer_address, status FROM jobs WHERE id = $1",
-    [jobId],
+    [jobId]
   );
 
   if (!jobRows.length) {
@@ -89,7 +86,7 @@ async function uploadEvidence(jobId, uploaderAddress, fileBuffer, fileName, mime
 
   const { rows: disputeRows } = await pool.query(
     "SELECT id, status FROM disputes WHERE job_id = $1",
-    [jobId],
+    [jobId]
   );
 
   if (!disputeRows.length) {
@@ -106,7 +103,7 @@ async function uploadEvidence(jobId, uploaderAddress, fileBuffer, fileName, mime
 
   const { rows: countRows } = await pool.query(
     "SELECT COUNT(*) FROM dispute_evidence WHERE job_id = $1 AND uploader_address = $2",
-    [jobId, uploaderAddress],
+    [jobId, uploaderAddress]
   );
 
   if (parseInt(countRows[0].count, 10) >= MAX_EVIDENCE_FILES) {
@@ -129,7 +126,7 @@ async function uploadEvidence(jobId, uploaderAddress, fileBuffer, fileName, mime
        (job_id, uploader_address, file_name, file_size, mime_type, ipfs_cid)
      VALUES ($1, $2, $3, $4, $5, $6)
      RETURNING *`,
-    [jobId, uploaderAddress, fileName, fileBuffer.length, mimeType, ipfsCid],
+    [jobId, uploaderAddress, fileName, fileBuffer.length, mimeType, ipfsCid]
   );
 
   const ev = rows[0];
@@ -161,10 +158,9 @@ async function resolveDispute(jobId, resolvedBy, resolution) {
     throw e;
   }
 
-  const { rows: adminRows } = await pool.query(
-    "SELECT id FROM admin_profiles WHERE id = $1",
-    [resolvedBy],
-  );
+  const { rows: adminRows } = await pool.query("SELECT id FROM admin_profiles WHERE id = $1", [
+    resolvedBy,
+  ]);
   if (!adminRows.length) {
     const e = new Error("Only an admin can resolve disputes");
     e.status = 403;
@@ -173,7 +169,7 @@ async function resolveDispute(jobId, resolvedBy, resolution) {
 
   const { rows: disputeRows } = await pool.query(
     "SELECT id, status FROM disputes WHERE job_id = $1",
-    [jobId],
+    [jobId]
   );
 
   if (!disputeRows.length) {
@@ -193,19 +189,13 @@ async function resolveDispute(jobId, resolvedBy, resolution) {
      SET status = 'resolved', resolved_by = $2, resolution = $3, resolved_at = NOW()
      WHERE job_id = $1
      RETURNING *`,
-    [jobId, resolvedBy, resolution],
+    [jobId, resolvedBy, resolution]
   );
 
   if (resolution === "release_funds") {
-    await pool.query(
-      "UPDATE escrows SET status = 'released' WHERE job_id = $1",
-      [jobId],
-    );
+    await pool.query("UPDATE escrows SET status = 'released' WHERE job_id = $1", [jobId]);
   } else {
-    await pool.query(
-      "UPDATE escrows SET status = 'refunded' WHERE job_id = $1",
-      [jobId],
-    );
+    await pool.query("UPDATE escrows SET status = 'refunded' WHERE job_id = $1", [jobId]);
   }
 
   return { success: true, dispute: rows[0] };
@@ -221,7 +211,7 @@ async function getDispute(jobId) {
   const { rows: jobRows } = await pool.query(
     `SELECT id, title, status, client_address, freelancer_address, created_at
      FROM jobs WHERE id = $1`,
-    [jobId],
+    [jobId]
   );
 
   if (!jobRows.length) {
@@ -235,7 +225,7 @@ async function getDispute(jobId) {
      FROM dispute_evidence
      WHERE job_id = $1
      ORDER BY created_at ASC`,
-    [jobId],
+    [jobId]
   );
 
   return {

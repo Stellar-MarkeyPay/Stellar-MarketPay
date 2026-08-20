@@ -46,7 +46,7 @@ function exportCsv(entries: TimeEntry[], jobId: string) {
   const rows = entries
     .map(
       (e) =>
-        `${e.id},${e.startedAt ?? ""},${e.durationMinutes},"${(e.description ?? "").replace(/"/g, '""')}",${e.createdAt}`,
+        `${e.id},${e.startedAt ?? ""},${e.durationMinutes},"${(e.description ?? "").replace(/"/g, '""')}",${e.createdAt}`
     )
     .join("\n");
   const blob = new Blob([header + rows], { type: "text/csv" });
@@ -107,10 +107,7 @@ export default function TimeTracker({
   // ── load data ────────────────────────────────────────────────────────────
   const reload = useCallback(async () => {
     try {
-      const [e, i] = await Promise.all([
-        fetchTimeEntries(jobId),
-        fetchTimeInvoices(jobId),
-      ]);
+      const [e, i] = await Promise.all([fetchTimeEntries(jobId), fetchTimeInvoices(jobId)]);
       setEntries(e);
       setInvoices(i);
     } catch {
@@ -284,9 +281,7 @@ export default function TimeTracker({
         <>
           {/* Hourly rate */}
           <div>
-            <label className="text-xs text-amber-700 block mb-1">
-              Hourly Rate (XLM)
-            </label>
+            <label className="text-xs text-amber-700 block mb-1">Hourly Rate (XLM)</label>
             <input
               type="number"
               min="0"
@@ -314,17 +309,11 @@ export default function TimeTracker({
 
             <div className="flex gap-2">
               {!running ? (
-                <button
-                  onClick={handleStart}
-                  className="flex-1 btn-primary py-2 text-sm"
-                >
+                <button onClick={handleStart} className="flex-1 btn-primary py-2 text-sm">
                   ▶ Start
                 </button>
               ) : (
-                <button
-                  onClick={handleStop}
-                  className="flex-1 btn-secondary py-2 text-sm"
-                >
+                <button onClick={handleStop} className="flex-1 btn-secondary py-2 text-sm">
                   ■ Stop &amp; Save
                 </button>
               )}
@@ -344,9 +333,7 @@ export default function TimeTracker({
               <div className="mt-3 space-y-2 bg-ink-800 rounded-xl p-4 border border-market-500/15">
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="text-xs text-amber-700 block mb-1">
-                      Duration (minutes)
-                    </label>
+                    <label className="text-xs text-amber-700 block mb-1">Duration (minutes)</label>
                     <input
                       type="number"
                       min="1"
@@ -397,9 +384,7 @@ export default function TimeTracker({
             <div className="bg-ink-800 rounded-xl p-4 border border-market-500/15 space-y-1">
               <div className="flex justify-between text-sm">
                 <span className="text-amber-700">Total tracked</span>
-                <span className="text-amber-100 font-mono">
-                  {minutesToHHMM(totalMinutes)}
-                </span>
+                <span className="text-amber-100 font-mono">{minutesToHHMM(totalMinutes)}</span>
               </div>
               {hourlyRate > 0 && (
                 <div className="flex justify-between text-sm">
@@ -424,9 +409,7 @@ export default function TimeTracker({
           )}
 
           {hasPendingInvoice && (
-            <p className="text-xs text-amber-700 text-center">
-              Invoice pending client review.
-            </p>
+            <p className="text-xs text-amber-700 text-center">Invoice pending client review.</p>
           )}
         </>
       )}
@@ -442,9 +425,7 @@ export default function TimeTracker({
             >
               <div className="flex justify-between text-sm">
                 <span className="text-amber-700">Time billed</span>
-                <span className="text-amber-100 font-mono">
-                  {minutesToHHMM(inv.totalMinutes)}
-                </span>
+                <span className="text-amber-100 font-mono">{minutesToHHMM(inv.totalMinutes)}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-amber-700">Rate</span>
@@ -520,9 +501,7 @@ export default function TimeTracker({
 
       {/* Empty state */}
       {entries.length === 0 && !isFreelancer && (
-        <p className="text-sm text-amber-800 text-center py-2">
-          No time entries yet.
-        </p>
+        <p className="text-sm text-amber-800 text-center py-2">No time entries yet.</p>
       )}
     </div>
   );
