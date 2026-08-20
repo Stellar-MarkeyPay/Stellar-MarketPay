@@ -17,7 +17,7 @@ function hashToken(token) {
 
 function normalizePayload(payload) {
   return Object.fromEntries(
-    Object.entries(payload || {}).filter(([claim]) => !JWT_RESERVED_CLAIMS.has(claim)),
+    Object.entries(payload || {}).filter(([claim]) => !JWT_RESERVED_CLAIMS.has(claim))
   );
 }
 

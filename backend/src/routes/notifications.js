@@ -13,9 +13,7 @@ const pool = require("../db/pool");
 
 router.get("/preferences", verifyJWT, async (req, res, next) => {
   try {
-    const preferences = await notificationPreferencesService.getPreferences(
-      req.user.publicKey
-    );
+    const preferences = await notificationPreferencesService.getPreferences(req.user.publicKey);
     res.json({
       success: true,
       data: {
@@ -37,14 +35,9 @@ router.patch("/preferences", verifyJWT, async (req, res, next) => {
       throw err;
     }
 
-    await notificationPreferencesService.updatePreferences(
-      req.user.publicKey,
-      preferences
-    );
+    await notificationPreferencesService.updatePreferences(req.user.publicKey, preferences);
 
-    const updated = await notificationPreferencesService.getPreferences(
-      req.user.publicKey
-    );
+    const updated = await notificationPreferencesService.getPreferences(req.user.publicKey);
     res.json({ success: true, data: updated });
   } catch (e) {
     next(e);
@@ -74,10 +67,7 @@ router.patch("/read-all", verifyJWT, async (req, res, next) => {
 
 router.patch("/:id/read", verifyJWT, async (req, res, next) => {
   try {
-    const notification = await markInAppNotificationRead(
-      req.params.id,
-      req.user.publicKey,
-    );
+    const notification = await markInAppNotificationRead(req.params.id, req.user.publicKey);
     res.json({ success: true, data: notification });
   } catch (e) {
     next(e);
@@ -102,7 +92,7 @@ router.get("/unsubscribe", async (req, res) => {
   // via an email client link)
   function htmlPage(success, message) {
     const color = success ? "#22c55e" : "#ef4444";
-    const icon  = success ? "✓" : "✗";
+    const icon = success ? "✓" : "✗";
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -139,7 +129,12 @@ router.get("/unsubscribe", async (req, res) => {
     return res
       .status(400)
       .type("html")
-      .send(htmlPage(false, "The unsubscribe link is missing or invalid. Please use the link from your email."));
+      .send(
+        htmlPage(
+          false,
+          "The unsubscribe link is missing or invalid. Please use the link from your email."
+        )
+      );
   }
 
   try {
@@ -153,7 +148,9 @@ router.get("/unsubscribe", async (req, res) => {
       return res
         .status(404)
         .type("html")
-        .send(htmlPage(false, "This unsubscribe link has already been used or is no longer valid."));
+        .send(
+          htmlPage(false, "This unsubscribe link has already been used or is no longer valid.")
+        );
     }
 
     const { public_key } = rows[0];
@@ -179,7 +176,7 @@ router.get("/unsubscribe", async (req, res) => {
         htmlPage(
           true,
           "You will no longer receive weekly job digest emails from Stellar MarketPay. " +
-          "You can re-enable them at any time from your notification preferences."
+            "You can re-enable them at any time from your notification preferences."
         )
       );
   } catch (err) {
@@ -192,4 +189,3 @@ router.get("/unsubscribe", async (req, res) => {
 });
 
 module.exports = router;
-

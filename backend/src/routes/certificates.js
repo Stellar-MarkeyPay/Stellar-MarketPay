@@ -8,8 +8,8 @@
 "use strict";
 
 const express = require("express");
-const router  = express.Router();
-const pool    = require("../db/pool");
+const router = express.Router();
+const pool = require("../db/pool");
 
 // ─── GET /api/certificates/:id ──────────────────────────────────────────────
 router.get("/:id", async (req, res, next) => {
@@ -79,18 +79,21 @@ router.get("/user/:publicKey", async (req, res, next) => {
       [req.params.publicKey]
     );
 
-    res.json({ success: true, data: rows.map(r => ({
-      id: r.id,
-      publicKey: r.public_key,
-      displayName: r.display_name,
-      skill: r.skill,
-      score: r.score,
-      certificateHash: r.certificate_hash,
-      ipfsCid: r.ipfs_cid,
-      txHash: r.tx_hash,
-      issuedAt: r.issued_at,
-      verifyUrl: `https://stellar.expert/explorer/testnet/search?q=${r.certificate_hash}`,
-    })) });
+    res.json({
+      success: true,
+      data: rows.map((r) => ({
+        id: r.id,
+        publicKey: r.public_key,
+        displayName: r.display_name,
+        skill: r.skill,
+        score: r.score,
+        certificateHash: r.certificate_hash,
+        ipfsCid: r.ipfs_cid,
+        txHash: r.tx_hash,
+        issuedAt: r.issued_at,
+        verifyUrl: `https://stellar.expert/explorer/testnet/search?q=${r.certificate_hash}`,
+      })),
+    });
   } catch (e) {
     next(e);
   }

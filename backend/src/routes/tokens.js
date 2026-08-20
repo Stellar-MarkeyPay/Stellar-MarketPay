@@ -6,12 +6,12 @@
 const express = require("express");
 const router = express.Router();
 const { createRateLimiter } = require("../middleware/rateLimiter");
-const { 
-  getTokenMetadata, 
-  getTokenBalance, 
+const {
+  getTokenMetadata,
+  getTokenBalance,
   validateTokenContract,
   getPopularTokens,
-  searchTokens 
+  searchTokens,
 } = require("../services/tokenService");
 
 // Rate limiting: 30 requests per minute
@@ -26,7 +26,7 @@ router.get("/popular", tokenRateLimiter, async (req, res, next) => {
     const tokens = getPopularTokens();
     res.json({
       success: true,
-      data: tokens
+      data: tokens,
     });
   } catch (e) {
     next(e);
@@ -40,18 +40,18 @@ router.get("/popular", tokenRateLimiter, async (req, res, next) => {
 router.get("/search", tokenRateLimiter, async (req, res, next) => {
   try {
     const { q } = req.query;
-    
+
     if (!q) {
       return res.status(400).json({
         success: false,
-        error: "Search query is required"
+        error: "Search query is required",
       });
     }
 
     const tokens = await searchTokens(q);
     res.json({
       success: true,
-      data: tokens
+      data: tokens,
     });
   } catch (e) {
     next(e);
@@ -65,11 +65,11 @@ router.get("/search", tokenRateLimiter, async (req, res, next) => {
 router.get("/:contractId/metadata", tokenRateLimiter, async (req, res, next) => {
   try {
     const { contractId } = req.params;
-    
+
     const metadata = await getTokenMetadata(contractId);
     res.json({
       success: true,
-      data: metadata
+      data: metadata,
     });
   } catch (e) {
     next(e);
@@ -83,11 +83,11 @@ router.get("/:contractId/metadata", tokenRateLimiter, async (req, res, next) => 
 router.get("/:contractId/balance/:publicKey", tokenRateLimiter, async (req, res, next) => {
   try {
     const { contractId, publicKey } = req.params;
-    
+
     const balance = await getTokenBalance(publicKey, contractId);
     res.json({
       success: true,
-      data: balance
+      data: balance,
     });
   } catch (e) {
     next(e);
@@ -101,18 +101,18 @@ router.get("/:contractId/balance/:publicKey", tokenRateLimiter, async (req, res,
 router.post("/validate", tokenRateLimiter, async (req, res, next) => {
   try {
     const { contractId } = req.body;
-    
+
     if (!contractId) {
       return res.status(400).json({
         success: false,
-        error: "Contract ID is required"
+        error: "Contract ID is required",
       });
     }
 
     const validation = await validateTokenContract(contractId);
     res.json({
       success: true,
-      data: validation
+      data: validation,
     });
   } catch (e) {
     next(e);

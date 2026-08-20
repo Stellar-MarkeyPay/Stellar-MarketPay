@@ -38,9 +38,7 @@ export default function useCountUp(
 ): UseCountUpReturn {
   const { duration = 1500, suffix = "", delay = 0 } = options;
 
-  const [animatedValue, setAnimatedValue] = useState<string>(
-    suffix ? `0${suffix}` : "0"
-  );
+  const [animatedValue, setAnimatedValue] = useState<string>(suffix ? `0${suffix}` : "0");
   const [isAnimating, setIsAnimating] = useState(false);
   const elementRef = useRef<HTMLElement | null>(null);
   const animationRef = useRef<number | null>(null);

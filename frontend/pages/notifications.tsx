@@ -2,11 +2,7 @@ import { useEffect, useState } from "react";
 import Head from "next/head";
 import { useRouter } from "next/router";
 import clsx from "clsx";
-import {
-  fetchNotifications,
-  markAllNotificationsRead,
-  markNotificationRead,
-} from "@/lib/api";
+import { fetchNotifications, markAllNotificationsRead, markNotificationRead } from "@/lib/api";
 import { timeAgo } from "@/utils/format";
 import type { NotificationItem } from "@/utils/types";
 
@@ -16,7 +12,9 @@ interface NotificationsPageProps {
 }
 
 function notificationHref(notification: NotificationItem) {
-  return notification.linkPath || (notification.jobId ? `/jobs/${notification.jobId}` : "/notifications");
+  return (
+    notification.linkPath || (notification.jobId ? `/jobs/${notification.jobId}` : "/notifications")
+  );
 }
 
 export default function NotificationsPage({ publicKey, onConnect }: NotificationsPageProps) {
@@ -35,7 +33,7 @@ export default function NotificationsPage({ publicKey, onConnect }: Notification
     try {
       const result = await fetchNotifications({ limit: 20, cursor });
       setNotifications((current) =>
-        cursor ? [...current, ...result.notifications] : result.notifications,
+        cursor ? [...current, ...result.notifications] : result.notifications
       );
       setUnreadCount(result.unreadCount);
       setNextCursor(result.nextCursor);
@@ -53,9 +51,7 @@ export default function NotificationsPage({ publicKey, onConnect }: Notification
   async function openNotification(notification: NotificationItem) {
     if (!notification.read) {
       setNotifications((items) =>
-        items.map((item) =>
-          item.id === notification.id ? { ...item, read: true } : item,
-        ),
+        items.map((item) => (item.id === notification.id ? { ...item, read: true } : item))
       );
       setUnreadCount((count) => Math.max(count - 1, 0));
       await markNotificationRead(notification.id).catch(() => undefined);
@@ -79,7 +75,9 @@ export default function NotificationsPage({ publicKey, onConnect }: Notification
           <div>
             <h1 className="font-display text-3xl font-bold text-amber-100">Notifications</h1>
             <p className="text-sm text-amber-700 mt-1">
-              {publicKey ? `${unreadCount} unread notification${unreadCount === 1 ? "" : "s"}` : "Connect your wallet to view notifications."}
+              {publicKey
+                ? `${unreadCount} unread notification${unreadCount === 1 ? "" : "s"}`
+                : "Connect your wallet to view notifications."}
             </p>
           </div>
           {publicKey && (
@@ -118,7 +116,7 @@ export default function NotificationsPage({ publicKey, onConnect }: Notification
                 onClick={() => openNotification(notification)}
                 className={clsx(
                   "w-full px-5 py-4 text-left border-b border-amber-900/20 last:border-b-0 hover:bg-market-500/8 transition-colors",
-                  !notification.read && "bg-market-500/10",
+                  !notification.read && "bg-market-500/10"
                 )}
               >
                 <span className="flex gap-3">
@@ -129,9 +127,7 @@ export default function NotificationsPage({ publicKey, onConnect }: Notification
                     <span className="block text-base font-semibold text-amber-100">
                       {notification.title}
                     </span>
-                    <span className="block text-sm text-amber-600 mt-1">
-                      {notification.body}
-                    </span>
+                    <span className="block text-sm text-amber-600 mt-1">{notification.body}</span>
                     <span className="block text-xs text-amber-800 mt-2">
                       {timeAgo(notification.createdAt)}
                     </span>

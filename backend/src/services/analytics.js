@@ -4,12 +4,12 @@ const pool = require("../db/pool");
 
 // Default/fallback parameters when there is no historical data to train on
 let modelWeights = {
-  budget: 0.005,         // +0.005 days per XLM
-  skillsCount: 0.5,     // +0.5 days per required skill
-  completedJobs: -0.2,  // -0.2 days per completed job (up to 5 days max)
-  rating: -0.8,         // -0.8 days per star above 0
+  budget: 0.005, // +0.005 days per XLM
+  skillsCount: 0.5, // +0.5 days per required skill
+  completedJobs: -0.2, // -0.2 days per completed job (up to 5 days max)
+  rating: -0.8, // -0.8 days per star above 0
 };
-let modelBias = 5.0;     // Base duration of 5 days
+let modelBias = 5.0; // Base duration of 5 days
 
 /**
  * Train the regression model on historical completed jobs.
@@ -28,7 +28,10 @@ async function trainRegressionModel() {
 
     if (rows.length < 3) {
       // Too few completed jobs to train a regression model. Using sensible heuristic defaults.
-      return { success: true, message: "Using default heuristic model (insufficient historical data)" };
+      return {
+        success: true,
+        message: "Using default heuristic model (insufficient historical data)",
+      };
     }
 
     const dataset = rows.map((r) => {
@@ -36,7 +39,7 @@ async function trainRegressionModel() {
       const skillsCount = Array.isArray(r.skills) ? r.skills.length : 0;
       const completedJobs = parseInt(r.completed_jobs, 10) || 0;
       const rating = parseFloat(r.rating) || 4.0;
-      
+
       // Actual duration in days
       const duration = (new Date(r.updated_at) - new Date(r.created_at)) / (1000 * 60 * 60 * 24);
 
@@ -99,7 +102,7 @@ async function trainRegressionModel() {
 
 /**
  * Predicts job completion metrics for a freelancer and a job.
- * 
+ *
  * @param {Object} job - Job details (budget, skills, deadline, category)
  * @param {string} [freelancerAddress] - Optional freelancer public key
  * @returns {Promise<Object>} Predictive analytics metrics
@@ -192,7 +195,10 @@ async function predictJobCompletion(job, freelancerAddress = null) {
   } else {
     // If no deadline is set, base confidence on freelancer history
     if (completedJobs > 0) {
-      confidenceScore = Math.min(95, 80 + Math.min(10, completedJobs) + Math.round((rating - 4.0) * 5));
+      confidenceScore = Math.min(
+        95,
+        80 + Math.min(10, completedJobs) + Math.round((rating - 4.0) * 5)
+      );
     } else {
       confidenceScore = 75; // neutral baseline for new freelancers
     }
@@ -201,7 +207,7 @@ async function predictJobCompletion(job, freelancerAddress = null) {
   // Adjust confidence score based on historical on-time completion rate
   const onTimeRate = totalAssignedJobs > 0 ? (onTimeCompleted / totalAssignedJobs) * 100 : null;
   if (onTimeRate !== null) {
-    confidenceScore = Math.round((confidenceScore * 0.6) + (onTimeRate * 0.4));
+    confidenceScore = Math.round(confidenceScore * 0.6 + onTimeRate * 0.4);
   }
 
   // Final clamps

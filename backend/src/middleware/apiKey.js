@@ -2,10 +2,7 @@
 
 const rateLimit = require("express-rate-limit");
 const { getClientIp } = require("../utils/clientIp");
-const {
-  findApiKeyByRawValue,
-  recordApiKeyUsage,
-} = require("../services/developerService");
+const { findApiKeyByRawValue, recordApiKeyUsage } = require("../services/developerService");
 
 function createApiKeyRateLimiter(maxRequests = 100, windowMinutes = 60) {
   return rateLimit({

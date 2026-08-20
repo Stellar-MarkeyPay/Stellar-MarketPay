@@ -34,7 +34,8 @@ export default function KeyboardShortcutsModal({ isOpen, onClose }: KeyboardShor
   useEffect(() => {
     if (!isOpen) return;
 
-    const previousActiveElement = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const previousActiveElement =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
     closeButtonRef.current?.focus();
 
     const onTab = (event: KeyboardEvent) => {
@@ -80,7 +81,12 @@ export default function KeyboardShortcutsModal({ isOpen, onClose }: KeyboardShor
   ];
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="shortcuts-title">
+    <div
+      className="fixed inset-0 z-[70] flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="shortcuts-title"
+    >
       <button
         type="button"
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
@@ -97,7 +103,12 @@ export default function KeyboardShortcutsModal({ isOpen, onClose }: KeyboardShor
           <h2 id="shortcuts-title" className="font-display text-xl font-bold text-amber-100">
             Keyboard Shortcuts
           </h2>
-          <button ref={closeButtonRef} type="button" onClick={onClose} className="btn-ghost px-3 py-1 text-xs">
+          <button
+            ref={closeButtonRef}
+            type="button"
+            onClick={onClose}
+            className="btn-ghost px-3 py-1 text-xs"
+          >
             Close
           </button>
         </div>

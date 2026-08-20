@@ -69,7 +69,7 @@ const fetchTransactions = async (reset: boolean = false) => {
   const response = await fetchMarketPayTransactions(
     publicKey,
     ITEMS_PER_PAGE,
-    reset ? undefined : transactions[transactions.length - 1]?.id,
+    reset ? undefined : transactions[transactions.length - 1]?.id
   );
   // ...
 };
@@ -355,7 +355,7 @@ A comprehensive FAQ page covering:
    const filtered = faqs.filter(
      (faq) =>
        faq.question.toLowerCase().includes(searchTerm.toLowerCase()) ||
-       faq.answer.toLowerCase().includes(searchTerm.toLowerCase()),
+       faq.answer.toLowerCase().includes(searchTerm.toLowerCase())
    );
    ```
 
@@ -409,15 +409,9 @@ A complete guide for setting up Pinata for decentralized file storage:
 #### Frontend Upload Service (`frontend/lib/pinata.ts`)
 
 ```typescript
-export async function uploadToIPFS(
-  file: File,
-  metadata?: Record<string, any>,
-): Promise<string>;
+export async function uploadToIPFS(file: File, metadata?: Record<string, any>): Promise<string>;
 
-export async function uploadJSONToIPFS(
-  data: Record<string, any>,
-  name?: string,
-): Promise<string>;
+export async function uploadJSONToIPFS(data: Record<string, any>, name?: string): Promise<string>;
 
 export function getIPFSUrl(hash: string): string;
 ```
@@ -425,9 +419,7 @@ export function getIPFSUrl(hash: string): string;
 #### Upload Component (`frontend/components/DisputeEvidenceUpload.tsx`)
 
 ```typescript
-export default function DisputeEvidenceUpload({
-  onUploadComplete,
-}: DisputeEvidenceUploadProps);
+export default function DisputeEvidenceUpload({ onUploadComplete }: DisputeEvidenceUploadProps);
 ```
 
 Features:

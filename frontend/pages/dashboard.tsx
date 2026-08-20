@@ -29,7 +29,16 @@ import {
   deleteSavedSearch,
   type SavedSearch,
 } from "@/lib/api";
-import { formatXLM, shortenAddress, timeAgo, statusLabel, statusClass, copyToClipboard, exportJobsToCSV, exportApplicationsToCSV } from "@/utils/format";
+import {
+  formatXLM,
+  shortenAddress,
+  timeAgo,
+  statusLabel,
+  statusClass,
+  copyToClipboard,
+  exportJobsToCSV,
+  exportApplicationsToCSV,
+} from "@/utils/format";
 import type { Job, Application, ClientSpendingAnalytics, JobInvitation } from "@/utils/types";
 import EditProfileForm from "@/components/EditProfileForm";
 import SendPaymentForm from "@/components/SendPaymentForm";
@@ -55,8 +64,7 @@ import XlmPriceWidget from "@/components/XlmPriceWidget";
 
 const LOW_BALANCE_THRESHOLD_XLM = 5;
 const IS_CONTRACT_MOCK_DEV_MODE =
-  process.env.NODE_ENV !== "production" &&
-  process.env.NEXT_PUBLIC_USE_CONTRACT_MOCK === "true";
+  process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_USE_CONTRACT_MOCK === "true";
 const CATEGORY_ICONS: Record<string, string> = {
   web: "Web",
   mobile: "Mobile",
@@ -70,15 +78,23 @@ interface DashboardProps {
   onConnect: (pk: string) => void;
 }
 
-type Tab = "posted" | "applied" | "invitations" | "analytics" | "spending" | "send" | "edit_profile" | "templates" | "price_alerts" | "withdrawals" | "saved_searches" | "referrals";
+type Tab =
+  | "posted"
+  | "applied"
+  | "invitations"
+  | "analytics"
+  | "spending"
+  | "send"
+  | "edit_profile"
+  | "templates"
+  | "price_alerts"
+  | "withdrawals"
+  | "saved_searches"
+  | "referrals";
 const REPOST_JOB_PREFILL_STORAGE_KEY = "marketpay_repost_job_prefill";
 
-async function fetchBalances(
-  publicKey: string,
-): Promise<{ xlm: string; usdc: string }> {
-  const horizonUrl =
-    process.env.NEXT_PUBLIC_HORIZON_URL ||
-    "https://horizon-testnet.stellar.org";
+async function fetchBalances(publicKey: string): Promise<{ xlm: string; usdc: string }> {
+  const horizonUrl = process.env.NEXT_PUBLIC_HORIZON_URL || "https://horizon-testnet.stellar.org";
   const res = await fetch(`${horizonUrl}/accounts/${publicKey}`);
   if (!res.ok) throw new Error("Failed to fetch balances");
   const data = await res.json();
@@ -104,14 +120,10 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState(false);
-  const [templates, setTemplates] = useState<
-    { id: string; name: string; content: string }[]
-  >([]);
+  const [templates, setTemplates] = useState<{ id: string; name: string; content: string }[]>([]);
   const [templateName, setTemplateName] = useState("");
   const [templateContent, setTemplateContent] = useState("");
-  const [editingTemplateId, setEditingTemplateId] = useState<string | null>(
-    null,
-  );
+  const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
   const [emailEnabled, setEmailEnabled] = useState(false);
@@ -119,14 +131,11 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
   const [showBuyXLM, setShowBuyXLM] = useState(false);
   const [showWithdraw, setShowWithdraw] = useState(false);
   const [alertMatchesDismissed, setAlertMatchesDismissed] = useState(false);
-  const [withdrawHistory, setWithdrawHistory] = useState<
-    WithdrawHistoryEntry[]
-  >([]);
+  const [withdrawHistory, setWithdrawHistory] = useState<WithdrawHistoryEntry[]>([]);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [extendingJob, setExtendingJob] = useState<string | null>(null);
   const [extendModalJob, setExtendModalJob] = useState<Job | null>(null);
-  const [spendingAnalytics, setSpendingAnalytics] =
-    useState<ClientSpendingAnalytics | null>(null);
+  const [spendingAnalytics, setSpendingAnalytics] = useState<ClientSpendingAnalytics | null>(null);
   const [spendingLoading, setSpendingLoading] = useState(false);
   const { success } = useToast();
   const { xlmPriceUsd } = usePriceContext();
@@ -158,9 +167,7 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
   };
 
   const toggleSelectAll = () => {
-    const selectableIds = myJobs
-      .filter((j) => j.status === "open")
-      .map((j) => j.id);
+    const selectableIds = myJobs.filter((j) => j.status === "open").map((j) => j.id);
     if (selectableIds.every((id) => selectedJobIds.has(id))) {
       setSelectedJobIds(new Set());
     } else {
@@ -172,13 +179,9 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
     setBulkLoading(true);
     try {
       const res = await bulkCancelJobs(Array.from(selectedJobIds));
-      const cancelledIds = new Set(
-        res.results.filter((r) => r.success).map((r) => r.id),
-      );
+      const cancelledIds = new Set(res.results.filter((r) => r.success).map((r) => r.id));
       setMyJobs((prev) =>
-        prev.map((j) =>
-          cancelledIds.has(j.id) ? { ...j, status: "cancelled" as const } : j,
-        ),
+        prev.map((j) => (cancelledIds.has(j.id) ? { ...j, status: "cancelled" as const } : j))
       );
       setSelectedJobIds(new Set());
       return res;
@@ -201,24 +204,18 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
   const handleBulkBoost = async () => {
     setBulkLoading(true);
     try {
-      const res = await bulkBoostJobs(
-        Array.from(selectedJobIds),
-        `bulk-boost-${Date.now()}`,
-      );
-      const boostedIds = new Set(
-        res.results.filter((r) => r.success).map((r) => r.id),
-      );
+      const res = await bulkBoostJobs(Array.from(selectedJobIds), `bulk-boost-${Date.now()}`);
+      const boostedIds = new Set(res.results.filter((r) => r.success).map((r) => r.id));
       setMyJobs((prev) =>
         prev.map((j) =>
           boostedIds.has(j.id)
             ? {
                 ...j,
                 boosted: true,
-                boostedUntil: res.results.find((r) => r.id === j.id)
-                  ?.boostedUntil,
+                boostedUntil: res.results.find((r) => r.id === j.id)?.boostedUntil,
               }
-            : j,
-        ),
+            : j
+        )
       );
       setSelectedJobIds(new Set());
       return res;
@@ -253,7 +250,7 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
         budget: job.budget,
         category: job.category,
         freelancer: job.freelancerAddress || "",
-      }),
+      })
     );
     router.push("/post-job");
   };
@@ -307,12 +304,8 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
     fetchPriceAlertPreference(publicKey)
       .then((pref) => {
         if (!pref) return;
-        setMinPrice(
-          pref.min_xlm_price_usd ? String(pref.min_xlm_price_usd) : "",
-        );
-        setMaxPrice(
-          pref.max_xlm_price_usd ? String(pref.max_xlm_price_usd) : "",
-        );
+        setMinPrice(pref.min_xlm_price_usd ? String(pref.min_xlm_price_usd) : "");
+        setMaxPrice(pref.max_xlm_price_usd ? String(pref.max_xlm_price_usd) : "");
         setEmailEnabled(Boolean(pref.email_notifications_enabled));
         setAlertEmail(pref.email || "");
       })
@@ -331,11 +324,7 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
   useEffect(() => {
     if (!publicKey) return;
     fetchProfile(publicKey)
-      .then((profile) =>
-        setCanViewSpending(
-          profile.role === "client" || profile.role === "both",
-        ),
-      )
+      .then((profile) => setCanViewSpending(profile.role === "client" || profile.role === "both"))
       .catch(() => setCanViewSpending(true));
   }, [publicKey]);
 
@@ -356,12 +345,8 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
     return (
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-16">
         <div className="text-center mb-10">
-          <h1 className="font-display text-3xl font-bold text-amber-100 mb-3">
-            Dashboard
-          </h1>
-          <p className="text-amber-800">
-            Connect your wallet to view your jobs and applications
-          </p>
+          <h1 className="font-display text-3xl font-bold text-amber-100 mb-3">Dashboard</h1>
+          <p className="text-amber-800">Connect your wallet to view your jobs and applications</p>
         </div>
         <WalletConnect onConnect={onConnect} />
       </div>
@@ -373,9 +358,7 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10 animate-fade-in">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
           <div>
-            <h1 className="font-display text-3xl font-bold text-amber-100 mb-1">
-              Dashboard
-            </h1>
+            <h1 className="font-display text-3xl font-bold text-amber-100 mb-1">Dashboard</h1>
             <div className="flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
               <span className="address-tag">{shortenAddress(publicKey)}</span>
@@ -387,7 +370,7 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
                     ? "text-emerald-400 bg-emerald-400/10 border border-emerald-400/20"
                     : copyError
                       ? "text-red-400 bg-red-400/10 border border-red-400/20"
-                      : "text-amber-600 hover:text-amber-300 hover:bg-amber-400/10 border border-transparent",
+                      : "text-amber-600 hover:text-amber-300 hover:bg-amber-400/10 border border-transparent"
                 )}
                 title="Copy public key"
               >
@@ -395,10 +378,7 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
               </button>
             </div>
           </div>
-          <Link
-            href="/post-job"
-            className="btn-primary text-sm py-2.5 px-5 flex-shrink-0"
-          >
+          <Link href="/post-job" className="btn-primary text-sm py-2.5 px-5 flex-shrink-0">
             + Post a Job
           </Link>
         </div>
@@ -446,8 +426,8 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
               </div>
               {IS_CONTRACT_MOCK_DEV_MODE && (
                 <p className="mt-2 text-xs text-amber-700">
-                  Mock-only contract escrow state is persisted in this browser for
-                  local development and can be cleared with Reset Mock.
+                  Mock-only contract escrow state is persisted in this browser for local development
+                  and can be cleared with Reset Mock.
                 </p>
               )}
             </div>
@@ -515,26 +495,18 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
                   className="flex items-center justify-between rounded-lg px-3 py-2 bg-ink-900/50 hover:bg-market-500/10 transition-colors"
                 >
                   <div className="min-w-0">
-                    <p className="text-sm text-amber-100 truncate font-medium">
-                      {job.title}
-                    </p>
+                    <p className="text-sm text-amber-100 truncate font-medium">{job.title}</p>
                     <p className="text-xs text-amber-800">
-                      {CATEGORY_ICONS[job.category] ?? ""} {job.category} ·{" "}
-                      {formatXLM(job.budget)}
+                      {CATEGORY_ICONS[job.category] ?? ""} {job.category} · {formatXLM(job.budget)}
                     </p>
                   </div>
-                  <span className="text-market-400 text-xs ml-2 flex-shrink-0">
-                    View →
-                  </span>
+                  <span className="text-market-400 text-xs ml-2 flex-shrink-0">View →</span>
                 </Link>
               ))}
               {alertMatches.length > 3 && (
                 <p className="text-xs text-amber-800 px-3">
                   +{alertMatches.length - 3} more —{" "}
-                  <Link
-                    href="/jobs"
-                    className="text-market-400 hover:underline"
-                  >
+                  <Link href="/jobs" className="text-market-400 hover:underline">
                     see all
                   </Link>
                 </p>
@@ -543,38 +515,57 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
           </div>
         )}
 
-      {/* Tabs */}
-      <div className="flex border-b border-market-500/10 mb-6 overflow-x-auto">
-        {(
-          [
-            "posted",
-            "applied",
-            "invitations",
-            "analytics",
-            ...(canViewSpending ? (["spending"] as Tab[]) : []),
-            "send",
-            "edit_profile",
-            "templates",
-            "price_alerts",
-            "withdrawals",
-            "saved_searches",
-          ] as Tab[]
-        ).map((t) => (
-          <button key={t} onClick={() => setTab(t)} className={clsx("px-6 py-3 text-sm font-medium transition-all border-b-2 -mb-px whitespace-nowrap", tab === t ? "border-market-400 text-market-300" : "border-transparent text-amber-700 hover:text-amber-400")}>
-            {t === "posted" ? `Jobs Posted (${myJobs.length})` :
-             t === "applied" ? `Applications (${myApplications.length})` :
-             t === "invitations" ? `Invitations${myInvitations.length > 0 ? ` (${myInvitations.length})` : ""}` :
-             t === "analytics" ? "Job Analytics" :
-             t === "spending" ? "Spending" :
-             t === "send" ? "Send" :
-             t === "templates" ? "Templates" :
-             t === "price_alerts" ? "Price Alerts" :
-             t === "withdrawals" ? `Withdrawals (${withdrawHistory.length})` :
-             t === "saved_searches" ? `Saved Searches${savedSearches.length > 0 ? ` (${savedSearches.length})` : ""}` :
-             "Edit Profile"}
-          </button>
-        ))}
-      </div>
+        {/* Tabs */}
+        <div className="flex border-b border-market-500/10 mb-6 overflow-x-auto">
+          {(
+            [
+              "posted",
+              "applied",
+              "invitations",
+              "analytics",
+              ...(canViewSpending ? (["spending"] as Tab[]) : []),
+              "send",
+              "edit_profile",
+              "templates",
+              "price_alerts",
+              "withdrawals",
+              "saved_searches",
+            ] as Tab[]
+          ).map((t) => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={clsx(
+                "px-6 py-3 text-sm font-medium transition-all border-b-2 -mb-px whitespace-nowrap",
+                tab === t
+                  ? "border-market-400 text-market-300"
+                  : "border-transparent text-amber-700 hover:text-amber-400"
+              )}
+            >
+              {t === "posted"
+                ? `Jobs Posted (${myJobs.length})`
+                : t === "applied"
+                  ? `Applications (${myApplications.length})`
+                  : t === "invitations"
+                    ? `Invitations${myInvitations.length > 0 ? ` (${myInvitations.length})` : ""}`
+                    : t === "analytics"
+                      ? "Job Analytics"
+                      : t === "spending"
+                        ? "Spending"
+                        : t === "send"
+                          ? "Send"
+                          : t === "templates"
+                            ? "Templates"
+                            : t === "price_alerts"
+                              ? "Price Alerts"
+                              : t === "withdrawals"
+                                ? `Withdrawals (${withdrawHistory.length})`
+                                : t === "saved_searches"
+                                  ? `Saved Searches${savedSearches.length > 0 ? ` (${savedSearches.length})` : ""}`
+                                  : "Edit Profile"}
+            </button>
+          ))}
+        </div>
 
         {loading ? (
           <div className="space-y-3">
@@ -589,7 +580,7 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
               title="You haven't posted any jobs yet"
               description="Post your first job and find a great freelancer"
               ctaLabel="Post a Job"
-              onCta={() => router.push('/post-job')}
+              onCta={() => router.push("/post-job")}
             />
           ) : (
             <div className="space-y-3">
@@ -606,25 +597,17 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
                   key={job.id}
                   className="card-hover flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
                 >
-                  <Link
-                    href={`/jobs/${job.id}`}
-                    className="flex-1 min-w-0 block"
-                  >
+                  <Link href={`/jobs/${job.id}`} className="flex-1 min-w-0 block">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className={statusClass(job.status)}>
-                        {statusLabel(job.status)}
-                      </span>
-                      <span className="text-xs text-amber-800">
-                        {job.category}
-                      </span>
+                      <span className={statusClass(job.status)}>{statusLabel(job.status)}</span>
+                      <span className="text-xs text-amber-800">{job.category}</span>
                     </div>
                     <p className="font-display font-semibold text-amber-100 truncate">
                       {job.title}
                     </p>
                     <p className="text-xs text-amber-800 mt-1">
                       {job.applicantCount} applicant
-                      {job.applicantCount !== 1 ? "s" : ""} ·{" "}
-                      {timeAgo(job.createdAt)}
+                      {job.applicantCount !== 1 ? "s" : ""} · {timeAgo(job.createdAt)}
                     </p>
                     <JobStatusTimeline job={job} compact />
                   </Link>
@@ -633,11 +616,11 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
                       {formatXLM(job.budget)}
                     </p>
                     <div className="flex gap-1 mt-1 justify-end">
-                      {job.status === "open" && job.expiresAt && (
+                      {job.status === "open" &&
+                        job.expiresAt &&
                         (() => {
                           const daysUntilExpiry = Math.ceil(
-                            (new Date(job.expiresAt).getTime() - Date.now()) /
-                              (1000 * 60 * 60 * 24),
+                            (new Date(job.expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
                           );
                           if (daysUntilExpiry <= 3) {
                             return (
@@ -653,8 +636,7 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
                             );
                           }
                           return null;
-                        })()
-                      )}
+                        })()}
                       {isRepostable(job.status) && (
                         <button
                           className="btn-secondary text-xs px-3 py-1.5"
@@ -676,7 +658,7 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
               title="You haven't applied to any jobs yet"
               description="Browse open jobs and submit your first proposal"
               ctaLabel="Browse Jobs"
-              onCta={() => router.push('/jobs')}
+              onCta={() => router.push("/jobs")}
             />
           ) : (
             <div className="space-y-3">
@@ -695,12 +677,8 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
                   className="card-hover flex items-center justify-between gap-4"
                 >
                   <div className="flex-1">
-                    <p className="text-amber-700 text-sm line-clamp-1">
-                      {app.proposal}
-                    </p>
-                    <p className="text-xs text-amber-800 mt-1">
-                      {timeAgo(app.createdAt)}
-                    </p>
+                    <p className="text-amber-700 text-sm line-clamp-1">{app.proposal}</p>
+                    <p className="text-xs text-amber-800 mt-1">{timeAgo(app.createdAt)}</p>
                   </div>
                   <p className="font-mono font-semibold text-market-400">
                     {formatXLM(app.bidAmount)}
@@ -711,10 +689,7 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
           )
         ) : tab === "analytics" ? (
           selectedJob ? (
-            <JobAnalytics
-              job={selectedJob}
-              onExtend={() => handleExtendJob(selectedJob.id)}
-            />
+            <JobAnalytics job={selectedJob} onExtend={() => handleExtendJob(selectedJob.id)} />
           ) : (
             <div className="space-y-3">
               {myJobs.map((job) => (
@@ -758,14 +733,12 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
                 onClick={async () => {
                   if (!templateName.trim() || !templateContent.trim()) return;
                   if (editingTemplateId) {
-                    const updated = await updateProposalTemplate(
-                      editingTemplateId,
-                      { name: templateName, content: templateContent },
-                    );
+                    const updated = await updateProposalTemplate(editingTemplateId, {
+                      name: templateName,
+                      content: templateContent,
+                    });
                     setTemplates((current) =>
-                      current.map((item) =>
-                        item.id === updated.id ? updated : item,
-                      ),
+                      current.map((item) => (item.id === updated.id ? updated : item))
                     );
                     setEditingTemplateId(null);
                   } else {
@@ -789,8 +762,8 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
                 description="Create a template to speed up your proposals"
                 ctaLabel="Create Template"
                 onCta={() => {
-                  setTemplateName('');
-                  setTemplateContent('');
+                  setTemplateName("");
+                  setTemplateContent("");
                 }}
               />
             ) : (
@@ -814,7 +787,7 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
                         onClick={async () => {
                           await deleteProposalTemplate(template.id);
                           setTemplates((current) =>
-                            current.filter((item) => item.id !== template.id),
+                            current.filter((item) => item.id !== template.id)
                           );
                         }}
                       >
@@ -822,67 +795,75 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
                       </button>
                     </div>
                   </div>
-                  <p className="text-sm text-amber-700 whitespace-pre-wrap">
-                    {template.content}
-                  </p>
+                  <p className="text-sm text-amber-700 whitespace-pre-wrap">{template.content}</p>
                 </div>
-              )))}
+              ))
+            )}
           </div>
         ) : tab === "invitations" ? (
-        myInvitations.length === 0 ? (
-          <div className="card text-center py-16">
-            <p className="font-display text-xl text-amber-100 mb-2">No invitations yet</p>
-            <p className="text-amber-800 text-sm">When a client invites you to apply to their job, it will appear here.</p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {myInvitations.map((inv) => (
-              <div key={inv.id} className="card space-y-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <Link href={`/jobs/${inv.jobId}`} className="font-display font-semibold text-amber-100 hover:text-market-300 transition-colors truncate block">
-                      {inv.jobTitle}
-                    </Link>
-                    <p className="text-xs text-amber-700 mt-0.5">
-                      From: {inv.clientName || inv.clientAddress.slice(0, 12) + "…"} · {timeAgo(inv.createdAt)}
-                    </p>
+          myInvitations.length === 0 ? (
+            <div className="card text-center py-16">
+              <p className="font-display text-xl text-amber-100 mb-2">No invitations yet</p>
+              <p className="text-amber-800 text-sm">
+                When a client invites you to apply to their job, it will appear here.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {myInvitations.map((inv) => (
+                <div key={inv.id} className="card space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <Link
+                        href={`/jobs/${inv.jobId}`}
+                        className="font-display font-semibold text-amber-100 hover:text-market-300 transition-colors truncate block"
+                      >
+                        {inv.jobTitle}
+                      </Link>
+                      <p className="text-xs text-amber-700 mt-0.5">
+                        From: {inv.clientName || inv.clientAddress.slice(0, 12) + "…"} ·{" "}
+                        {timeAgo(inv.createdAt)}
+                      </p>
+                    </div>
+                    <span className="font-mono text-market-400 font-semibold text-sm flex-shrink-0">
+                      {formatXLM(inv.jobBudget)} {inv.jobCurrency}
+                    </span>
                   </div>
-                  <span className="font-mono text-market-400 font-semibold text-sm flex-shrink-0">
-                    {formatXLM(inv.jobBudget)} {inv.jobCurrency}
-                  </span>
+                  <p className="text-xs text-amber-700 bg-ink-800 rounded-lg px-3 py-2 border border-market-500/10">
+                    Hi! {inv.clientName || "A client"} has invited you to apply to their job:
+                    &ldquo;{inv.jobTitle}&rdquo; — {inv.jobBudget} {inv.jobCurrency}.{" "}
+                    <Link href={`/jobs/${inv.jobId}`} className="text-market-400 hover:underline">
+                      View Job
+                    </Link>
+                  </p>
+                  <div className="flex gap-2">
+                    <Link
+                      href={`/jobs/${inv.jobId}`}
+                      className="flex-1 btn-primary text-xs py-2 text-center"
+                    >
+                      View &amp; Apply
+                    </Link>
+                    <button
+                      onClick={async () => {
+                        try {
+                          await declineInvitation(inv.id);
+                          setMyInvitations((prev) => prev.filter((i) => i.id !== inv.id));
+                          success("Invitation declined.");
+                        } catch {
+                          // ignore
+                        }
+                      }}
+                      className="flex-1 btn-secondary text-xs py-2"
+                    >
+                      Decline
+                    </button>
+                  </div>
                 </div>
-                <p className="text-xs text-amber-700 bg-ink-800 rounded-lg px-3 py-2 border border-market-500/10">
-                  Hi! {inv.clientName || "A client"} has invited you to apply to their job: &ldquo;{inv.jobTitle}&rdquo; — {inv.jobBudget} {inv.jobCurrency}.{" "}
-                  <Link href={`/jobs/${inv.jobId}`} className="text-market-400 hover:underline">View Job</Link>
-                </p>
-                <div className="flex gap-2">
-                  <Link
-                    href={`/jobs/${inv.jobId}`}
-                    className="flex-1 btn-primary text-xs py-2 text-center"
-                  >
-                    View &amp; Apply
-                  </Link>
-                  <button
-                    onClick={async () => {
-                      try {
-                        await declineInvitation(inv.id);
-                        setMyInvitations((prev) => prev.filter((i) => i.id !== inv.id));
-                        success("Invitation declined.");
-                      } catch {
-                        // ignore
-                      }
-                    }}
-                    className="flex-1 btn-secondary text-xs py-2"
-                  >
-                    Decline
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )
-      ) : tab === "price_alerts" ? (
-          (!minPrice && !maxPrice && !emailEnabled) ? (
+              ))}
+            </div>
+          )
+        ) : tab === "price_alerts" ? (
+          !minPrice && !maxPrice && !emailEnabled ? (
             <StateMessage
               type="empty"
               title="No price alerts set"
@@ -978,7 +959,10 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
           ) : (
             <div className="space-y-3">
               {savedSearches.map((s) => (
-                <div key={s.id} className="card flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div
+                  key={s.id}
+                  className="card flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                >
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap gap-1.5 mb-2">
                       {Object.entries(s.query_params).map(([key, val]) => (
@@ -994,9 +978,9 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
                       )}
                     </div>
                     <p className="text-xs text-amber-800">
-                      Saved {new Date(s.created_at).toLocaleDateString()} ·
-                      In-app: {s.notify_in_app ? "\u2713" : "\u2715"} ·
-                      Email: {s.notify_email ? "\u2713" : "\u2715"}
+                      Saved {new Date(s.created_at).toLocaleDateString()} · In-app:{" "}
+                      {s.notify_in_app ? "\u2713" : "\u2715"} · Email:{" "}
+                      {s.notify_email ? "\u2713" : "\u2715"}
                     </p>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">

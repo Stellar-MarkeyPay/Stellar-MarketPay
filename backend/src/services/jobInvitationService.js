@@ -120,7 +120,9 @@ async function inviteFreelancerToJob({ jobId, clientAddress, freelancerAddress }
     },
   });
 
-  console.log(`[invitations] Queued invitation notifications for job ${jobId} → ${freelancerAddress}`);
+  console.log(
+    `[invitations] Queued invitation notifications for job ${jobId} → ${freelancerAddress}`
+  );
 
   return invitation;
 }
@@ -173,10 +175,7 @@ async function getInvitationsForFreelancer(freelancerAddress) {
  * @returns {Promise<Object>}
  */
 async function declineInvitation(invitationId, freelancerAddress) {
-  const { rows } = await pool.query(
-    "SELECT * FROM job_invitations WHERE id = $1",
-    [invitationId]
-  );
+  const { rows } = await pool.query("SELECT * FROM job_invitations WHERE id = $1", [invitationId]);
   if (!rows.length) {
     const e = new Error("Invitation not found");
     e.status = 404;

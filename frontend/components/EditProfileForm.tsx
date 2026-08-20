@@ -3,7 +3,12 @@
  * Form to view and edit user profile details.
  */
 import { useState, useEffect } from "react";
-import { fetchProfile, updateProfileAvailability, upsertProfile, uploadPortfolioFiles } from "@/lib/api";
+import {
+  fetchProfile,
+  updateProfileAvailability,
+  upsertProfile,
+  uploadPortfolioFiles,
+} from "@/lib/api";
 import type {
   Availability,
   AvailabilityStatus,
@@ -116,9 +121,7 @@ export default function EditProfileForm({ publicKey }: Props) {
     value: PortfolioItem[K]
   ) => {
     setPortfolioItems((current) =>
-      current.map((item, itemIndex) =>
-        itemIndex === index ? { ...item, [key]: value } : item
-      )
+      current.map((item, itemIndex) => (itemIndex === index ? { ...item, [key]: value } : item))
     );
   };
 
@@ -126,7 +129,10 @@ export default function EditProfileForm({ publicKey }: Props) {
     setPortfolioItems((current) => current.filter((_, itemIndex) => itemIndex !== index));
   };
 
-  const updateAvailabilityField = <K extends keyof Availability>(key: K, value: Availability[K]) => {
+  const updateAvailabilityField = <K extends keyof Availability>(
+    key: K,
+    value: Availability[K]
+  ) => {
     setAvailability((current) => ({ ...current, [key]: value }));
   };
 
@@ -221,7 +227,10 @@ export default function EditProfileForm({ publicKey }: Props) {
         ...(availability.availableFrom ? { availableFrom: availability.availableFrom } : {}),
         ...(availability.availableUntil ? { availableUntil: availability.availableUntil } : {}),
       };
-      const profileWithAvailability = await updateProfileAvailability(publicKey, availabilityPayload);
+      const profileWithAvailability = await updateProfileAvailability(
+        publicKey,
+        availabilityPayload
+      );
 
       setProfile(profileWithAvailability);
       setPortfolioItems(profileWithAvailability.portfolioItems || []);
@@ -265,7 +274,12 @@ export default function EditProfileForm({ publicKey }: Props) {
       {errorMsg && (
         <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm flex items-center gap-2">
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
           </svg>
           {errorMsg}
         </div>
@@ -335,7 +349,10 @@ export default function EditProfileForm({ publicKey }: Props) {
           <label className="block text-sm font-medium text-amber-100 mb-2">Skills</label>
           <div className="bg-ink-900/50 border border-market-500/20 rounded-xl p-2 focus-within:border-market-400 transition-colors min-h-[52px] flex flex-wrap gap-2 items-center">
             {skills.map((skill) => (
-              <span key={skill} className="flex items-center gap-1.5 bg-ink-800 border border-market-500/20 text-amber-100 text-sm px-2.5 py-1 rounded-lg">
+              <span
+                key={skill}
+                className="flex items-center gap-1.5 bg-ink-800 border border-market-500/20 text-amber-100 text-sm px-2.5 py-1 rounded-lg"
+              >
                 {skill}
                 <button
                   type="button"
@@ -372,7 +389,9 @@ export default function EditProfileForm({ publicKey }: Props) {
               <label className="block text-xs font-medium text-amber-100 mb-1.5">Status</label>
               <select
                 value={availability.status}
-                onChange={(e) => updateAvailabilityField("status", e.target.value as AvailabilityStatus)}
+                onChange={(e) =>
+                  updateAvailabilityField("status", e.target.value as AvailabilityStatus)
+                }
                 className="w-full bg-ink-950/60 border border-market-500/20 rounded-xl px-4 py-3 text-amber-100 focus:outline-none focus:border-market-400 transition-colors"
               >
                 {availabilityStatusOptions.map((option) => (
@@ -385,7 +404,9 @@ export default function EditProfileForm({ publicKey }: Props) {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-medium text-amber-100 mb-1.5">Available From</label>
+                <label className="block text-xs font-medium text-amber-100 mb-1.5">
+                  Available From
+                </label>
                 <input
                   type="date"
                   value={availability.availableFrom ? availability.availableFrom.slice(0, 10) : ""}
@@ -395,10 +416,14 @@ export default function EditProfileForm({ publicKey }: Props) {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-amber-100 mb-1.5">Available Until</label>
+                <label className="block text-xs font-medium text-amber-100 mb-1.5">
+                  Available Until
+                </label>
                 <input
                   type="date"
-                  value={availability.availableUntil ? availability.availableUntil.slice(0, 10) : ""}
+                  value={
+                    availability.availableUntil ? availability.availableUntil.slice(0, 10) : ""
+                  }
                   onChange={(e) => updateAvailabilityField("availableUntil", e.target.value)}
                   className="w-full bg-ink-950/60 border border-market-500/20 rounded-xl px-4 py-3 text-amber-100 focus:outline-none focus:border-market-400 transition-colors"
                 />
@@ -427,7 +452,9 @@ export default function EditProfileForm({ publicKey }: Props) {
 
           <div className="space-y-3">
             {portfolioItems.map((item, index) => {
-              const selectedType = portfolioTypeOptions.find((option) => option.value === item.type) || portfolioTypeOptions[0];
+              const selectedType =
+                portfolioTypeOptions.find((option) => option.value === item.type) ||
+                portfolioTypeOptions[0];
 
               return (
                 <div
@@ -447,7 +474,9 @@ export default function EditProfileForm({ publicKey }: Props) {
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div className="md:col-span-2">
-                      <label className="block text-xs font-medium text-amber-100 mb-1.5">Title</label>
+                      <label className="block text-xs font-medium text-amber-100 mb-1.5">
+                        Title
+                      </label>
                       <input
                         type="text"
                         value={item.title}
@@ -459,10 +488,14 @@ export default function EditProfileForm({ publicKey }: Props) {
                     </div>
 
                     <div>
-                      <label className="block text-xs font-medium text-amber-100 mb-1.5">Type</label>
+                      <label className="block text-xs font-medium text-amber-100 mb-1.5">
+                        Type
+                      </label>
                       <select
                         value={item.type}
-                        onChange={(e) => updatePortfolioItem(index, "type", e.target.value as PortfolioItemType)}
+                        onChange={(e) =>
+                          updatePortfolioItem(index, "type", e.target.value as PortfolioItemType)
+                        }
                         className="w-full bg-ink-950/60 border border-market-500/20 rounded-xl px-4 py-3 text-amber-100 focus:outline-none focus:border-market-400 transition-colors"
                       >
                         {portfolioTypeOptions.map((option) => (
@@ -502,7 +535,8 @@ export default function EditProfileForm({ publicKey }: Props) {
                 <div>
                   <label className="block text-sm font-medium text-amber-100">Upload Files</label>
                   <p className="text-xs text-amber-800 mt-1">
-                    Upload up to {MAX_PORTFOLIO_FILES} files (max 10MB each). Images, PDFs, and documents supported.
+                    Upload up to {MAX_PORTFOLIO_FILES} files (max 10MB each). Images, PDFs, and
+                    documents supported.
                   </p>
                 </div>
               </div>
@@ -543,14 +577,19 @@ export default function EditProfileForm({ publicKey }: Props) {
                       >
                         <div className="flex items-center gap-3">
                           <span className="text-lg">
-                            {file.mimeType.startsWith("image/") ? "🖼️" :
-                             file.mimeType === "application/pdf" ? "📄" :
-                             file.mimeType.includes("word") ? "📝" : "📎"}
+                            {file.mimeType.startsWith("image/")
+                              ? "🖼️"
+                              : file.mimeType === "application/pdf"
+                                ? "📄"
+                                : file.mimeType.includes("word")
+                                  ? "📝"
+                                  : "📎"}
                           </span>
                           <div>
                             <p className="text-sm text-amber-100 font-medium">{file.fileName}</p>
                             <p className="text-xs text-amber-800">
-                              {(file.size / 1024 / 1024).toFixed(2)} MB • Uploaded {new Date(file.uploadedAt).toLocaleDateString()}
+                              {(file.size / 1024 / 1024).toFixed(2)} MB • Uploaded{" "}
+                              {new Date(file.uploadedAt).toLocaleDateString()}
                             </p>
                           </div>
                         </div>
@@ -574,11 +613,7 @@ export default function EditProfileForm({ publicKey }: Props) {
           <p className="text-xs text-amber-800">
             {portfolioItems.length}/{MAX_PORTFOLIO_ITEMS} portfolio items
           </p>
-          <button
-            type="submit"
-            disabled={saving}
-            className="btn-primary"
-          >
+          <button type="submit" disabled={saving} className="btn-primary">
             {saving ? "Saving..." : "Save Profile"}
           </button>
         </div>

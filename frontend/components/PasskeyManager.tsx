@@ -18,11 +18,11 @@ interface Props {
 }
 
 export default function PasskeyManager({ publicKey }: Props) {
-  const [passkeys, setPasskeys]       = useState<PasskeyCredential[]>([]);
-  const [loading, setLoading]         = useState(true);
+  const [passkeys, setPasskeys] = useState<PasskeyCredential[]>([]);
+  const [loading, setLoading] = useState(true);
   const [registering, setRegistering] = useState(false);
-  const [newKeyName, setNewKeyName]   = useState("");
-  const [deletingId, setDeletingId]   = useState<string | null>(null);
+  const [newKeyName, setNewKeyName] = useState("");
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const { success, info } = useToast();
 
   useEffect(() => {
@@ -40,7 +40,7 @@ export default function PasskeyManager({ publicKey }: Props) {
     setRegistering(true);
     try {
       const { startRegistration } = await import("@simplewebauthn/browser");
-      const options    = await fetchPasskeyRegistrationOptions(publicKey);
+      const options = await fetchPasskeyRegistrationOptions(publicKey);
       const credential = await startRegistration(options);
       await verifyPasskeyRegistration(credential, newKeyName.trim() || "Passkey");
       success("Passkey registered successfully!");
@@ -72,8 +72,8 @@ export default function PasskeyManager({ publicKey }: Props) {
       <div>
         <h3 className="font-display text-xl text-amber-100 mb-1">Passkeys</h3>
         <p className="text-sm text-amber-800">
-          Register your fingerprint, Face ID, or a hardware security key to sign in without
-          your wallet. Works on Chrome, Safari, Firefox, and Edge.
+          Register your fingerprint, Face ID, or a hardware security key to sign in without your
+          wallet. Works on Chrome, Safari, Firefox, and Edge.
         </p>
       </div>
 
@@ -88,11 +88,7 @@ export default function PasskeyManager({ publicKey }: Props) {
           maxLength={64}
           disabled={registering}
         />
-        <button
-          className="btn-primary text-sm"
-          onClick={handleRegister}
-          disabled={registering}
-        >
+        <button className="btn-primary text-sm" onClick={handleRegister} disabled={registering}>
           {registering ? "Waiting for device…" : "Register passkey"}
         </button>
       </div>
@@ -103,7 +99,9 @@ export default function PasskeyManager({ publicKey }: Props) {
         </p>
         {loading ? (
           <div className="space-y-2">
-            {[1, 2].map((i) => <div key={i} className="card animate-pulse h-14" />)}
+            {[1, 2].map((i) => (
+              <div key={i} className="card animate-pulse h-14" />
+            ))}
           </div>
         ) : passkeys.length === 0 ? (
           <div className="card text-center py-8">

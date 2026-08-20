@@ -48,15 +48,15 @@ function validateMessageContent(content) {
 /** Convert snake_case DB row → camelCase API object */
 function rowToMessage(row) {
   return {
-    id:             row.id,
-    jobId:          row.job_id,
-    senderAddress:  row.sender_address,
+    id: row.id,
+    jobId: row.job_id,
+    senderAddress: row.sender_address,
     receiverAddress: row.receiver_address,
-    content:        row.content,
-    ipfsCid:        row.ipfs_cid,
-    txHash:         row.tx_hash,
-    read:           row.read,
-    createdAt:      row.created_at,
+    content: row.content,
+    ipfsCid: row.ipfs_cid,
+    txHash: row.tx_hash,
+    read: row.read,
+    createdAt: row.created_at,
   };
 }
 
@@ -121,9 +121,8 @@ async function createMessage({ jobId, senderAddress, content, contractTxHash }) 
     }
 
     // Determine receiver (the other party)
-    const receiverAddress = job.client_address === senderAddress
-      ? job.freelancer_address
-      : job.client_address;
+    const receiverAddress =
+      job.client_address === senderAddress ? job.freelancer_address : job.client_address;
 
     if (!receiverAddress) {
       const e = new Error("Cannot send message: job has no assigned freelancer");
@@ -143,7 +142,10 @@ async function createMessage({ jobId, senderAddress, content, contractTxHash }) 
       });
       ipfsCid = ipfsResult.cid;
     } catch (ipfsError) {
-      console.error("[MessageService] IPFS upload failed, falling back to off-chain:", ipfsError.message);
+      console.error(
+        "[MessageService] IPFS upload failed, falling back to off-chain:",
+        ipfsError.message
+      );
       // Continue without IPFS — the message will still be stored in Postgres
     }
 
@@ -163,7 +165,7 @@ async function createMessage({ jobId, senderAddress, content, contractTxHash }) 
         body: `${senderAddress.slice(0, 6)}...${senderAddress.slice(-4)} sent you a message.`,
         jobId,
       },
-      client,
+      client
     );
 
     await client.query("COMMIT");

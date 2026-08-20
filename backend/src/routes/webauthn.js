@@ -16,9 +16,9 @@
  */
 "use strict";
 
-const express  = require("express");
-const router   = express.Router();
-const pool     = require("../db/pool");
+const express = require("express");
+const router = express.Router();
+const pool = require("../db/pool");
 const { createRateLimiter } = require("../middleware/rateLimiter");
 const { verifyJWT } = require("../middleware/auth");
 const { issueTokenPair, setAuthCookies } = require("../services/authTokens");
@@ -30,9 +30,9 @@ const {
   verifyAuthenticationResponse,
 } = require("@simplewebauthn/server");
 
-const RP_ID   = process.env.WEBAUTHN_RP_ID   || "localhost";
-const RP_NAME = process.env.WEBAUTHN_RP_NAME  || "Stellar MarketPay";
-const ORIGIN  = process.env.WEBAUTHN_ORIGIN   || "http://localhost:3000";
+const RP_ID = process.env.WEBAUTHN_RP_ID || "localhost";
+const RP_NAME = process.env.WEBAUTHN_RP_NAME || "Stellar MarketPay";
+const ORIGIN = process.env.WEBAUTHN_ORIGIN || "http://localhost:3000";
 
 // Temporary in-memory challenge store (TTL 5 minutes)
 const challengeStore = new Map();
@@ -75,7 +75,9 @@ router.post("/register-options", verifyJWT, webauthnRateLimiter, async (req, res
 
     challengeStore.set(`reg:${publicKey}`, { challenge: options.challenge, createdAt: Date.now() });
     res.json({ success: true, data: options });
-  } catch (e) { next(e); }
+  } catch (e) {
+    next(e);
+  }
 });
 
 router.post("/register-verify", verifyJWT, webauthnRateLimiter, async (req, res, next) => {
@@ -122,7 +124,9 @@ router.post("/register-verify", verifyJWT, webauthnRateLimiter, async (req, res,
     );
 
     res.json({ success: true, message: "Passkey registered successfully" });
-  } catch (e) { next(e); }
+  } catch (e) {
+    next(e);
+  }
 });
 
 // ─── Authentication ─────────────────────────────────────────────────────────────
@@ -151,9 +155,14 @@ router.post("/login-options", webauthnRateLimiter, async (req, res, next) => {
       userVerification: "preferred",
     });
 
-    challengeStore.set(`auth:${publicKey}`, { challenge: options.challenge, createdAt: Date.now() });
+    challengeStore.set(`auth:${publicKey}`, {
+      challenge: options.challenge,
+      createdAt: Date.now(),
+    });
     res.json({ success: true, data: options });
-  } catch (e) { next(e); }
+  } catch (e) {
+    next(e);
+  }
 });
 
 router.post("/login-verify", webauthnRateLimiter, async (req, res, next) => {
@@ -206,16 +215,18 @@ router.post("/login-verify", webauthnRateLimiter, async (req, res, next) => {
 
     challengeStore.delete(`auth:${publicKey}`);
 
-    await pool.query(
-      "UPDATE webauthn_credentials SET counter = $1 WHERE credential_id = $2",
-      [verification.authenticationInfo.newCounter, credentialId]
-    );
+    await pool.query("UPDATE webauthn_credentials SET counter = $1 WHERE credential_id = $2", [
+      verification.authenticationInfo.newCounter,
+      credentialId,
+    ]);
 
     const { accessToken, refreshToken } = issueTokenPair({ publicKey });
     setAuthCookies(res, accessToken, refreshToken);
 
     res.json({ success: true, token: accessToken });
-  } catch (e) { next(e); }
+  } catch (e) {
+    next(e);
+  }
 });
 
 // ─── Credential management ─────────────────────────────────────────────────────
@@ -227,7 +238,9 @@ router.get("/credentials", verifyJWT, async (req, res, next) => {
       [req.user.publicKey]
     );
     res.json({ success: true, data: rows });
-  } catch (e) { next(e); }
+  } catch (e) {
+    next(e);
+  }
 });
 
 router.delete("/credentials/:id", verifyJWT, async (req, res, next) => {
@@ -242,7 +255,9 @@ router.delete("/credentials/:id", verifyJWT, async (req, res, next) => {
       throw e;
     }
     res.json({ success: true, message: "Passkey removed" });
-  } catch (e) { next(e); }
+  } catch (e) {
+    next(e);
+  }
 });
 
 module.exports = router;

@@ -45,9 +45,7 @@ function normalizeMarketChartPayload(payload) {
     }
   }
   const change24hPercent =
-    closest.priceUsd > 0
-      ? ((latest.priceUsd - closest.priceUsd) / closest.priceUsd) * 100
-      : null;
+    closest.priceUsd > 0 ? ((latest.priceUsd - closest.priceUsd) / closest.priceUsd) * 100 : null;
 
   return {
     points,

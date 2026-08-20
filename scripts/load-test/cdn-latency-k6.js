@@ -68,7 +68,9 @@ export default function cdnLatencyScenario() {
   jobDetailLatency.add(detailRes.timings.duration);
   check(detailRes, { "job detail 200 or 404": (r) => r.status === 200 || r.status === 404 });
 
-  const profileRes = http.get(`${BASE_URL}/api/profiles/${profileKey}`, { tags: { name: "profile" } });
+  const profileRes = http.get(`${BASE_URL}/api/profiles/${profileKey}`, {
+    tags: { name: "profile" },
+  });
   profileLatency.add(profileRes.timings.duration);
   check(profileRes, { "profile 200 or 404": (r) => r.status === 200 || r.status === 404 });
 

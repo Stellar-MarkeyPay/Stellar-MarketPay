@@ -1,0 +1,13 @@
+{
+  "types": [
+    { "type": "feat", "section": "Features" },
+    { "type": "fix", "section": "Bug Fixes" },
+    { "type": "perf", "section": "Performance Improvements" },
+    { "type": "refactor", "section": "Code Refactoring" },
+    { "type": "docs", "section": "Documentation" },
+    { "type": "contracts", "section": "Smart Contracts" },
+    { "type": "security", "section": "Security Hardening" },
+    { "type": "ci", "section": "CI/CD & Automation" },
+    { "type": "chore", "hidden": true }
+  ]
+}

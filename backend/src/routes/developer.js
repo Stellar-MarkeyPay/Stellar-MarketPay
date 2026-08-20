@@ -3,11 +3,7 @@
 const express = require("express");
 const router = express.Router();
 const { verifyJWT } = require("../middleware/auth");
-const {
-  createApiKey,
-  listApiKeys,
-  revokeApiKey,
-} = require("../services/developerService");
+const { createApiKey, listApiKeys, revokeApiKey } = require("../services/developerService");
 
 function requireDeveloperWallet(req, res, next) {
   if (!req.user?.publicKey) {

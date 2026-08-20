@@ -86,7 +86,7 @@ async function fetchOpenJobsForFreelancer(publicKey, limit) {
     ORDER BY j.created_at DESC
     LIMIT $2
     `,
-    [publicKey, limit * 3],
+    [publicKey, limit * 3]
   );
   return rows;
 }
@@ -105,7 +105,7 @@ async function fetchFreelancerCandidates(jobId, limit) {
     ORDER BY p.updated_at DESC
     LIMIT $2
     `,
-    [jobId, limit * 3],
+    [jobId, limit * 3]
   );
   return rows;
 }
@@ -172,7 +172,7 @@ async function logShadowEvent({
         JSON.stringify(baselineRanking),
         latencyMs,
         fallbackUsed,
-      ],
+      ]
     );
   } catch (err) {
     logger.warn({ err: err.message }, "Failed to log shadow ranking event");
@@ -196,7 +196,7 @@ async function baselineFreelancers(limit) {
     ORDER BY completed_jobs DESC, updated_at DESC
     LIMIT $1
     `,
-    [limit],
+    [limit]
   );
   return rows.map((r) => ({
     publicKey: r.public_key,
@@ -287,7 +287,10 @@ async function getRankedJobsForFreelancer(publicKey, limit = CONFIG.defaultLimit
   });
 
   if (latencyMs > CONFIG.latencyBudgetMs) {
-    logger.warn({ latencyMs, budget: CONFIG.latencyBudgetMs }, "ML ranking exceeded latency budget");
+    logger.warn(
+      { latencyMs, budget: CONFIG.latencyBudgetMs },
+      "ML ranking exceeded latency budget"
+    );
   }
 
   return {
@@ -315,10 +318,9 @@ async function getRankedFreelancersForJob(jobId, limit = CONFIG.defaultLimit) {
 
   if (!CONFIG.enabled) {
     const baseline = await baselineFreelancers(safeLimit);
-    const { rows } = await pool.query(
-      `SELECT * FROM profiles WHERE public_key = ANY($1::text[])`,
-      [baseline.map((b) => b.publicKey)],
-    );
+    const { rows } = await pool.query(`SELECT * FROM profiles WHERE public_key = ANY($1::text[])`, [
+      baseline.map((b) => b.publicKey),
+    ]);
     const profileMap = new Map(rows.map((r) => [r.public_key, mapProfileRow(r)]));
 
     const data = baseline
@@ -395,7 +397,7 @@ async function getShadowModeStats(limit = 100) {
     ORDER BY mode
     LIMIT $1
     `,
-    [limit],
+    [limit]
   );
 
   return rows;
@@ -425,7 +427,7 @@ async function runFairnessAudit() {
     FROM classified
     GROUP BY cohort
     `,
-    [CONFIG.coldStartMinHistory + 1],
+    [CONFIG.coldStartMinHistory + 1]
   );
 
   const total = exposureRows.reduce((sum, r) => sum + r.impressions, 0) || 1;

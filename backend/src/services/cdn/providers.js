@@ -42,7 +42,9 @@ function createCloudflareProvider({ zoneId, apiToken, axiosInstance = axios }) {
       );
 
       if (!response.data?.success) {
-        throw new Error(`Cloudflare purge failed: ${JSON.stringify(response.data?.errors || response.data)}`);
+        throw new Error(
+          `Cloudflare purge failed: ${JSON.stringify(response.data?.errors || response.data)}`
+        );
       }
       return response.data;
     },

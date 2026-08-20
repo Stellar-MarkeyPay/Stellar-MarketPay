@@ -17,7 +17,7 @@ function ApplicationsPerDayChart({ data }: { data: JobAnalytics["applicationsPer
     return <p className="text-sm text-amber-800 text-center py-4">No applications yet</p>;
   }
 
-  const maxCount = Math.max(...data.map(d => d.count), 1);
+  const maxCount = Math.max(...data.map((d) => d.count), 1);
   const lastSeven = data.slice(-7);
 
   return (
@@ -25,7 +25,10 @@ function ApplicationsPerDayChart({ data }: { data: JobAnalytics["applicationsPer
       <div className="flex items-end justify-between gap-1 h-20">
         {lastSeven.map((item, i) => (
           <div key={i} className="flex-1 flex flex-col items-center gap-1">
-            <div className="w-full max-w-[28px] bg-gradient-to-t from-amber-500/30 to-amber-400 rounded-t-sm transition-all duration-300 hover:from-amber-500/50 hover:to-amber-300" style={{ height: `${Math.max(4, (item.count / maxCount) * 100)}%` }} />
+            <div
+              className="w-full max-w-[28px] bg-gradient-to-t from-amber-500/30 to-amber-400 rounded-t-sm transition-all duration-300 hover:from-amber-500/50 hover:to-amber-300"
+              style={{ height: `${Math.max(4, (item.count / maxCount) * 100)}%` }}
+            />
             <span className="text-[10px] text-amber-700 whitespace-nowrap">
               {new Date(item.day).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
             </span>
@@ -33,8 +36,22 @@ function ApplicationsPerDayChart({ data }: { data: JobAnalytics["applicationsPer
         ))}
       </div>
       <div className="flex justify-between text-[10px] text-amber-800 px-1">
-        <span>{lastSeven[0]?.day ? new Date(lastSeven[0].day).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "-"}</span>
-        <span>{lastSeven[lastSeven.length - 1]?.day ? new Date(lastSeven[lastSeven.length - 1].day).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "-"}</span>
+        <span>
+          {lastSeven[0]?.day
+            ? new Date(lastSeven[0].day).toLocaleDateString(undefined, {
+                month: "short",
+                day: "numeric",
+              })
+            : "-"}
+        </span>
+        <span>
+          {lastSeven[lastSeven.length - 1]?.day
+            ? new Date(lastSeven[lastSeven.length - 1].day).toLocaleDateString(undefined, {
+                month: "short",
+                day: "numeric",
+              })
+            : "-"}
+        </span>
       </div>
     </div>
   );
@@ -44,11 +61,13 @@ function ApplicationsPerDayChart({ data }: { data: JobAnalytics["applicationsPer
  * Simple bar for skill distribution.
  */
 function SkillDistributionChart({ data }: { data: Record<string, number> }) {
-  const skills = Object.entries(data).sort((a, b) => b[1] - a[1]).slice(0, 8);
+  const skills = Object.entries(data)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8);
   if (skills.length === 0) {
     return <p className="text-sm text-amber-800 text-center py-4">No skill data</p>;
   }
-  const maxCount = Math.max(...skills.map(s => s[1]), 1);
+  const maxCount = Math.max(...skills.map((s) => s[1]), 1);
   return (
     <div className="space-y-2">
       {skills.map(([skill, count]) => (
@@ -56,11 +75,13 @@ function SkillDistributionChart({ data }: { data: Record<string, number> }) {
           <div className="w-20 text-xs text-amber-700 truncate flex-shrink-0">{skill}</div>
           <div className="flex-1 h-6 bg-ink-900 rounded overflow-hidden">
             <div
-              className="h-full bg-gradient-to-r from-emerald-500/40 to-emerald-400 transition-all duration-500" 
+              className="h-full bg-gradient-to-r from-emerald-500/40 to-emerald-400 transition-all duration-500"
               style={{ width: `${(count / maxCount) * 100}%` }}
             />
           </div>
-          <span className="text-xs font-mono text-emerald-400 w-6 text-right flex-shrink-0">{count}</span>
+          <span className="text-xs font-mono text-emerald-400 w-6 text-right flex-shrink-0">
+            {count}
+          </span>
         </div>
       ))}
     </div>
@@ -116,7 +137,9 @@ function StatusBreakdown({ data }: { data: JobAnalytics["applicationStatusCounts
           {statuses.map((s, i) => {
             const value = data[s.key] || 0;
             const pct = total > 0 ? value / total : 0;
-            const offset = statuses.slice(0, i).reduce<number>((acc, prev) => acc + ((data[prev.key] || 0) / (total || 1)), 0);
+            const offset = statuses
+              .slice(0, i)
+              .reduce<number>((acc, prev) => acc + (data[prev.key] || 0) / (total || 1), 0);
             return pct > 0 ? (
               <circle
                 key={s.key}
@@ -138,12 +161,14 @@ function StatusBreakdown({ data }: { data: JobAnalytics["applicationStatusCounts
         </div>
       </div>
       <div className="flex gap-4 text-xs">
-        {statuses.map(s => {
+        {statuses.map((s) => {
           const value = data[s.key] || 0;
           return value > 0 ? (
             <div key={s.key} className="flex items-center gap-1">
               <span className={`w-2 h-2 rounded-full ${s.color}`}></span>
-              <span className="text-amber-700">{s.label}: {value}</span>
+              <span className="text-amber-700">
+                {s.label}: {value}
+              </span>
             </div>
           ) : null;
         })}
@@ -179,7 +204,9 @@ export default function JobAnalyticsPanel({ job, onExtend }: JobAnalyticsProps) 
     }
   };
 
-  const daysUntilExpiry = job?.expiresAt ? Math.ceil((new Date(job.expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : null;
+  const daysUntilExpiry = job?.expiresAt
+    ? Math.ceil((new Date(job.expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+    : null;
   const isExpiringSoon = daysUntilExpiry !== null && daysUntilExpiry <= 3 && daysUntilExpiry > 0;
   const isExpired = daysUntilExpiry !== null && daysUntilExpiry <= 0;
 
@@ -189,20 +216,28 @@ export default function JobAnalyticsPanel({ job, onExtend }: JobAnalyticsProps) 
     <div className="space-y-6">
       {/* Expiry Banner */}
       {(isExpiringSoon || isExpired) && (
-        <div className={clsx(
-          "card p-4 flex items-center justify-between gap-4",
-          isExpired ? "bg-red-500/10 border-red-500/20" : "bg-amber-500/10 border-amber-500/20"
-        )}>
+        <div
+          className={clsx(
+            "card p-4 flex items-center justify-between gap-4",
+            isExpired ? "bg-red-500/10 border-red-500/20" : "bg-amber-500/10 border-amber-500/20"
+          )}
+        >
           <div className="flex items-center gap-3">
-            <span className={clsx(
-              "w-3 h-3 rounded-full flex-shrink-0",
-              isExpired ? "bg-red-400 animate-pulse" : "bg-amber-400 animate-pulse"
-            )} />
+            <span
+              className={clsx(
+                "w-3 h-3 rounded-full flex-shrink-0",
+                isExpired ? "bg-red-400 animate-pulse" : "bg-amber-400 animate-pulse"
+              )}
+            />
             <div>
               <p className="font-medium text-amber-100">
-                {isExpired ? "Job has expired" : `Job expires in ${daysUntilExpiry} day${daysUntilExpiry > 1 ? "s" : ""}`}
+                {isExpired
+                  ? "Job has expired"
+                  : `Job expires in ${daysUntilExpiry} day${daysUntilExpiry > 1 ? "s" : ""}`}
               </p>
-              <p className="text-sm text-amber-700">{isExpired ? "No longer accepting applications" : "No freelancer hired yet"}</p>
+              <p className="text-sm text-amber-700">
+                {isExpired ? "No longer accepting applications" : "No freelancer hired yet"}
+              </p>
             </div>
           </div>
           {!isExpired && job.status === "open" && (
@@ -215,7 +250,12 @@ export default function JobAnalyticsPanel({ job, onExtend }: JobAnalyticsProps) 
               )}
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                />
               </svg>
               {extending ? "Extending..." : `Extend 30 days (${3 - (job.extendedCount ?? 0)} left)`}
             </button>
@@ -229,24 +269,34 @@ export default function JobAnalyticsPanel({ job, onExtend }: JobAnalyticsProps) 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
           <div>
             <p className="text-xs text-amber-700 mb-1">Posted</p>
-            <p className="font-mono text-sm text-amber-400">{new Date(job.createdAt).toLocaleDateString()}</p>
+            <p className="font-mono text-sm text-amber-400">
+              {new Date(job.createdAt).toLocaleDateString()}
+            </p>
           </div>
           <div>
             <p className="text-xs text-amber-700 mb-1">Expires</p>
-            <p className={clsx(
-              "font-mono text-sm",
-              isExpired ? "text-red-400" : isExpiringSoon ? "text-amber-400" : "text-amber-400"
-            )}>
+            <p
+              className={clsx(
+                "font-mono text-sm",
+                isExpired ? "text-red-400" : isExpiringSoon ? "text-amber-400" : "text-amber-400"
+              )}
+            >
               {job.expiresAt ? new Date(job.expiresAt).toLocaleDateString() : "—"}
             </p>
           </div>
           <div>
             <p className="text-xs text-amber-700 mb-1">Time Remaining</p>
-            <p className={clsx(
-              "font-mono text-sm",
-              isExpired ? "text-red-400" : isExpiringSoon ? "text-amber-300" : "text-emerald-400"
-            )}>
-              {isExpired ? "Expired" : daysUntilExpiry !== null ? `${daysUntilExpiry} day${daysUntilExpiry !== 1 ? "s" : ""}` : "-"}
+            <p
+              className={clsx(
+                "font-mono text-sm",
+                isExpired ? "text-red-400" : isExpiringSoon ? "text-amber-300" : "text-emerald-400"
+              )}
+            >
+              {isExpired
+                ? "Expired"
+                : daysUntilExpiry !== null
+                  ? `${daysUntilExpiry} day${daysUntilExpiry !== 1 ? "s" : ""}`
+                  : "-"}
             </p>
           </div>
           <div>
@@ -265,7 +315,9 @@ export default function JobAnalyticsPanel({ job, onExtend }: JobAnalyticsProps) 
         {/* Applications Per Day */}
         <div className="card p-4">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-display text-sm font-semibold text-amber-100">Applications Per Day</h3>
+            <h3 className="font-display text-sm font-semibold text-amber-100">
+              Applications Per Day
+            </h3>
             {analytics?.applicationsPerDay && (
               <span className="text-xs text-amber-700">
                 Total: {analytics.applicationsPerDay.reduce((a, b) => a + b.count, 0)}
@@ -283,7 +335,9 @@ export default function JobAnalyticsPanel({ job, onExtend }: JobAnalyticsProps) 
 
         {/* Average Bid Amount */}
         <div className="card p-4">
-          <h3 className="font-display text-sm font-semibold text-amber-100 mb-4">Average Bid Amount</h3>
+          <h3 className="font-display text-sm font-semibold text-amber-100 mb-4">
+            Average Bid Amount
+          </h3>
           {loading ? (
             <div className="h-24 flex items-center justify-center">
               <div className="w-16 h-16 border-2 border-amber-500/30 border-t-amber-500 rounded-full animate-spin" />
@@ -295,7 +349,9 @@ export default function JobAnalyticsPanel({ job, onExtend }: JobAnalyticsProps) 
 
         {/* Skill Distribution */}
         <div className="card p-4">
-          <h3 className="font-display text-sm font-semibold text-amber-100 mb-4">Applicant Skills</h3>
+          <h3 className="font-display text-sm font-semibold text-amber-100 mb-4">
+            Applicant Skills
+          </h3>
           {loading ? (
             <div className="h-32 flex items-center justify-center">
               <div className="w-16 h-16 border-2 border-amber-500/30 border-t-amber-500 rounded-full animate-spin" />
@@ -334,14 +390,20 @@ export default function JobAnalyticsPanel({ job, onExtend }: JobAnalyticsProps) 
 
           {/* Application Status */}
           <div className="card p-4">
-            <h3 className="font-display text-sm font-semibold text-amber-100 mb-3">Application Status</h3>
+            <h3 className="font-display text-sm font-semibold text-amber-100 mb-3">
+              Application Status
+            </h3>
             {loading ? (
               <div className="h-16 flex items-center justify-center">
                 <div className="w-8 h-8 border-2 border-amber-500/30 border-t-amber-500 rounded-full animate-spin" />
               </div>
             ) : (
               <div className="flex items-center justify-center">
-                <StatusBreakdown data={analytics?.applicationStatusCounts ?? { pending: 0, accepted: 0, rejected: 0 }} />
+                <StatusBreakdown
+                  data={
+                    analytics?.applicationStatusCounts ?? { pending: 0, accepted: 0, rejected: 0 }
+                  }
+                />
               </div>
             )}
           </div>

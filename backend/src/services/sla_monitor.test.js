@@ -90,13 +90,7 @@ describe("SLA Monitor Service", () => {
 
       mockQuery.mockResolvedValueOnce({ rows: [mockInsuredFile] });
 
-      const result = await slaMonitor.createInsuredFile(
-        "QmTest123",
-        "GXXXXX",
-        5,
-        1000,
-        "ipfs"
-      );
+      const result = await slaMonitor.createInsuredFile("QmTest123", "GXXXXX", 5, 1000, "ipfs");
 
       expect(result.id).toBe(1);
       expect(result.status).toBe("active");
@@ -105,19 +99,19 @@ describe("SLA Monitor Service", () => {
     });
 
     it("rejects files exceeding size limit", async () => {
-      await expect(
-        slaMonitor.createInsuredFile("QmTest", "GXXXXX", 150, 1000)
-      ).rejects.toThrow(/exceeds maximum insurable size/);
+      await expect(slaMonitor.createInsuredFile("QmTest", "GXXXXX", 150, 1000)).rejects.toThrow(
+        /exceeds maximum insurable size/
+      );
     });
 
     it("validates required parameters", async () => {
-      await expect(
-        slaMonitor.createInsuredFile("", "GXXXXX", 5, 1000)
-      ).rejects.toThrow(/Invalid parameters/);
+      await expect(slaMonitor.createInsuredFile("", "GXXXXX", 5, 1000)).rejects.toThrow(
+        /Invalid parameters/
+      );
 
-      await expect(
-        slaMonitor.createInsuredFile("QmTest", "GXXXXX", -5, 1000)
-      ).rejects.toThrow(/Invalid parameters/);
+      await expect(slaMonitor.createInsuredFile("QmTest", "GXXXXX", -5, 1000)).rejects.toThrow(
+        /Invalid parameters/
+      );
     });
   });
 
@@ -130,7 +124,7 @@ describe("SLA Monitor Service", () => {
       // Test the calculation logic independently
       const passed = 95;
       const total = 100;
-      const score = (passed / total);
+      const score = passed / total;
 
       expect(score).toBe(0.95);
       expect(score).toBeLessThan(0.99);
@@ -146,7 +140,7 @@ describe("SLA Monitor Service", () => {
     it("handles perfect availability", () => {
       const passed = 100;
       const total = 100;
-      const score = (passed / total);
+      const score = passed / total;
 
       expect(score).toBe(1.0);
       expect(score).toBeGreaterThanOrEqual(0.99);

@@ -22,13 +22,9 @@ jest.mock("@/contexts/PriceContext", () => ({
 
 jest.mock("next/link", () => ({
   __esModule: true,
-  default: ({
-    children,
-    href,
-  }: {
-    children: React.ReactNode;
-    href: string;
-  }) => <a href={href}>{children}</a>,
+  default: ({ children, href }: { children: React.ReactNode; href: string }) => (
+    <a href={href}>{children}</a>
+  ),
 }));
 
 jest.mock("@/lib/api", () => ({
@@ -139,9 +135,7 @@ describe("component snapshots", () => {
   });
 
   it("JobCard with bookmark", () => {
-    const { container } = render(
-      <JobCard job={{ ...sampleJob, id: "job-bookmarked" }} />,
-    );
+    const { container } = render(<JobCard job={{ ...sampleJob, id: "job-bookmarked" }} />);
     expect(container.firstChild).toMatchSnapshot();
   });
 
@@ -156,45 +150,39 @@ describe("component snapshots", () => {
         jobId="job-1"
         ratedAddress="GFREELANCER1234567890EXAMPLEABCDEFGHIJKLMNOPQRSTU"
         ratedLabel="the freelancer"
-      />,
+      />
     );
     expect(container.firstChild).toMatchSnapshot();
   });
 
   it("Toast success", () => {
     const { container } = render(
-      <ToastSnapshot variant="success" message="Escrow funded successfully" />,
+      <ToastSnapshot variant="success" message="Escrow funded successfully" />
     );
     expect(container.firstChild).toMatchSnapshot();
   });
 
   it("Toast error", () => {
-    const { container } = render(
-      <ToastSnapshot variant="error" message="Transaction failed" />,
-    );
+    const { container } = render(<ToastSnapshot variant="error" message="Transaction failed" />);
     expect(container.firstChild).toMatchSnapshot();
   });
 
   it("Toast info", () => {
-    const { container } = render(
-      <ToastSnapshot variant="info" message="Application saved" />,
-    );
+    const { container } = render(<ToastSnapshot variant="info" message="Application saved" />);
     expect(container.firstChild).toMatchSnapshot();
   });
 
-  it.each([
-    "Newcomer",
-    "Rising Talent",
-    "Top Rated",
-    "Expert",
-  ] as const)("FreelancerTierBadge %s", (tier) => {
-    const { container } = render(<FreelancerTierBadge tier={tier} />);
-    expect(container.firstChild).toMatchSnapshot();
-  });
+  it.each(["Newcomer", "Rising Talent", "Top Rated", "Expert"] as const)(
+    "FreelancerTierBadge %s",
+    (tier) => {
+      const { container } = render(<FreelancerTierBadge tier={tier} />);
+      expect(container.firstChild).toMatchSnapshot();
+    }
+  );
 
   it("Navbar logged out", () => {
     const { container } = render(
-      <Navbar publicKey={null} onConnect={jest.fn()} onDisconnect={jest.fn()} />,
+      <Navbar publicKey={null} onConnect={jest.fn()} onDisconnect={jest.fn()} />
     );
     expect(container.firstChild).toMatchSnapshot();
   });
@@ -205,7 +193,7 @@ describe("component snapshots", () => {
         publicKey="GCLIENTADDRESS1234567890EXAMPLEABCDEFGHIJKLMNOPQRSTUV"
         onConnect={jest.fn()}
         onDisconnect={jest.fn()}
-      />,
+      />
     );
     expect(container.firstChild).toMatchSnapshot();
   });

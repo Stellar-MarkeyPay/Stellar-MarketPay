@@ -69,7 +69,9 @@ async function createInsuredFile(cid, ownerAddress, fileSize, fileValue, storage
   }
 
   if (fileSize > SLA_CONFIG.MAX_INSURABLE_SIZE) {
-    throw new Error(`File size exceeds maximum insurable size of ${SLA_CONFIG.MAX_INSURABLE_SIZE}MB`);
+    throw new Error(
+      `File size exceeds maximum insurable size of ${SLA_CONFIG.MAX_INSURABLE_SIZE}MB`
+    );
   }
 
   const premium = calculatePremium(fileSize, fileValue);
@@ -131,16 +133,13 @@ async function checkIPFSAvailability(cid) {
       return false;
     }
 
-    const response = await axios.get(
-      `${PINATA_API_URL}/data/pinQuery?hashContains=${cid}`,
-      {
-        headers: {
-          pinata_api_key: PINATA_API_KEY,
-          pinata_secret_api_key: PINATA_SECRET_KEY,
-        },
-        timeout: 5000,
-      }
-    );
+    const response = await axios.get(`${PINATA_API_URL}/data/pinQuery?hashContains=${cid}`, {
+      headers: {
+        pinata_api_key: PINATA_API_KEY,
+        pinata_secret_api_key: PINATA_SECRET_KEY,
+      },
+      timeout: 5000,
+    });
 
     const isPinned = response.data && response.data.count > 0;
 

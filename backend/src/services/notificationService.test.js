@@ -27,7 +27,7 @@ describe("Notification Service", () => {
 
     test("should generate ESCROW_CREATED email content", () => {
       const content = generateEmailContent(EVENT_TYPES.ESCROW_CREATED, mockData);
-      
+
       expect(content.subject).toContain("Escrow Created");
       expect(content.subject).toContain(mockData.jobTitle);
       expect(content.text).toContain(mockData.jobTitle);
@@ -39,7 +39,7 @@ describe("Notification Service", () => {
 
     test("should generate WORK_STARTED email content", () => {
       const content = generateEmailContent(EVENT_TYPES.WORK_STARTED, mockData);
-      
+
       expect(content.subject).toContain("Work Started");
       expect(content.subject).toContain(mockData.jobTitle);
       expect(content.text).toContain("Work has started");
@@ -48,7 +48,7 @@ describe("Notification Service", () => {
 
     test("should generate ESCROW_RELEASED email content", () => {
       const content = generateEmailContent(EVENT_TYPES.ESCROW_RELEASED, mockData);
-      
+
       expect(content.subject).toContain("Payment Released");
       expect(content.subject).toContain(mockData.jobTitle);
       expect(content.text).toContain("Payment for");
@@ -58,7 +58,7 @@ describe("Notification Service", () => {
 
     test("should generate REFUND_ISSUED email content", () => {
       const content = generateEmailContent(EVENT_TYPES.REFUND_ISSUED, mockData);
-      
+
       expect(content.subject).toContain("Refund Issued");
       expect(content.text).toContain("refund");
       expect(content.text).toContain("has been issued");
@@ -67,7 +67,7 @@ describe("Notification Service", () => {
 
     test("should generate DISPUTE_OPENED email content", () => {
       const content = generateEmailContent(EVENT_TYPES.DISPUTE_OPENED, mockData);
-      
+
       expect(content.subject).toContain("Dispute Opened");
       expect(content.text).toContain("dispute has been opened");
       expect(content.html).toContain("Dispute Opened");
@@ -75,7 +75,7 @@ describe("Notification Service", () => {
 
     test("should generate APPLICATION_ACCEPTED email content", () => {
       const content = generateEmailContent(EVENT_TYPES.APPLICATION_ACCEPTED, mockData);
-      
+
       expect(content.subject).toContain("Application Accepted");
       expect(content.text).toContain("application");
       expect(content.text).toContain("has been accepted");
@@ -84,7 +84,7 @@ describe("Notification Service", () => {
 
     test("should generate JOB_COMPLETED email content", () => {
       const content = generateEmailContent(EVENT_TYPES.JOB_COMPLETED, mockData);
-      
+
       expect(content.subject).toContain("Job Completed");
       expect(content.text).toContain("has been completed");
       expect(content.html).toContain("Job Completed");
@@ -110,7 +110,7 @@ describe("Notification Service", () => {
 
     test("should handle unknown event types with default template", () => {
       const content = generateEmailContent("unknown_event", mockData);
-      
+
       expect(content.subject).toContain("Notification");
       expect(content.text).toContain("An event occurred");
       expect(content.html).toContain("Notification");
@@ -121,9 +121,9 @@ describe("Notification Service", () => {
         ...mockData,
         jobTitle: "Build App & Test <Features>",
       };
-      
+
       const content = generateEmailContent(EVENT_TYPES.ESCROW_CREATED, dataWithSpecialChars);
-      
+
       // Job title should be included in both text and HTML versions
       expect(content.text).toContain(dataWithSpecialChars.jobTitle);
       expect(content.html).toContain(dataWithSpecialChars.jobTitle);

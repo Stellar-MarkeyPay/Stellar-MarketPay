@@ -3,22 +3,14 @@
  * Shared TypeScript types for Stellar MarketPay.
  */
 
-export type JobStatus =
-  | "open"
-  | "in_progress"
-  | "completed"
-  | "cancelled"
-  | "disputed";
+export type JobStatus = "open" | "in_progress" | "completed" | "cancelled" | "disputed";
 export type UserRole = "client" | "freelancer" | "both";
 export type Currency = "XLM" | "USDC";
 export type JobVisibility = "public" | "private" | "invite_only";
-export type FreelancerTier =
-  | "Newcomer"
-  | "Rising Talent"
-  | "Top Rated"
-  | "Expert";
+export type FreelancerTier = "Newcomer" | "Rising Talent" | "Top Rated" | "Expert";
 export type AvailabilityStatus = "available" | "busy" | "unavailable";
-export type PortfolioItemType = "link" | "image" | "pdf" | "github" | "live" | "stellar_tx" | "file";
+export type PortfolioItemType =
+  "link" | "image" | "pdf" | "github" | "live" | "stellar_tx" | "file";
 
 export interface PortfolioItem {
   title: string;
@@ -377,7 +369,12 @@ export interface JobAnalytics {
   }>;
   applicationsPerDay: { day: string; count: number }[];
   averageBidAmount: { currency: string; avgBid: number; count: number }[];
-  applicationStatusCounts: { pending?: number; accepted?: number; rejected?: number; [key: string]: number | undefined };
+  applicationStatusCounts: {
+    pending?: number;
+    accepted?: number;
+    rejected?: number;
+    [key: string]: number | undefined;
+  };
   skillDistribution: Record<string, number>;
   daysToHire: number | null;
   timeToHire?: number | null;

@@ -65,13 +65,7 @@ const {
  * @property {string|null} nextCursor  Opaque base64 cursor for the next page, or null when exhausted.
  */
 
-const VALID_STATUSES = [
-  "open",
-  "in_progress",
-  "completed",
-  "cancelled",
-  "disputed",
-];
+const VALID_STATUSES = ["open", "in_progress", "completed", "cancelled", "disputed"];
 
 const VALID_CATEGORIES = [
   "Smart Contracts",
@@ -163,7 +157,7 @@ function validateMilestones(milestones, budget) {
 
   const milestoneTotal = safeMilestones.reduce(
     (sum, milestone) => sum + parseFloat(milestone.amount),
-    0,
+    0
   );
   if (Math.abs(milestoneTotal - numericBudget) > 0.0000001) {
     const e = new Error("Milestone amounts must equal the job budget");
@@ -181,7 +175,6 @@ function validatePublicKey(key) {
     throw e;
   }
 }
-
 
 /**
  * Convert a snake_case `jobs` row into the camelCase API object.
@@ -210,7 +203,7 @@ function rowToJob(row) {
     timezone: row.timezone,
     screeningQuestions: row.screening_questions || [],
     milestones: normalizeMilestoneRows(row.milestones, row.budget),
-    disputeReason:      row.dispute_reason,
+    disputeReason: row.dispute_reason,
     disputeDescription: row.dispute_description,
     disputedBy: row.disputed_by,
     disputedAt: row.disputed_at,
@@ -255,7 +248,20 @@ function rowToJob(row) {
  *   clientAddress: 'GBX...',
  * });
  */
-async function createJob({ title, description, budget, currency, category, skills, deadline, timezone, clientAddress, screeningQuestions, milestones, visibility = "public" }) {
+async function createJob({
+  title,
+  description,
+  budget,
+  currency,
+  category,
+  skills,
+  deadline,
+  timezone,
+  clientAddress,
+  screeningQuestions,
+  milestones,
+  visibility = "public",
+}) {
   validatePublicKey(clientAddress);
 
   if (!title || title.length < 10) {
@@ -316,7 +322,7 @@ async function createJob({ title, description, budget, currency, category, skill
       safeScreeningQuestions,
       JSON.stringify(safeMilestones),
       jobVisibility,
-    ],
+    ]
   );
 
   return rowToJob(rows[0]);
@@ -352,7 +358,7 @@ function encodeCursor(jobRow) {
     JSON.stringify({
       createdAt: jobRow.created_at,
       id: jobRow.id,
-    }),
+    })
   ).toString("base64");
 }
 
@@ -454,22 +460,18 @@ async function listJobs({
          SELECT 1 FROM profiles p
          WHERE p.public_key = jobs.client_address
            AND COALESCE(p.rating, 0) >= $${params.length}
-       )`,
+       )`
     );
   }
 
   if (duration === "short") {
-    conditions.push(
-      "deadline IS NOT NULL AND deadline <= created_at + INTERVAL '7 days'",
-    );
+    conditions.push("deadline IS NOT NULL AND deadline <= created_at + INTERVAL '7 days'");
   } else if (duration === "medium") {
     conditions.push(
-      "deadline IS NOT NULL AND deadline > created_at + INTERVAL '7 days' AND deadline <= created_at + INTERVAL '28 days'",
+      "deadline IS NOT NULL AND deadline > created_at + INTERVAL '7 days' AND deadline <= created_at + INTERVAL '28 days'"
     );
   } else if (duration === "long") {
-    conditions.push(
-      "deadline IS NOT NULL AND deadline > created_at + INTERVAL '28 days'",
-    );
+    conditions.push("deadline IS NOT NULL AND deadline > created_at + INTERVAL '28 days'");
   }
 
   if (posted_since === "today") {
@@ -488,10 +490,7 @@ async function listJobs({
 
   if (search) {
     const normalizedSearch = String(search).trim().toLowerCase();
-    const tsQuery = normalizedSearch
-      .split(/\s+/)
-      .filter(Boolean)
-      .join(" & ");
+    const tsQuery = normalizedSearch.split(/\s+/).filter(Boolean).join(" & ");
     params.push(tsQuery || normalizedSearch);
     const tsIdx = params.length;
     params.push(`%${normalizedSearch}%`);
@@ -501,7 +500,7 @@ async function listJobs({
         job_search_vector @@ to_tsquery('simple', $${tsIdx})
         OR LOWER(title) LIKE $${likeIdx}
         OR LOWER(description) LIKE $${likeIdx}
-      )`,
+      )`
     );
   }
 
@@ -514,7 +513,7 @@ async function listJobs({
         OR (visibility = 'invite_only' AND EXISTS (
           SELECT 1 FROM job_invitations ji
           WHERE ji.job_id = jobs.id AND ji.freelancer_address = $${viewerIdx}
-        )))`,
+        )))`
     );
   } else {
     conditions.push("visibility = 'public'");
@@ -526,7 +525,7 @@ async function listJobs({
     const createdAtIdx = params.length - 1;
     const idIdx = params.length;
     conditions.push(
-      `(created_at < $${createdAtIdx} OR (created_at = $${createdAtIdx} AND id < $${idIdx}))`,
+      `(created_at < $${createdAtIdx} OR (created_at = $${createdAtIdx} AND id < $${idIdx}))`
     );
   }
 
@@ -538,7 +537,7 @@ async function listJobs({
     `SELECT * FROM jobs ${where} ORDER BY
        CASE WHEN boosted = true AND (boosted_until IS NULL OR boosted_until > NOW()) THEN 0 ELSE 1 END,
        created_at DESC, id DESC LIMIT $${params.length}`,
-    params,
+    params
   );
 
   const jobs = rows.map(rowToJob);
@@ -584,7 +583,7 @@ async function updateJobStatus(id, status) {
 
   const { rows } = await pool.query(
     "UPDATE jobs SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING *",
-    [status, id],
+    [status, id]
   );
 
   if (!rows.length) {
@@ -617,7 +616,7 @@ async function assignFreelancer(jobId, freelancerAddress) {
      SET freelancer_address = $1, status = 'in_progress', updated_at = NOW()
      WHERE id = $2
      RETURNING *`,
-    [freelancerAddress, jobId],
+    [freelancerAddress, jobId]
   );
 
   if (!rows.length) {
@@ -647,13 +646,11 @@ async function updateJobEscrowId(jobId, escrowContractId, referrerAddress = null
   }
 
   const referrer =
-    referrerAddress && /^G[A-Z0-9]{55}$/.test(referrerAddress)
-      ? referrerAddress
-      : null;
+    referrerAddress && /^G[A-Z0-9]{55}$/.test(referrerAddress) ? referrerAddress : null;
 
   const { rows } = await pool.query(
     "UPDATE jobs SET escrow_contract_id = $1, updated_at = NOW() WHERE id = $2 RETURNING *",
-    [escrowContractId, jobId],
+    [escrowContractId, jobId]
   );
 
   if (rows.length) {
@@ -668,7 +665,7 @@ async function updateJobEscrowId(jobId, escrowContractId, referrerAddress = null
              milestones = EXCLUDED.milestones,
              referrer_address = COALESCE(EXCLUDED.referrer_address, escrows.referrer_address),
              updated_at = NOW()`,
-        [job.id, escrowContractId, job.budget, JSON.stringify(job.milestones), referrer],
+        [job.id, escrowContractId, job.budget, JSON.stringify(job.milestones), referrer]
       );
     } catch (err) {
       // Referrer has no profile yet (FK violation) — record the escrow without it.
@@ -681,7 +678,7 @@ async function updateJobEscrowId(jobId, escrowContractId, referrerAddress = null
                amount_xlm = EXCLUDED.amount_xlm,
                milestones = EXCLUDED.milestones,
                updated_at = NOW()`,
-          [job.id, escrowContractId, job.budget, JSON.stringify(job.milestones)],
+          [job.id, escrowContractId, job.budget, JSON.stringify(job.milestones)]
         );
       } else {
         throw err;
@@ -703,9 +700,7 @@ async function updateJobEscrowId(jobId, escrowContractId, referrerAddress = null
  * @throws {Error} If the job is not found.
  */
 async function deleteJob(jobId) {
-  const { rowCount } = await pool.query("DELETE FROM jobs WHERE id = $1", [
-    jobId,
-  ]);
+  const { rowCount } = await pool.query("DELETE FROM jobs WHERE id = $1", [jobId]);
   if (!rowCount) {
     const e = new Error("Job not found");
     e.status = 404;
@@ -727,9 +722,7 @@ async function deleteJob(jobId) {
  */
 async function boostJob(jobId, txHash, boostDays = 7) {
   // Verify job exists
-  const { rows } = await pool.query("SELECT * FROM jobs WHERE id = $1", [
-    jobId,
-  ]);
+  const { rows } = await pool.query("SELECT * FROM jobs WHERE id = $1", [jobId]);
   if (!rows.length) {
     const e = new Error("Job not found");
     e.status = 404;
@@ -744,7 +737,7 @@ async function boostJob(jobId, txHash, boostDays = 7) {
      SET boosted = true, boosted_until = $1, updated_at = NOW()
      WHERE id = $2
      RETURNING *`,
-    [boostedUntil.toISOString(), jobId],
+    [boostedUntil.toISOString(), jobId]
   );
 
   return rowToJob(updateRows[0]);
@@ -760,7 +753,7 @@ async function boostJob(jobId, txHash, boostDays = 7) {
 async function incrementShareCount(jobId) {
   const { rowCount } = await pool.query(
     "UPDATE jobs SET share_count = COALESCE(share_count, 0) + 1, updated_at = NOW() WHERE id = $1",
-    [jobId],
+    [jobId]
   );
 
   if (!rowCount) {
@@ -781,7 +774,7 @@ async function raiseDispute(jobId, { reason, description, raisedBy }) {
          updated_at = NOW() 
      WHERE id = $4 AND status = 'in_progress'
      RETURNING *`,
-    [reason, description, raisedBy, jobId],
+    [reason, description, raisedBy, jobId]
   );
 
   if (!rows.length) {
@@ -791,9 +784,7 @@ async function raiseDispute(jobId, { reason, description, raisedBy }) {
   }
 
   const job = rowToJob(rows[0]);
-  const recipients = new Set(
-    [job.clientAddress, job.freelancerAddress].filter(Boolean),
-  );
+  const recipients = new Set([job.clientAddress, job.freelancerAddress].filter(Boolean));
 
   for (const userAddress of recipients) {
     await createJobNotification({
@@ -832,7 +823,7 @@ async function resolveDispute(jobId) {
          updated_at = NOW() 
      WHERE id = $1 AND status = 'disputed'
      RETURNING *`,
-    [jobId],
+    [jobId]
   );
 
   if (!rows.length) {
@@ -862,9 +853,7 @@ async function getCategoryAnalytics() {
   return rows.map((r) => ({
     category: r.category,
     jobCount: parseInt(r.job_count, 10),
-    avgBudgetXLM: r.avg_budget_xlm
-      ? parseFloat(parseFloat(r.avg_budget_xlm).toFixed(2))
-      : 0,
+    avgBudgetXLM: r.avg_budget_xlm ? parseFloat(parseFloat(r.avg_budget_xlm).toFixed(2)) : 0,
     filledCount: parseInt(r.filled_count, 10),
     avgDaysToFill: r.avg_days_to_fill
       ? parseFloat(parseFloat(r.avg_days_to_fill).toFixed(1))
@@ -893,9 +882,7 @@ async function getAnalyticsOverview() {
     openJobs: parseInt(r.open_jobs, 10),
     inProgressJobs: parseInt(r.in_progress_jobs, 10),
     completedJobs: parseInt(r.completed_jobs, 10),
-    avgBudgetXLM: r.avg_budget_xlm
-      ? parseFloat(parseFloat(r.avg_budget_xlm).toFixed(2))
-      : 0,
+    avgBudgetXLM: r.avg_budget_xlm ? parseFloat(parseFloat(r.avg_budget_xlm).toFixed(2)) : 0,
     totalFilled: parseInt(r.total_filled, 10),
     avgDaysToFill: r.avg_days_to_fill
       ? parseFloat(parseFloat(r.avg_days_to_fill).toFixed(1))
@@ -999,10 +986,7 @@ async function incrementViewCount(jobId) {
  * @returns {Promise<Object>}
  */
 async function getJobAnalytics(jobId) {
-  const { rows: jobRows } = await pool.query(
-    "SELECT * FROM jobs WHERE id = $1",
-    [jobId]
-  );
+  const { rows: jobRows } = await pool.query("SELECT * FROM jobs WHERE id = $1", [jobId]);
   if (!jobRows.length) {
     const e = new Error("Job not found");
     e.status = 404;

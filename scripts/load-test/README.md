@@ -3,16 +3,16 @@
 Two [k6](https://k6.io/) scripts back the acceptance criteria for the
 multi-CDN edge strategy:
 
-| Script | Verifies |
-|---|---|
+| Script              | Verifies                                                                     |
+| ------------------- | ---------------------------------------------------------------------------- |
 | `cdn-latency-k6.js` | Global latency improvement across >= 3 regions, before/after the CDN rollout |
-| `stampede-k6.js` | Origin survives a cache-stampede traffic spike right after an invalidation |
+| `stampede-k6.js`    | Origin survives a cache-stampede traffic spike right after an invalidation   |
 
 The automated, CI-enforced SLA gate (event → targeted purge < 5s, using the
 in-memory mock CDN provider) lives in
 [`backend/tests/cdnInvalidationSla.test.js`](../../backend/tests/cdnInvalidationSla.test.js)
 and runs on every `npm test` — no k6 or live vendor account required. The
-scripts here are for validating the *real* numbers against live CDN vendors
+scripts here are for validating the _real_ numbers against live CDN vendors
 and real geographic distance, which can't be done from a single CI runner.
 
 ## 1. Multi-region latency, before/after
@@ -41,7 +41,7 @@ of the origin, from at least 3 geographically distinct regions.
    acceptance criteria ask for.
 
 The `thresholds` block in the script (p95 < 300ms) is a starting gate for
-the *after* run; tune it once you have a real baseline for your regions.
+the _after_ run; tune it once you have a real baseline for your regions.
 
 ## 2. Stampede / cache-miss-storm protection
 

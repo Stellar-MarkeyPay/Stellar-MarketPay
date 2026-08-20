@@ -38,9 +38,9 @@ Serving is in-process (no external inference service). Feature queries are batch
 
 ## Evaluation
 
-| Metric | Bootstrap model | Baseline |
-|--------|-----------------|----------|
-| NDCG@10 | 0.71 | 0.54 (popularity/recency) |
+| Metric  | Bootstrap model | Baseline                  |
+| ------- | --------------- | ------------------------- |
+| NDCG@10 | 0.71            | 0.54 (popularity/recency) |
 
 Re-run `ml/train.py` against production data to refresh metrics.
 

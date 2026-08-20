@@ -63,7 +63,7 @@ export default function BulkJobActionBar({
           "transition-all duration-200",
           selectedCount > 0
             ? "opacity-100 translate-y-0"
-            : "opacity-0 translate-y-4 pointer-events-none",
+            : "opacity-0 translate-y-4 pointer-events-none"
         )}
         role="toolbar"
         aria-label="Bulk job actions"
@@ -82,12 +82,7 @@ export default function BulkJobActionBar({
             title="Clear selection"
             aria-label="Clear selection"
           >
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -104,12 +99,7 @@ export default function BulkJobActionBar({
           disabled={loading}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium bg-ink-700 border border-market-500/20 text-amber-200 hover:border-market-400 hover:text-market-300 transition-all disabled:opacity-50"
         >
-          <svg
-            className="w-4 h-4"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -126,12 +116,7 @@ export default function BulkJobActionBar({
           disabled={loading}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium bg-ink-700 border border-amber-500/20 text-amber-300 hover:border-amber-400 hover:text-amber-200 transition-all disabled:opacity-50"
         >
-          <svg
-            className="w-4 h-4"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -148,12 +133,7 @@ export default function BulkJobActionBar({
           disabled={loading}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium bg-red-500/10 border border-red-500/20 text-red-400 hover:border-red-400 hover:bg-red-500/15 transition-all disabled:opacity-50"
         >
-          <svg
-            className="w-4 h-4"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -191,21 +171,15 @@ export default function BulkJobActionBar({
                 </svg>
               </div>
               <div>
-                <h3
-                  id="bulk-confirm-title"
-                  className="font-display font-semibold text-amber-100"
-                >
+                <h3 id="bulk-confirm-title" className="font-display font-semibold text-amber-100">
                   Cancel {selectedCount} job{selectedCount !== 1 ? "s" : ""}?
                 </h3>
-                <p className="text-xs text-amber-700 mt-0.5">
-                  This cannot be undone.
-                </p>
+                <p className="text-xs text-amber-700 mt-0.5">This cannot be undone.</p>
               </div>
             </div>
             <p className="text-sm text-amber-700 mb-6">
-              Only <span className="text-amber-300 font-medium">open</span> jobs
-              will be cancelled. Jobs that are in progress, completed, or
-              already cancelled will be skipped.
+              Only <span className="text-amber-300 font-medium">open</span> jobs will be cancelled.
+              Jobs that are in progress, completed, or already cancelled will be skipped.
             </p>
             <div className="flex gap-3">
               <button
@@ -228,9 +202,7 @@ export default function BulkJobActionBar({
       )}
 
       {/* ── Result toast ────────────────────────────────────────────────── */}
-      {result && (
-        <BulkResultToast result={result} onDismiss={() => setResult(null)} />
-      )}
+      {result && <BulkResultToast result={result} onDismiss={() => setResult(null)} />}
     </>
   );
 }
@@ -250,9 +222,7 @@ function BulkResultToast({
       className={clsx(
         "fixed bottom-24 left-1/2 -translate-x-1/2 z-50",
         "max-w-sm w-full mx-4 rounded-2xl border p-4 shadow-2xl",
-        allOk
-          ? "bg-emerald-500/10 border-emerald-500/30"
-          : "bg-amber-500/10 border-amber-500/30",
+        allOk ? "bg-emerald-500/10 border-emerald-500/30" : "bg-amber-500/10 border-amber-500/30"
       )}
       role="status"
     >
@@ -291,7 +261,7 @@ function BulkResultToast({
             <p
               className={clsx(
                 "text-sm font-semibold",
-                allOk ? "text-emerald-400" : "text-amber-300",
+                allOk ? "text-emerald-400" : "text-amber-300"
               )}
             >
               {result.succeeded} succeeded
@@ -305,9 +275,7 @@ function BulkResultToast({
                   </li>
                 ))}
                 {failures.length > 3 && (
-                  <li className="text-xs text-amber-800">
-                    +{failures.length - 3} more
-                  </li>
+                  <li className="text-xs text-amber-800">+{failures.length - 3} more</li>
                 )}
               </ul>
             )}
@@ -318,12 +286,7 @@ function BulkResultToast({
           className="text-amber-700 hover:text-amber-400 transition-colors flex-shrink-0"
           aria-label="Dismiss"
         >
-          <svg
-            className="w-4 h-4"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path
               strokeLinecap="round"
               strokeLinejoin="round"

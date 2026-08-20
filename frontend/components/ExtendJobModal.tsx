@@ -32,9 +32,7 @@ export default function ExtendJobModal({ job, onClose, onExtended }: Props) {
       onExtended(updated);
       onClose();
     } catch (e: unknown) {
-      setError(
-        e instanceof Error ? e.message : "Failed to extend job",
-      );
+      setError(e instanceof Error ? e.message : "Failed to extend job");
     } finally {
       setExtending(false);
     }
@@ -45,9 +43,7 @@ export default function ExtendJobModal({ job, onClose, onExtended }: Props) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
       <div className="card max-w-md w-full border-market-500/20 animate-in fade-in zoom-in duration-200">
-        <h2 className="font-display text-xl font-bold text-amber-100 mb-2">
-          Extend Job Expiry
-        </h2>
+        <h2 className="font-display text-xl font-bold text-amber-100 mb-2">Extend Job Expiry</h2>
         <p className="text-amber-700/90 text-sm mb-4">
           Extend the duration of <span className="font-semibold text-amber-300">{job.title}</span>
         </p>
@@ -55,9 +51,7 @@ export default function ExtendJobModal({ job, onClose, onExtended }: Props) {
         {job.expiresAt && (
           <p className="text-xs text-amber-800 mb-4">
             Current expiry:{" "}
-            <span className="text-amber-300">
-              {new Date(job.expiresAt).toLocaleDateString()}
-            </span>
+            <span className="text-amber-300">{new Date(job.expiresAt).toLocaleDateString()}</span>
           </p>
         )}
 
@@ -86,16 +80,10 @@ export default function ExtendJobModal({ job, onClose, onExtended }: Props) {
           </div>
         )}
 
-        {error && (
-          <p className="text-red-400/90 text-xs mb-3">{error}</p>
-        )}
+        {error && <p className="text-red-400/90 text-xs mb-3">{error}</p>}
 
         <div className="flex gap-3">
-          <button
-            onClick={onClose}
-            className="btn-secondary text-sm flex-1"
-            disabled={extending}
-          >
+          <button onClick={onClose} className="btn-secondary text-sm flex-1" disabled={extending}>
             Cancel
           </button>
           <button

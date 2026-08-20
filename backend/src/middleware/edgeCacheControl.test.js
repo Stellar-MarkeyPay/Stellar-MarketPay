@@ -11,8 +11,10 @@ const { edgeCacheControl, CONTENT_TYPES } = require("./edgeCacheControl");
 describe("edgeCacheControl", () => {
   test("semi-dynamic responses carry a short s-maxage and static surrogate keys", async () => {
     const app = express();
-    app.get("/jobs", edgeCacheControl(CONTENT_TYPES.SEMI_DYNAMIC, { surrogateKeys: ["jobs-list"] }), (req, res) =>
-      res.json({ ok: true })
+    app.get(
+      "/jobs",
+      edgeCacheControl(CONTENT_TYPES.SEMI_DYNAMIC, { surrogateKeys: ["jobs-list"] }),
+      (req, res) => res.json({ ok: true })
     );
 
     const res = await request(app).get("/jobs");
@@ -26,7 +28,9 @@ describe("edgeCacheControl", () => {
     const app = express();
     app.get(
       "/jobs/:id",
-      edgeCacheControl(CONTENT_TYPES.SEMI_DYNAMIC, { surrogateKeys: (req) => [`job-${req.params.id}`, "jobs-list"] }),
+      edgeCacheControl(CONTENT_TYPES.SEMI_DYNAMIC, {
+        surrogateKeys: (req) => [`job-${req.params.id}`, "jobs-list"],
+      }),
       (req, res) => res.json({ ok: true })
     );
 
@@ -37,7 +41,9 @@ describe("edgeCacheControl", () => {
 
   test("personalized responses are never cached at the edge", async () => {
     const app = express();
-    app.get("/dashboard", edgeCacheControl(CONTENT_TYPES.DYNAMIC_PERSONALIZED), (req, res) => res.json({ ok: true }));
+    app.get("/dashboard", edgeCacheControl(CONTENT_TYPES.DYNAMIC_PERSONALIZED), (req, res) =>
+      res.json({ ok: true })
+    );
 
     const res = await request(app).get("/dashboard");
 

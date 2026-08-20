@@ -97,7 +97,9 @@ interface ScopeErrorMessage {
 ```ts
 const apiUrl = new URL(process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000");
 const protocol = apiUrl.protocol === "https:" ? "wss:" : "ws:";
-const socket = new WebSocket(`${protocol}//${apiUrl.host}/ws/scope/${sessionId}?participantId=${participantId}`);
+const socket = new WebSocket(
+  `${protocol}//${apiUrl.host}/ws/scope/${sessionId}?participantId=${participantId}`
+);
 
 socket.onmessage = (event) => {
   const message = JSON.parse(event.data);
@@ -106,11 +108,13 @@ socket.onmessage = (event) => {
   }
 };
 
-socket.send(JSON.stringify({
-  type: "scope:update",
-  content: "Draft scope text",
-  cursors: {
-    [participantId]: { start: 0, end: 5, updatedAt: Date.now() },
-  },
-}));
+socket.send(
+  JSON.stringify({
+    type: "scope:update",
+    content: "Draft scope text",
+    cursors: {
+      [participantId]: { start: 0, end: 5, updatedAt: Date.now() },
+    },
+  })
+);
 ```

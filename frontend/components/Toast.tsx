@@ -1,12 +1,4 @@
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
-
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 
 type ToastVariant = "success" | "error" | "info";
 
@@ -46,9 +38,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 
   const dismiss = useCallback((id: string) => {
     // 1. Mark as dismissing → play slide-out animation (300 ms)
-    setToasts((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, dismissing: true } : t))
-    );
+    setToasts((prev) => prev.map((t) => (t.id === id ? { ...t, dismissing: true } : t)));
     // 2. Remove from DOM after animation completes
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
@@ -82,85 +72,54 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 
 // ─── Visual config per variant ────────────────────────────────────────────────
 
-const VARIANT_STYLES: Record<
-  ToastVariant,
-  { bar: string; icon: React.ReactNode; label: string }
-> = {
-  success: {
-    bar: "bg-emerald-500",
-    label: "text-emerald-400",
-    icon: (
-      <svg
-        width="16"
-        height="16"
-        viewBox="0 0 16 16"
-        fill="none"
-        aria-hidden="true"
-      >
-        <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.5" />
-        <path
-          d="M5 8.5L7 10.5L11 6"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
-    ),
-  },
-  error: {
-    bar: "bg-red-500",
-    label: "text-red-400",
-    icon: (
-      <svg
-        width="16"
-        height="16"
-        viewBox="0 0 16 16"
-        fill="none"
-        aria-hidden="true"
-      >
-        <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.5" />
-        <path
-          d="M5.5 5.5L10.5 10.5M10.5 5.5L5.5 10.5"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-        />
-      </svg>
-    ),
-  },
-  info: {
-    bar: "bg-sky-500",
-    label: "text-sky-400",
-    icon: (
-      <svg
-        width="16"
-        height="16"
-        viewBox="0 0 16 16"
-        fill="none"
-        aria-hidden="true"
-      >
-        <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.5" />
-        <path
-          d="M8 7V11M8 5.5V5"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-        />
-      </svg>
-    ),
-  },
-};
+const VARIANT_STYLES: Record<ToastVariant, { bar: string; icon: React.ReactNode; label: string }> =
+  {
+    success: {
+      bar: "bg-emerald-500",
+      label: "text-emerald-400",
+      icon: (
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+          <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.5" />
+          <path
+            d="M5 8.5L7 10.5L11 6"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      ),
+    },
+    error: {
+      bar: "bg-red-500",
+      label: "text-red-400",
+      icon: (
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+          <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.5" />
+          <path
+            d="M5.5 5.5L10.5 10.5M10.5 5.5L5.5 10.5"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+          />
+        </svg>
+      ),
+    },
+    info: {
+      bar: "bg-sky-500",
+      label: "text-sky-400",
+      icon: (
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+          <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.5" />
+          <path d="M8 7V11M8 5.5V5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        </svg>
+      ),
+    },
+  };
 
 // ─── Single toast item ────────────────────────────────────────────────────────
 
-export function ToastSnapshot({
-  variant,
-  message,
-}: {
-  variant: ToastVariant;
-  message: string;
-}) {
+export function ToastSnapshot({ variant, message }: { variant: ToastVariant; message: string }) {
   return (
     <ToastItem
       toast={{ id: "snapshot", message, variant, dismissing: false }}
@@ -169,13 +128,7 @@ export function ToastSnapshot({
   );
 }
 
-function ToastItem({
-  toast,
-  onDismiss,
-}: {
-  toast: Toast;
-  onDismiss: (id: string) => void;
-}) {
+function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: string) => void }) {
   const { bar, icon, label } = VARIANT_STYLES[toast.variant];
 
   return (
@@ -206,9 +159,7 @@ function ToastItem({
       <span className={`mt-[1px] shrink-0 ${label}`}>{icon}</span>
 
       {/* Message */}
-      <p className="flex-1 text-[13px] leading-snug text-amber-100/90 pr-2">
-        {toast.message}
-      </p>
+      <p className="flex-1 text-[13px] leading-snug text-amber-100/90 pr-2">{toast.message}</p>
 
       {/* Dismiss button */}
       <button
@@ -217,13 +168,7 @@ function ToastItem({
         aria-label="Dismiss notification"
         className="shrink-0 text-amber-800/60 hover:text-amber-100 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/30 rounded"
       >
-        <svg
-          width="14"
-          height="14"
-          viewBox="0 0 14 14"
-          fill="none"
-          aria-hidden="true"
-        >
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
           <path
             d="M3 3L11 11M11 3L3 11"
             stroke="currentColor"

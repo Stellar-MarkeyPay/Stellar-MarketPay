@@ -5,22 +5,27 @@ This directory contains all components related to the first-time user onboarding
 ## Components
 
 ### WelcomeModal
+
 A modal that appears on first login, introducing users to the platform's key features.
 
 **Props:**
+
 - `isOpen: boolean` - Controls modal visibility
 - `onClose: () => void` - Callback when user dismisses the modal
 - `onGetStarted: () => void` - Callback when user clicks "Get Started"
 
 ### ProfileChecklist
+
 An interactive checklist showing profile completion progress with clickable items.
 
 **Props:**
+
 - `items: ChecklistItem[]` - Array of checklist items
 - `onItemClick: (route: string) => void` - Callback when an item is clicked
 - `onDismiss?: () => void` - Optional callback to dismiss the checklist
 
 **ChecklistItem Interface:**
+
 ```typescript
 {
   id: string;
@@ -32,23 +37,28 @@ An interactive checklist showing profile completion progress with clickable item
 ```
 
 ### ProgressBar
+
 A visual progress indicator showing completion percentage.
 
 **Props:**
+
 - `current: number` - Number of completed items
 - `total: number` - Total number of items
 - `showLabel?: boolean` - Whether to show the label (default: true)
 - `size?: "sm" | "md" | "lg"` - Size variant (default: "md")
 
 ### Tooltips
+
 Contextual tooltips that guide users to key actions.
 
 **Props:**
+
 - `tooltips: TooltipConfig[]` - Array of tooltip configurations
 - `onDismiss: (tooltipId: string) => void` - Callback when a tooltip is dismissed
 - `onDismissAll: () => void` - Callback to dismiss all tooltips
 
 **TooltipConfig Interface:**
+
 ```typescript
 {
   id: string;
@@ -66,12 +76,15 @@ Contextual tooltips that guide users to key actions.
 ## Hook
 
 ### useOnboarding
+
 Custom hook that manages onboarding state and progress tracking.
 
 **Parameters:**
+
 - `publicKey: string | null` - User's Stellar public key
 
 **Returns:**
+
 ```typescript
 {
   loading: boolean;

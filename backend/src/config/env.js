@@ -11,9 +11,7 @@ function requireEnv(name, { fallback } = {}) {
 function requireChoice(name, allowedValues, { fallback } = {}) {
   const value = requireEnv(name, { fallback });
   if (!allowedValues.includes(value)) {
-    throw new Error(
-      `${name} must be one of: ${allowedValues.join(", ")}`,
-    );
+    throw new Error(`${name} must be one of: ${allowedValues.join(", ")}`);
   }
   return value;
 }

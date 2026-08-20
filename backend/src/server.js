@@ -16,49 +16,49 @@ const { getClientIp } = require("./utils/clientIp");
 const { WebSocketServer } = require("ws");
 const nodemailer = require("nodemailer");
 const promClient = require("prom-client");
-const swaggerUi = require('swagger-ui-express');
-const swaggerSpecs = require('./config/swagger');
-const { requestLoggerMiddleware, logError, createServiceLogger } = require('./utils/logger');
-const { sanitizeMiddleware } = require('./middleware/sanitize');
+const swaggerUi = require("swagger-ui-express");
+const swaggerSpecs = require("./config/swagger");
+const { requestLoggerMiddleware, logError, createServiceLogger } = require("./utils/logger");
+const { sanitizeMiddleware } = require("./middleware/sanitize");
 const { requireChoice } = require("./config/env");
 const { createCorsOptions } = require("./config/cors");
 
-const jobRoutes       = require("./routes/jobs");
+const jobRoutes = require("./routes/jobs");
 const applicationRoutes = require("./routes/applications");
-const profileRoutes   = require("./routes/profiles");
-const escrowRoutes    = require("./routes/escrow");
-const healthRoutes    = require("./routes/health");
-const authRoutes      = require("./routes/auth");
-const ratingRoutes    = require("./routes/ratings");
-const progressRoutes  = require("./routes/progress");
-const messageRoutes   = require("./routes/messageRoutes");
-const insightsRoutes  = require("./routes/insights");
-const webauthnRoutes  = require("./routes/webauthn");
-const disputeRoutes   = require("./routes/disputes");
-const adminRoutes     = require("./routes/admin");
-const admin2faRoutes  = require("./routes/admin2fa");
+const profileRoutes = require("./routes/profiles");
+const escrowRoutes = require("./routes/escrow");
+const healthRoutes = require("./routes/health");
+const authRoutes = require("./routes/auth");
+const ratingRoutes = require("./routes/ratings");
+const progressRoutes = require("./routes/progress");
+const messageRoutes = require("./routes/messageRoutes");
+const insightsRoutes = require("./routes/insights");
+const webauthnRoutes = require("./routes/webauthn");
+const disputeRoutes = require("./routes/disputes");
+const adminRoutes = require("./routes/admin");
+const admin2faRoutes = require("./routes/admin2fa");
 const timeEntryRoutes = require("./routes/timeEntries");
 const notificationRoutes = require("./routes/notifications");
 const developerRoutes = require("./routes/developer");
-const publicRoutes    = require("./routes/public");
-const referralRoutes  = require("./routes/referrals");
-const eventsRoutes    = require("./routes/events");
+const publicRoutes = require("./routes/public");
+const referralRoutes = require("./routes/referrals");
+const eventsRoutes = require("./routes/events");
 const invitationRoutes = require("./routes/invitations");
-const statsRoutes      = require("./routes/stats");
+const statsRoutes = require("./routes/stats");
 const gasEstimatorRoutes = require("./routes/gasEstimator");
-const cdnRoutes        = require("./routes/cdn");
-const rankingRoutes    = require("./routes/ranking");
+const cdnRoutes = require("./routes/cdn");
+const rankingRoutes = require("./routes/ranking");
 
-const pool            = require("./db/pool");
+const pool = require("./db/pool");
 const { migrate } = require("./db/migrate");
-const IndexerService  = require("./services/indexerService");
+const IndexerService = require("./services/indexerService");
 const PriceAlertService = require("./services/priceAlertService");
 const CdnService = require("./services/cdn/cdnService");
 const CdnInvalidationService = require("./services/cdn/invalidationService");
 const { createProvidersFromEnv } = require("./services/cdn/providers");
 
-const serviceLogger = createServiceLogger('server');
-const app  = express();
+const serviceLogger = createServiceLogger("server");
+const app = express();
 app.set("trust proxy", 1);
 const PORT = process.env.PORT || 4000;
 const server = http.createServer(app);
@@ -106,7 +106,7 @@ const scopeSessionClients = new Map();
 
 function broadcastRealtime(event, payload) {
   const message = JSON.stringify({ event, payload });
-  serviceLogger.debug({ event, payload }, 'Broadcasting realtime message');
+  serviceLogger.debug({ event, payload }, "Broadcasting realtime message");
   for (const ws of realtimeClients) {
     if (ws.readyState === WS_OPEN) ws.send(message);
   }
@@ -148,18 +148,21 @@ async function cleanupExpiredScopeSessions() {
   try {
     const result = await pool.query("DELETE FROM scope_sessions WHERE expires_at <= NOW()");
     if (result.rowCount > 0) {
-      serviceLogger.info({ deletedCount: result.rowCount }, 'Cleaned up expired scope sessions');
+      serviceLogger.info({ deletedCount: result.rowCount }, "Cleaned up expired scope sessions");
     }
   } catch (error) {
-    logError(serviceLogger, error, { operation: 'cleanup_scope_sessions' });
+    logError(serviceLogger, error, { operation: "cleanup_scope_sessions" });
   }
 }
 
-setInterval(() => {
-  cleanupExpiredScopeSessions().catch((err) => {
-    logError(serviceLogger, err, { operation: 'scope_cleanup_interval' });
-  });
-}, 60 * 60 * 1000).unref();
+setInterval(
+  () => {
+    cleanupExpiredScopeSessions().catch((err) => {
+      logError(serviceLogger, err, { operation: "scope_cleanup_interval" });
+    });
+  },
+  60 * 60 * 1000
+).unref();
 
 const cdnService = new CdnService({
   providers: createProvidersFromEnv(process.env),
@@ -178,7 +181,9 @@ const indexerService = new IndexerService({
   broadcast: broadcastRealtime,
   cdnInvalidation,
 });
-const smtpEnabled = Boolean(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
+const smtpEnabled = Boolean(
+  process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS
+);
 const smtpTransport = smtpEnabled
   ? nodemailer.createTransport({
       host: process.env.SMTP_HOST,
@@ -209,33 +214,35 @@ app.locals.cdnService = cdnService;
 app.locals.cdnInvalidation = cdnInvalidation;
 
 // Middleware
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", "data:", "https:"],
-      connectSrc: ["'self'"],
-      fontSrc: ["'self'"],
-      objectSrc: ["'none'"],
-      mediaSrc: ["'self'"],
-      frameSrc: ["'none'"],
-      baseUri: ["'self'"],
-      formAction: ["'self'"],
-      frameAncestors: ["'none'"],
-      upgradeInsecureRequests: [],
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", "data:", "https:"],
+        connectSrc: ["'self'"],
+        fontSrc: ["'self'"],
+        objectSrc: ["'none'"],
+        mediaSrc: ["'self'"],
+        frameSrc: ["'none'"],
+        baseUri: ["'self'"],
+        formAction: ["'self'"],
+        frameAncestors: ["'none'"],
+        upgradeInsecureRequests: [],
+      },
     },
-  },
-  hsts: {
-    maxAge: 31536000,
-    includeSubDomains: true,
-    preload: true,
-  },
-  noSniff: true,
-  xssFilter: true,
-  referrerPolicy: { policy: "strict-origin-when-cross-origin" },
-}));
+    hsts: {
+      maxAge: 31536000,
+      includeSubDomains: true,
+      preload: true,
+    },
+    noSniff: true,
+    xssFilter: true,
+    referrerPolicy: { policy: "strict-origin-when-cross-origin" },
+  })
+);
 
 // Request logging middleware
 app.use(requestLoggerMiddleware);
@@ -246,10 +253,14 @@ app.use(express.json({ limit: "20kb" }));
 app.use(sanitizeMiddleware({ strict: false }));
 
 // Swagger UI
-app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpecs, {
-  customCss: '.swagger-ui .topbar { display: none }',
-  customSiteTitle: 'Stellar MarketPay API Documentation'
-}));
+app.use(
+  "/api/docs",
+  swaggerUi.serve,
+  swaggerUi.setup(swaggerSpecs, {
+    customCss: ".swagger-ui .topbar { display: none }",
+    customSiteTitle: "Stellar MarketPay API Documentation",
+  })
+);
 
 app.use(cors(createCorsOptions({ logger: serviceLogger })));
 
@@ -260,9 +271,7 @@ app.use((req, res, next) => {
 
   const endTimer = httpRequestDurationSeconds.startTimer();
   res.on("finish", () => {
-    const routeLabel = req.route?.path
-      ? `${req.baseUrl || ""}${req.route.path}`
-      : req.path;
+    const routeLabel = req.route?.path ? `${req.baseUrl || ""}${req.route.path}` : req.path;
     const statusCode = String(res.statusCode);
 
     httpRequestsTotal.inc({
@@ -280,13 +289,15 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 150,
-  standardHeaders: true,
-  legacyHeaders: false,
-  keyGenerator: (req) => getClientIp(req),
-}));
+app.use(
+  rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 150,
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: (req) => getClientIp(req),
+  })
+);
 
 app.get("/metrics", async (req, res, next) => {
   try {
@@ -298,31 +309,31 @@ app.get("/metrics", async (req, res, next) => {
 });
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
-app.use("/health",            healthRoutes);
-app.use("/api/auth",          authRoutes);
-app.use("/api/jobs",          jobRoutes);
-app.use("/api/applications",  applicationRoutes);
-app.use("/api/profiles",      profileRoutes);
-app.use("/api/escrow",        escrowRoutes);
-app.use("/api/ratings",       ratingRoutes);
-app.use("/api/progress",      progressRoutes);
-app.use("/api/messages",      messageRoutes);
-app.use("/api/insights",      insightsRoutes);
+app.use("/health", healthRoutes);
+app.use("/api/auth", authRoutes);
+app.use("/api/jobs", jobRoutes);
+app.use("/api/applications", applicationRoutes);
+app.use("/api/profiles", profileRoutes);
+app.use("/api/escrow", escrowRoutes);
+app.use("/api/ratings", ratingRoutes);
+app.use("/api/progress", progressRoutes);
+app.use("/api/messages", messageRoutes);
+app.use("/api/insights", insightsRoutes);
 app.use("/api/notifications", notificationRoutes);
-app.use("/api/webauthn",      webauthnRoutes);
-app.use("/api/disputes",      disputeRoutes);
-app.use("/api/admin/2fa",     admin2faRoutes);
-app.use("/api/admin",         adminRoutes);
-app.use("/api/developer",     developerRoutes);
-app.use("/api/public",        publicRoutes);
-app.use("/api/time-entries",  timeEntryRoutes);
-app.use("/api/referrals",     referralRoutes);
-app.use("/api/events",        eventsRoutes);
-app.use("/api/invitations",   invitationRoutes);
-app.use("/api/stats",         statsRoutes);
+app.use("/api/webauthn", webauthnRoutes);
+app.use("/api/disputes", disputeRoutes);
+app.use("/api/admin/2fa", admin2faRoutes);
+app.use("/api/admin", adminRoutes);
+app.use("/api/developer", developerRoutes);
+app.use("/api/public", publicRoutes);
+app.use("/api/time-entries", timeEntryRoutes);
+app.use("/api/referrals", referralRoutes);
+app.use("/api/events", eventsRoutes);
+app.use("/api/invitations", invitationRoutes);
+app.use("/api/stats", statsRoutes);
 app.use("/api/gas-estimate", gasEstimatorRoutes);
-app.use("/api/cdn",          cdnRoutes);
-app.use("/api/ranking",      rankingRoutes);
+app.use("/api/cdn", cdnRoutes);
+app.use("/api/ranking", rankingRoutes);
 
 app.use((err, req, res, next) => {
   void next;
@@ -375,7 +386,10 @@ wsServer.on("connection", async (ws, request) => {
 
   if (url.pathname.startsWith("/ws/scope/")) {
     const sessionId = decodeURIComponent(url.pathname.replace("/ws/scope/", "")).trim();
-    const participantId = (url.searchParams.get("participantId") || `anon-${Date.now()}`).slice(0, 64);
+    const participantId = (url.searchParams.get("participantId") || `anon-${Date.now()}`).slice(
+      0,
+      64
+    );
     if (!sessionId) {
       ws.close(1008, "Invalid session id");
       return;
@@ -462,32 +476,35 @@ wsServer.on("connection", async (ws, request) => {
 
 async function bootstrap() {
   try {
-  await migrate();
-  await cleanupExpiredScopeSessions();
+    await migrate();
+    await cleanupExpiredScopeSessions();
 
-  const { trainRegressionModel } = require("./services/analytics");
-  const trainingResult = await trainRegressionModel();
-  serviceLogger.info(trainingResult, "Predictive analytics model initialized");
+    const { trainRegressionModel } = require("./services/analytics");
+    const trainingResult = await trainRegressionModel();
+    serviceLogger.info(trainingResult, "Predictive analytics model initialized");
 
-  await indexerService.start();
-  priceAlertService.start();
+    await indexerService.start();
+    priceAlertService.start();
 
-  // Start job expiry checker - run every hour
-  startJobExpiryChecker();
+    // Start job expiry checker - run every hour
+    startJobExpiryChecker();
 
-  // Start notification processor - run every 2 minutes
-  startNotificationProcessor();
+    // Start notification processor - run every 2 minutes
+    startNotificationProcessor();
 
-  // Start weekly digest scheduler - fires every Monday at 09:00 UTC
-  startWeeklyDigestScheduler();
+    // Start weekly digest scheduler - fires every Monday at 09:00 UTC
+    startWeeklyDigestScheduler();
 
-  server.listen(PORT, () => {
-    serviceLogger.info({
-      port: PORT,
-      network: STELLAR_NETWORK,
-      nodeEnv: process.env.NODE_ENV || "development",
-    }, 'Stellar MarketPay API server started');
-  });
+    server.listen(PORT, () => {
+      serviceLogger.info(
+        {
+          port: PORT,
+          network: STELLAR_NETWORK,
+          nodeEnv: process.env.NODE_ENV || "development",
+        },
+        "Stellar MarketPay API server started"
+      );
+    });
   } catch (err) {
     logError(serviceLogger, err, { operation: "bootstrap" });
     process.exit(1);
@@ -500,37 +517,40 @@ async function bootstrap() {
  */
 async function startJobExpiryChecker() {
   const { expireOldJobs, getExpiringJobs } = require("./services/jobService");
-  const expiryLogger = createServiceLogger('job-expiry');
+  const expiryLogger = createServiceLogger("job-expiry");
 
   async function checkAndExpire() {
     try {
       const expiredCount = await expireOldJobs();
       if (expiredCount > 0) {
-        expiryLogger.info({ expiredCount }, 'Auto-expired old jobs');
-        broadcastRealtime("jobs:expired", { 
+        expiryLogger.info({ expiredCount }, "Auto-expired old jobs");
+        broadcastRealtime("jobs:expired", {
           count: expiredCount,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
         });
       }
 
       // Check for expiring jobs within 3 days and broadcast warnings
       const expiringJobs = await getExpiringJobs(3);
       if (expiringJobs.length > 0) {
-        expiryLogger.info({ 
-          expiringCount: expiringJobs.length,
-          jobIds: expiringJobs.map(j => j.id)
-        }, 'Jobs expiring within 3 days');
+        expiryLogger.info(
+          {
+            expiringCount: expiringJobs.length,
+            jobIds: expiringJobs.map((j) => j.id),
+          },
+          "Jobs expiring within 3 days"
+        );
         broadcastRealtime("job:expiry-warning", {
           count: expiringJobs.length,
-          jobs: expiringJobs.map(j => ({
+          jobs: expiringJobs.map((j) => ({
             id: j.id,
             title: j.title,
-            expiresAt: j.expiresAt
-          }))
+            expiresAt: j.expiresAt,
+          })),
         });
       }
     } catch (err) {
-      logError(expiryLogger, err, { operation: 'job_expiry_check' });
+      logError(expiryLogger, err, { operation: "job_expiry_check" });
     }
   }
 
@@ -548,8 +568,8 @@ async function startJobExpiryChecker() {
  */
 async function startNotificationProcessor() {
   const { processPendingNotifications } = require("./services/notificationService");
-  const notificationLogger = createServiceLogger('notifications');
-  
+  const notificationLogger = createServiceLogger("notifications");
+
   const sendEmailFn = async ({ to, subject, text, html }) => {
     if (!smtpTransport || !to) return;
     await smtpTransport.sendMail({
@@ -565,31 +585,40 @@ async function startNotificationProcessor() {
   try {
     const stats = await processPendingNotifications(sendEmailFn);
     if (stats.total > 0) {
-      notificationLogger.info({
-        total: stats.total,
-        sent: stats.sent,
-        failed: stats.failed
-      }, 'Processed pending notifications on startup');
+      notificationLogger.info(
+        {
+          total: stats.total,
+          sent: stats.sent,
+          failed: stats.failed,
+        },
+        "Processed pending notifications on startup"
+      );
     }
   } catch (err) {
-    logError(notificationLogger, err, { operation: 'initial_notification_processing' });
+    logError(notificationLogger, err, { operation: "initial_notification_processing" });
   }
 
   // Schedule checks every 2 minutes
-  setInterval(async () => {
-    try {
-      const stats = await processPendingNotifications(sendEmailFn);
-      if (stats.total > 0) {
-        notificationLogger.info({
-          total: stats.total,
-          sent: stats.sent,
-          failed: stats.failed
-        }, 'Processed pending notifications');
+  setInterval(
+    async () => {
+      try {
+        const stats = await processPendingNotifications(sendEmailFn);
+        if (stats.total > 0) {
+          notificationLogger.info(
+            {
+              total: stats.total,
+              sent: stats.sent,
+              failed: stats.failed,
+            },
+            "Processed pending notifications"
+          );
+        }
+      } catch (err) {
+        logError(notificationLogger, err, { operation: "scheduled_notification_processing" });
       }
-    } catch (err) {
-      logError(notificationLogger, err, { operation: 'scheduled_notification_processing' });
-    }
-  }, 2 * 60 * 1000).unref();
+    },
+    2 * 60 * 1000
+  ).unref();
 }
 
 /**

@@ -36,9 +36,7 @@ self.addEventListener("activate", (event) => {
       .keys()
       .then((names) =>
         Promise.all(
-          names
-            .filter((name) => !currentCaches.has(name))
-            .map((name) => caches.delete(name))
+          names.filter((name) => !currentCaches.has(name)).map((name) => caches.delete(name))
         )
       )
       .then(() => self.clients.claim())
@@ -205,9 +203,7 @@ async function replayQueue() {
 
   // Notify all open clients that sync completed
   const clients = await self.clients.matchAll({ type: "window" });
-  clients.forEach((client) =>
-    client.postMessage({ type: "SYNC_COMPLETE" })
-  );
+  clients.forEach((client) => client.postMessage({ type: "SYNC_COMPLETE" }));
 }
 
 /** Minimal IndexedDB wrapper (no idb library dependency). */

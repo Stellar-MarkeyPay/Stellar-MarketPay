@@ -33,17 +33,27 @@ contracts/implement-milestone-escrow
 
 ---
 
-## 💬 Commit Style
+## 💬 Commit Style & Git Hooks
 
-We use [Conventional Commits](https://www.conventionalcommits.org/):
+We enforce [Conventional Commits](https://www.conventionalcommits.org/) via **commitlint** and **Husky**:
 
-```
-feat: add job search filters
-fix: correct escrow balance calculation
+```text
+feat(frontend): add job search filters
+fix(backend): correct escrow balance calculation
 docs: add milestone payment guide
 contracts: implement dispute resolution
-chore: upgrade soroban-sdk to 21.0
+chore(ci): upgrade workflow actions
 ```
+
+To use an interactive commit prompt:
+
+```bash
+npm run commit
+```
+
+Local git hooks automatically run `lint-staged` on `pre-commit`, `commitlint` on `commit-msg`, and fast unit test suites on `pre-push`.
+
+> For complete hook guidelines, escape hatch documentation (`--no-verify`), and benchmark details, see [docs/GIT_HOOKS_AND_COMMITS.md](./docs/GIT_HOOKS_AND_COMMITS.md).
 
 ---
 
@@ -56,6 +66,7 @@ chore: upgrade soroban-sdk to 21.0
 5. Link related issues with `Closes #123`
 
 ### PR Checklist
+
 - [ ] Tested locally on Testnet
 - [ ] No TypeScript / Rust errors
 - [ ] Documentation updated if needed

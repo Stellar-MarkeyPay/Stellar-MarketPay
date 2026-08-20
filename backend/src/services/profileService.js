@@ -214,7 +214,8 @@ function rowToProfile(row) {
     skills: row.skills,
     portfolioItems: Array.isArray(row.portfolio_items) ? row.portfolio_items : [],
     portfolioFiles: Array.isArray(row.portfolio_files) ? row.portfolio_files : [],
-    availability: row.availability && typeof row.availability === "object" ? row.availability : null,
+    availability:
+      row.availability && typeof row.availability === "object" ? row.availability : null,
     role: row.role,
     completedJobs: row.completed_jobs,
     totalEarnedXLM: row.total_earned_xlm,
@@ -223,7 +224,8 @@ function rowToProfile(row) {
     reputationPoints: Number(row.reputation_points || 0),
     blockedAddresses: Array.isArray(row.blocked_addresses) ? row.blocked_addresses : [],
     email: row.email || null,
-    emailNotificationsEnabled: row.email_notifications_enabled !== null ? row.email_notifications_enabled : null,
+    emailNotificationsEnabled:
+      row.email_notifications_enabled !== null ? row.email_notifications_enabled : null,
     webhookUrl: row.webhook_url || null,
     webhookSecret: row.webhook_secret || null,
     isKycVerified: row.is_kyc_verified !== null ? row.is_kyc_verified : null,
@@ -295,12 +297,12 @@ async function getProfile(publicKey) {
   repScore += Math.min(Math.floor((profile.referralCount || 0) / 2), 10);
 
   // Direct reputation points from referrals/completions
-  repScore += (profile.reputationPoints || 0);
+  repScore += profile.reputationPoints || 0;
 
   profile.reputationScore = Math.min(repScore, 100);
   profile.reputationMetrics = {
     avgAcceptHours: acceptHours,
-    avgReleaseHours: releaseHours
+    avgReleaseHours: releaseHours,
   };
 
   return profile;
@@ -343,7 +345,20 @@ async function getProfile(publicKey) {
  *   role: 'freelancer',
  * });
  */
-async function upsertProfile({ publicKey, displayName, bio, skills, portfolioItems, portfolioFiles, availability, role, email, emailNotificationsEnabled, webhookUrl, webhookSecret }) {
+async function upsertProfile({
+  publicKey,
+  displayName,
+  bio,
+  skills,
+  portfolioItems,
+  portfolioFiles,
+  availability,
+  role,
+  email,
+  emailNotificationsEnabled,
+  webhookUrl,
+  webhookSecret,
+}) {
   validatePublicKey(publicKey);
 
   const safeSkills = Array.isArray(skills) ? skills.slice(0, 15) : null;
@@ -443,7 +458,9 @@ async function listProfiles({ role, availability, search, limit = 50 } = {}) {
 
   if (availability != null) {
     if (!VALID_AVAILABILITY_STATUSES.includes(availability)) {
-      throw createValidationError("Availability status must be one of: available, busy, unavailable");
+      throw createValidationError(
+        "Availability status must be one of: available, busy, unavailable"
+      );
     }
     conditions.push(`availability->>'status' = $${idx}`);
     values.push(availability);
@@ -452,7 +469,9 @@ async function listProfiles({ role, availability, search, limit = 50 } = {}) {
 
   if (search && typeof search === "string" && search.trim()) {
     const searchValue = `%${search.trim()}%`;
-    conditions.push(`(display_name ILIKE $${idx} OR bio ILIKE $${idx} OR public_key ILIKE $${idx} OR skills::text ILIKE $${idx})`);
+    conditions.push(
+      `(display_name ILIKE $${idx} OR bio ILIKE $${idx} OR public_key ILIKE $${idx} OR skills::text ILIKE $${idx})`
+    );
     values.push(searchValue);
     idx += 1;
   }
@@ -463,7 +482,7 @@ async function listProfiles({ role, availability, search, limit = 50 } = {}) {
   const whereClause = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
   const { rows } = await pool.query(
     `SELECT * FROM profiles ${whereClause} ORDER BY updated_at DESC LIMIT $${idx}`,
-    values,
+    values
   );
 
   return rows.map(rowToProfile);
@@ -597,18 +616,18 @@ async function endorseSkill({ skill, endorserAddress, recipientAddress }) {
  * @returns {string}
  */
 function calculateFreelancerTier(metrics, rating = null) {
-  const source = typeof metrics === "object" && metrics !== null
-    ? metrics
-    : { completedJobs: Number(metrics) || 0, rating };
+  const source =
+    typeof metrics === "object" && metrics !== null
+      ? metrics
+      : { completedJobs: Number(metrics) || 0, rating };
 
   const completedJobs = Number(source.completedJobs) || 0;
   const totalJobs = Math.max(Number(source.totalJobs) || 0, completedJobs);
   const averageRating = Number(source.rating) || 0;
   const totalEarnedXlm = Number(source.totalEarnedXlm) || 0;
   const createdAt = source.createdAt ? new Date(source.createdAt) : null;
-  const accountAgeMs = createdAt && !Number.isNaN(createdAt.getTime())
-    ? Date.now() - createdAt.getTime()
-    : null;
+  const accountAgeMs =
+    createdAt && !Number.isNaN(createdAt.getTime()) ? Date.now() - createdAt.getTime() : null;
   const accountAgeDays = accountAgeMs == null ? null : accountAgeMs / (24 * 60 * 60 * 1000);
   const completionRate = totalJobs > 0 ? completedJobs / totalJobs : 0;
 
@@ -644,7 +663,7 @@ async function calculateTier(publicKey, queryRunner = pool) {
     FROM profiles p
     WHERE p.public_key = $1
     `,
-    [publicKey],
+    [publicKey]
   );
 
   if (!rows.length) return FREELANCER_TIERS.NEWCOMER;
@@ -677,7 +696,7 @@ async function refreshFreelancerTier(publicKey, queryRunner = pool) {
     ) stats
     WHERE profiles.public_key = $1
     `,
-    [publicKey],
+    [publicKey]
   );
 
   return calculateTier(publicKey, queryRunner);
@@ -844,15 +863,13 @@ async function getProfileStats(publicKey) {
     JOIN jobs j ON j.id = a.job_id
     WHERE a.freelancer_address = $1
     `,
-    [publicKey],
+    [publicKey]
   );
 
   const totalApplications = Number(rows[0]?.total_applications || 0);
   const acceptedApplications = Number(rows[0]?.accepted_applications || 0);
   const successRate =
-    totalApplications > 0
-      ? Math.round((acceptedApplications / totalApplications) * 100)
-      : 0;
+    totalApplications > 0 ? Math.round((acceptedApplications / totalApplications) * 100) : 0;
 
   return { totalApplications, acceptedApplications, successRate };
 }
@@ -870,7 +887,7 @@ async function getResponseTime(publicKey) {
       AND e.status = 'released'
       AND e.released_at IS NOT NULL
     `,
-    [publicKey],
+    [publicKey]
   );
 
   const value = rows[0]?.average_days;

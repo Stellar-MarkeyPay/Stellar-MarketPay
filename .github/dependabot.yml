@@ -19,7 +19,7 @@ updates:
       prefix: "feat(deps)"
       include: "scope"
 
-  # Backend dependencies  
+  # Backend dependencies
   - package-ecosystem: npm
     directory: /backend
     schedule:

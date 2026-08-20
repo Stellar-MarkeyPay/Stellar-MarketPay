@@ -13,7 +13,7 @@ jest.mock("../db/pool");
 
 describe("Job Recommendations", () => {
   const freelancerAddress = "GTEST123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890ABC";
-  
+
   beforeEach(() => {
     jest.clearAllMocks();
   });
@@ -78,7 +78,7 @@ describe("Job Recommendations", () => {
     const recommendations = await getRecommendedJobs(freelancerAddress);
 
     expect(recommendations).toHaveLength(1);
-    
+
     // Verify the query still excludes applied jobs
     const lastCall = pool.query.mock.calls[1];
     expect(lastCall[0]).toContain("NOT EXISTS");
@@ -109,19 +109,21 @@ describe("Job Recommendations", () => {
       })
       // Mock jobs query with exactly 5 results
       .mockResolvedValueOnce({
-        rows: Array(5).fill(null).map((_, i) => ({
-          id: `job-${i}`,
-          title: `Job ${i}`,
-          status: "open",
-          skills: ["Node.js"],
-          created_at: new Date(),
-        })),
+        rows: Array(5)
+          .fill(null)
+          .map((_, i) => ({
+            id: `job-${i}`,
+            title: `Job ${i}`,
+            status: "open",
+            skills: ["Node.js"],
+            created_at: new Date(),
+          })),
       });
 
     const recommendations = await getRecommendedJobs(freelancerAddress);
 
     expect(recommendations).toHaveLength(5);
-    
+
     // Verify LIMIT 5 in query
     const lastCall = pool.query.mock.calls[1];
     expect(lastCall[0]).toContain("LIMIT 5");

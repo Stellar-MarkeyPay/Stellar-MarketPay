@@ -20,13 +20,13 @@ interface NavbarProps {
 }
 
 const links = [
-  { href: "/",            labelKey: "nav.home" },
-  { href: "/jobs",        labelKey: "nav.browseJobs" },
-  { href: "/dashboard",   labelKey: "nav.dashboard" },
-  { href: "/post-job",    labelKey: "nav.postJob" },
-  { href: "/insights",    labelKey: "nav.insights" },
-  { href: "/developer",   labelKey: "nav.developer" },
-  { href: "/dao",           labelKey: "nav.dao" },
+  { href: "/", labelKey: "nav.home" },
+  { href: "/jobs", labelKey: "nav.browseJobs" },
+  { href: "/dashboard", labelKey: "nav.dashboard" },
+  { href: "/post-job", labelKey: "nav.postJob" },
+  { href: "/insights", labelKey: "nav.insights" },
+  { href: "/developer", labelKey: "nav.developer" },
+  { href: "/dao", labelKey: "nav.dao" },
 ];
 
 const STELLAR_NETWORK = process.env.NEXT_PUBLIC_STELLAR_NETWORK || "testnet";
@@ -38,7 +38,7 @@ export default function Navbar({ publicKey, onConnect, onDisconnect }: NavbarPro
   const [hasJobAlertBadge, setHasJobAlertBadge] = useState(false);
   const { currencyMode, setCurrencyMode, priceLoading } = usePriceContext();
   const [darkMode, setDarkMode] = useState(false);
-    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [balance, setBalance] = useState<string | null>(null);
   const [balanceLoading, setBalanceLoading] = useState(false);
 
@@ -119,7 +119,6 @@ export default function Navbar({ publicKey, onConnect, onDisconnect }: NavbarPro
   return (
     <nav className="sticky top-0 z-50 border-b border-[rgba(251,191,36,0.10)] bg-ink-900/85 backdrop-blur-xl">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-2 sm:gap-4">
-
         {/* Logo */}
         <Link href="/" locale={false} className="flex items-center gap-2.5 group flex-shrink-0">
           <div className="w-8 h-8 rounded-lg bg-market-500/15 border border-market-500/25 flex items-center justify-center group-hover:border-market-500/50 transition-colors">
@@ -134,19 +133,24 @@ export default function Navbar({ publicKey, onConnect, onDisconnect }: NavbarPro
         </Link>
 
         {/* Network badge - hidden on mobile */}
-        <span className={clsx(
-          "hidden lg:inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border flex-shrink-0",
-          STELLAR_NETWORK === "mainnet"
-            ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-            : "bg-amber-500/10 text-amber-400 border-amber-500/20"
-        )}>
+        <span
+          className={clsx(
+            "hidden lg:inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border flex-shrink-0",
+            STELLAR_NETWORK === "mainnet"
+              ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+              : "bg-amber-500/10 text-amber-400 border-amber-500/20"
+          )}
+        >
           {STELLAR_NETWORK === "mainnet" ? "Mainnet" : "Testnet"}
         </span>
 
         {/* Desktop Nav links */}
         <div className="hidden md:flex items-center gap-1">
           {links.map((l) => (
-            <Link key={l.href} href={l.href} locale={false}
+            <Link
+              key={l.href}
+              href={l.href}
+              locale={false}
               className={clsx(
                 "px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150 relative min-h-[44px] flex items-center",
                 router.pathname === l.href
@@ -215,12 +219,32 @@ export default function Navbar({ publicKey, onConnect, onDisconnect }: NavbarPro
             aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}
           >
             {darkMode ? (
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+              <svg
+                className="w-4 h-4"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"
+                />
               </svg>
             ) : (
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+              <svg
+                className="w-4 h-4"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"
+                />
               </svg>
             )}
           </button>
@@ -255,19 +279,21 @@ export default function Navbar({ publicKey, onConnect, onDisconnect }: NavbarPro
                 {balanceLoading ? (
                   <span className="text-xs text-amber-800">{t("wallet.loading")}</span>
                 ) : balance ? (
-                  <span className="text-xs font-medium text-market-400 hidden sm:inline">{balance}</span>
+                  <span className="text-xs font-medium text-market-400 hidden sm:inline">
+                    {balance}
+                  </span>
                 ) : null}
               </button>
-              <button 
-                onClick={onDisconnect} 
+              <button
+                onClick={onDisconnect}
                 className="hidden sm:inline text-xs text-amber-800 hover:text-amber-500 transition-colors px-2 py-1"
               >
                 {t("nav.disconnect")}
               </button>
             </>
           ) : (
-            <button 
-              onClick={onConnect} 
+            <button
+              onClick={onConnect}
               className="btn-primary text-xs sm:text-sm py-2 px-3 sm:px-4 min-h-[44px] flex items-center"
             >
               {t("nav.connectWallet")}
@@ -292,7 +318,10 @@ export default function Navbar({ publicKey, onConnect, onDisconnect }: NavbarPro
           <div className="px-4 py-4 space-y-2">
             {/* Mobile Nav Links */}
             {links.map((l) => (
-              <Link key={l.href} href={l.href} locale={false}
+              <Link
+                key={l.href}
+                href={l.href}
+                locale={false}
                 className={clsx(
                   "px-3 py-3 rounded-lg text-sm font-medium transition-all duration-150 relative min-h-[44px] flex items-center",
                   router.pathname === l.href
@@ -325,11 +354,11 @@ export default function Navbar({ publicKey, onConnect, onDisconnect }: NavbarPro
 
             {/* Mobile Disconnect Button */}
             {publicKey && (
-              <button 
+              <button
                 onClick={() => {
                   onDisconnect();
                   setMobileMenuOpen(false);
-                }} 
+                }}
                 className="w-full text-left text-xs text-amber-800 hover:text-amber-500 transition-colors px-3 py-3 rounded-lg hover:bg-market-500/8 min-h-[44px] flex items-center"
               >
                 {t("nav.disconnect")}
@@ -344,16 +373,36 @@ export default function Navbar({ publicKey, onConnect, onDisconnect }: NavbarPro
 
 function BriefcaseIcon({ className }: { className?: string }) {
   return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 14.15v4.25c0 1.094-.787 2.036-1.872 2.18-2.087.277-4.216.42-6.378.42s-4.291-.143-6.378-.42c-1.085-.144-1.872-1.086-1.872-2.18v-4.25m16.5 0a2.18 2.18 0 00.75-1.661V8.706c0-1.081-.768-2.015-1.837-2.175a48.114 48.114 0 00-3.413-.387m4.5 8.006c-.194.165-.42.295-.673.38A23.978 23.978 0 0112 15.75c-2.648 0-5.195-.429-7.577-1.22a2.016 2.016 0 01-.673-.38m0 0A2.18 2.18 0 013 12.489V8.706c0-1.081.768-2.015 1.837-2.175a48.111 48.111 0 013.413-.387m7.5 0V5.25A2.25 2.25 0 0013.5 3h-3a2.25 2.25 0 00-2.25 2.25v.894m7.5 0a48.667 48.667 0 00-7.5 0M12 12.75h.008v.008H12v-.008z" />
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.5}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M20.25 14.15v4.25c0 1.094-.787 2.036-1.872 2.18-2.087.277-4.216.42-6.378.42s-4.291-.143-6.378-.42c-1.085-.144-1.872-1.086-1.872-2.18v-4.25m16.5 0a2.18 2.18 0 00.75-1.661V8.706c0-1.081-.768-2.015-1.837-2.175a48.114 48.114 0 00-3.413-.387m4.5 8.006c-.194.165-.42.295-.673.38A23.978 23.978 0 0112 15.75c-2.648 0-5.195-.429-7.577-1.22a2.016 2.016 0 01-.673-.38m0 0A2.18 2.18 0 013 12.489V8.706c0-1.081.768-2.015 1.837-2.175a48.111 48.111 0 013.413-.387m7.5 0V5.25A2.25 2.25 0 0013.5 3h-3a2.25 2.25 0 00-2.25 2.25v.894m7.5 0a48.667 48.667 0 00-7.5 0M12 12.75h.008v.008H12v-.008z"
+      />
     </svg>
   );
 }
 
 function HamburgerIcon({ className }: { className?: string }) {
   return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5M3.75 17.25h16.5" />
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M3.75 6.75h16.5M3.75 12h16.5M3.75 17.25h16.5"
+      />
     </svg>
   );
 }

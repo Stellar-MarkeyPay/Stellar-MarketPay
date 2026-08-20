@@ -94,10 +94,7 @@ async function recordApiKeyUsage(apiKeyId) {
     [apiKeyId]
   );
 
-  await pool.query(
-    `UPDATE api_keys SET last_used_at = NOW() WHERE id = $1`,
-    [apiKeyId]
-  );
+  await pool.query(`UPDATE api_keys SET last_used_at = NOW() WHERE id = $1`, [apiKeyId]);
 }
 
 async function listPublicJobs(limit = 20) {

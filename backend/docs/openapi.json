@@ -95,12 +95,7 @@
           },
           "status": {
             "type": "string",
-            "enum": [
-              "open",
-              "in_progress",
-              "completed",
-              "cancelled"
-            ],
+            "enum": ["open", "in_progress", "completed", "cancelled"],
             "description": "Job status"
           },
           "createdAt": {
@@ -142,11 +137,7 @@
           },
           "status": {
             "type": "string",
-            "enum": [
-              "pending",
-              "accepted",
-              "rejected"
-            ],
+            "enum": ["pending", "accepted", "rejected"],
             "description": "Application status"
           },
           "createdAt": {
@@ -163,9 +154,7 @@
       "get": {
         "summary": "Check current API rate limit status",
         "description": "Returns the current rate limit usage for the caller's IP",
-        "tags": [
-          "Utility"
-        ],
+        "tags": ["Utility"],
         "responses": {
           "200": {
             "description": "Rate limit status retrieved successfully",
@@ -203,9 +192,7 @@
     "/api/jobs": {
       "get": {
         "summary": "List jobs",
-        "tags": [
-          "Jobs"
-        ],
+        "tags": ["Jobs"],
         "parameters": [
           {
             "in": "query",
@@ -220,12 +207,7 @@
             "name": "status",
             "schema": {
               "type": "string",
-              "enum": [
-                "open",
-                "in_progress",
-                "completed",
-                "cancelled"
-              ]
+              "enum": ["open", "in_progress", "completed", "cancelled"]
             },
             "description": "Filter by job status"
           },
@@ -306,9 +288,7 @@
       "post": {
         "summary": "Create a new job",
         "description": "Creates a new job posting in the marketplace",
-        "tags": [
-          "Jobs"
-        ],
+        "tags": ["Jobs"],
         "security": [
           {
             "bearerAuth": []
@@ -323,12 +303,7 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": [
-                  "title",
-                  "description",
-                  "budget",
-                  "clientId"
-                ],
+                "required": ["title", "description", "budget", "clientId"],
                 "properties": {
                   "title": {
                     "type": "string",
@@ -359,10 +334,7 @@
                   },
                   "visibility": {
                     "type": "string",
-                    "enum": [
-                      "public",
-                      "private"
-                    ],
+                    "enum": ["public", "private"],
                     "default": "public",
                     "description": "Job visibility"
                   }
@@ -418,9 +390,7 @@
       "get": {
         "summary": "Enhanced health check",
         "description": "Checks database connectivity (SELECT 1) and Stellar Horizon reachability. Returns 200 when healthy, 503 when any critical dependency is down.\n",
-        "tags": [
-          "Health"
-        ],
+        "tags": ["Health"],
         "responses": {
           "200": {
             "description": "All dependencies healthy",
@@ -486,9 +456,7 @@
       "get": {
         "summary": "Get authentication challenge transaction",
         "description": "Returns a Stellar challenge transaction for web authentication",
-        "tags": [
-          "Authentication"
-        ],
+        "tags": ["Authentication"],
         "parameters": [
           {
             "in": "query",
@@ -532,18 +500,14 @@
       "post": {
         "summary": "Authenticate with signed challenge transaction",
         "description": "Verifies a signed Stellar challenge transaction and issues a JWT token",
-        "tags": [
-          "Authentication"
-        ],
+        "tags": ["Authentication"],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": [
-                  "transaction"
-                ],
+                "required": ["transaction"],
                 "properties": {
                   "transaction": {
                     "type": "string",
@@ -602,9 +566,7 @@
       "get": {
         "summary": "Get applications for a job",
         "description": "Returns all applications submitted for a specific job",
-        "tags": [
-          "Applications"
-        ],
+        "tags": ["Applications"],
         "parameters": [
           {
             "in": "path",
@@ -657,21 +619,14 @@
       "post": {
         "summary": "Submit a job application",
         "description": "Submit a proposal/application for a job",
-        "tags": [
-          "Applications"
-        ],
+        "tags": ["Applications"],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": [
-                  "jobId",
-                  "freelancerId",
-                  "proposal",
-                  "bidAmount"
-                ],
+                "required": ["jobId", "freelancerId", "proposal", "bidAmount"],
                 "properties": {
                   "jobId": {
                     "type": "string",

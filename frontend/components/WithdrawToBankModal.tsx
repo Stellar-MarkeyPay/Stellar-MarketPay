@@ -208,7 +208,9 @@ export default function WithdrawToBankModal({ publicKey, onClose }: WithdrawToBa
       if (finalRecord?.status === "completed") {
         setTransaction(finalRecord);
         setPhase("completed");
-        toast.success(`Withdrawal complete — ${finalRecord.amount_out || amount} ${fiat} sent to your bank.`);
+        toast.success(
+          `Withdrawal complete — ${finalRecord.amount_out || amount} ${fiat} sent to your bank.`
+        );
       } else if (finalRecord) {
         setTransaction(finalRecord);
         setPhase("error");
@@ -248,9 +250,15 @@ export default function WithdrawToBankModal({ publicKey, onClose }: WithdrawToBa
           <div className="space-y-4">
             <label className="block">
               <span className="label mb-1 block">Asset to send</span>
-              <select value={asset} onChange={(e) => setAsset(e.target.value)} className="input-field">
+              <select
+                value={asset}
+                onChange={(e) => setAsset(e.target.value)}
+                className="input-field"
+              >
                 {(availableAssets.length ? availableAssets : ["USDC", "XLM"]).map((code) => (
-                  <option key={code} value={code}>{code}</option>
+                  <option key={code} value={code}>
+                    {code}
+                  </option>
                 ))}
               </select>
             </label>
@@ -277,7 +285,9 @@ export default function WithdrawToBankModal({ publicKey, onClose }: WithdrawToBa
                 className="input-field"
               >
                 {FIAT_CURRENCIES.map((code) => (
-                  <option key={code} value={code}>{code}</option>
+                  <option key={code} value={code}>
+                    {code}
+                  </option>
                 ))}
               </select>
             </label>
@@ -286,8 +296,8 @@ export default function WithdrawToBankModal({ publicKey, onClose }: WithdrawToBa
 
             <p className="text-xs text-amber-700">
               You&apos;ll provide your bank details on the anchor&apos;s secure form. The anchor
-              receives the {asset} payment from this wallet and pays out {fiat} to your
-              registered account.
+              receives the {asset} payment from this wallet and pays out {fiat} to your registered
+              account.
             </p>
             <button onClick={startWithdraw} className="btn-primary w-full">
               Continue
@@ -295,7 +305,9 @@ export default function WithdrawToBankModal({ publicKey, onClose }: WithdrawToBa
           </div>
         )}
 
-        {phase === "loading" && <p className="text-amber-200 text-sm">Authenticating with the anchor…</p>}
+        {phase === "loading" && (
+          <p className="text-amber-200 text-sm">Authenticating with the anchor…</p>
+        )}
 
         {(phase === "interactive" || phase === "polling") && (
           <div className="space-y-3">
@@ -316,12 +328,25 @@ export default function WithdrawToBankModal({ publicKey, onClose }: WithdrawToBa
             )}
             {transaction && (
               <dl className="text-xs text-amber-200 space-y-1">
-                <div className="flex justify-between"><dt>Transaction ID</dt><dd className="font-mono">{transaction.id.slice(0, 10)}…</dd></div>
+                <div className="flex justify-between">
+                  <dt>Transaction ID</dt>
+                  <dd className="font-mono">{transaction.id.slice(0, 10)}…</dd>
+                </div>
                 {transaction.amount_in && (
-                  <div className="flex justify-between"><dt>Amount sent</dt><dd>{transaction.amount_in} {asset}</dd></div>
+                  <div className="flex justify-between">
+                    <dt>Amount sent</dt>
+                    <dd>
+                      {transaction.amount_in} {asset}
+                    </dd>
+                  </div>
                 )}
                 {transaction.amount_out && (
-                  <div className="flex justify-between"><dt>Estimated payout</dt><dd>{transaction.amount_out} {fiat}</dd></div>
+                  <div className="flex justify-between">
+                    <dt>Estimated payout</dt>
+                    <dd>
+                      {transaction.amount_out} {fiat}
+                    </dd>
+                  </div>
                 )}
               </dl>
             )}
@@ -332,7 +357,12 @@ export default function WithdrawToBankModal({ publicKey, onClose }: WithdrawToBa
           <div className="space-y-3">
             <p className="text-emerald-400 text-sm font-medium">Withdrawal complete.</p>
             <dl className="text-xs text-amber-200 space-y-1">
-              <div className="flex justify-between"><dt>Sent to bank</dt><dd>{transaction.amount_out} {fiat}</dd></div>
+              <div className="flex justify-between">
+                <dt>Sent to bank</dt>
+                <dd>
+                  {transaction.amount_out} {fiat}
+                </dd>
+              </div>
               {transaction.external_transaction_id && (
                 <div className="flex justify-between">
                   <dt>Bank reference</dt>
@@ -340,7 +370,9 @@ export default function WithdrawToBankModal({ publicKey, onClose }: WithdrawToBa
                 </div>
               )}
             </dl>
-            <button onClick={onClose} className="btn-primary w-full">Done</button>
+            <button onClick={onClose} className="btn-primary w-full">
+              Done
+            </button>
           </div>
         )}
 

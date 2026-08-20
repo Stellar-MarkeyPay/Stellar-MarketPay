@@ -6,7 +6,15 @@ const { Keypair } = require("stellar-sdk");
 // POST /api/nft/mint-completion-certificate
 router.post("/mint-completion-certificate", async (req, res, next) => {
   try {
-    const { jobId, jobTitle, clientAddress, freelancerAddress, completionDate, paymentAmount, currency } = req.body;
+    const {
+      jobId,
+      jobTitle,
+      clientAddress,
+      freelancerAddress,
+      completionDate,
+      paymentAmount,
+      currency,
+    } = req.body;
 
     if (!jobId || !jobTitle || !clientAddress || !freelancerAddress || !paymentAmount) {
       return res.status(400).json({ error: "Missing required fields" });

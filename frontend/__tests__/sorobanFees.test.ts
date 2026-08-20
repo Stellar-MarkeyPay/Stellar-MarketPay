@@ -31,13 +31,11 @@ function makeTier(overrides: Partial<FeeTier> = {}): FeeTier {
   };
 }
 
-function makeDynamicFeeEstimate(
-  overrides: Partial<DynamicFeeEstimate> = {},
-): DynamicFeeEstimate {
+function makeDynamicFeeEstimate(overrides: Partial<DynamicFeeEstimate> = {}): DynamicFeeEstimate {
   return {
-    slow:   makeTier({ label: "Slow",   feeStroops: "350",  estimatedWaitLedgers: 6 }),
+    slow: makeTier({ label: "Slow", feeStroops: "350", estimatedWaitLedgers: 6 }),
     medium: makeTier({ label: "Medium", feeStroops: "1000", estimatedWaitLedgers: 2 }),
-    fast:   makeTier({ label: "Fast",   feeStroops: "2500", estimatedWaitLedgers: 1 }),
+    fast: makeTier({ label: "Fast", feeStroops: "2500", estimatedWaitLedgers: 1 }),
     spikeDetected: false,
     fetchedAt: "2024-01-01T00:00:00.000Z",
     cached: false,
@@ -81,7 +79,7 @@ describe("fetchDynamicFeeTiers", () => {
 
     expect(global.fetch).toHaveBeenCalledWith(
       expect.stringContaining("/api/gas-estimate"),
-      expect.any(Object),
+      expect.any(Object)
     );
     expect((global.fetch as jest.Mock).mock.calls[0][0]).not.toContain("/refresh");
   });
@@ -146,9 +144,9 @@ describe("pickTierFeeStroops", () => {
   });
 
   it("slow ≤ medium ≤ fast", () => {
-    const slow   = pickTierFeeStroops(estimate, "slow");
+    const slow = pickTierFeeStroops(estimate, "slow");
     const medium = pickTierFeeStroops(estimate, "medium");
-    const fast   = pickTierFeeStroops(estimate, "fast");
+    const fast = pickTierFeeStroops(estimate, "fast");
     expect(slow).toBeLessThanOrEqual(medium);
     expect(medium).toBeLessThanOrEqual(fast);
   });

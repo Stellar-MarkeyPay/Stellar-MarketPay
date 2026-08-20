@@ -4,15 +4,33 @@ import { useRouter } from "next/router";
 type CursorMap = Record<string, { start: number; end: number; updatedAt: number }>;
 
 type ScopeMessage =
-  | { event: "scope:init"; payload: { sessionId: string; participantId: string; content: string; cursors: CursorMap; finalized?: boolean; expiresAt?: string } }
+  | {
+      event: "scope:init";
+      payload: {
+        sessionId: string;
+        participantId: string;
+        content: string;
+        cursors: CursorMap;
+        finalized?: boolean;
+        expiresAt?: string;
+      };
+    }
   | { event: "scope:update"; payload: { sessionId: string; content: string; cursors: CursorMap } }
-  | { event: "scope:finalized"; payload: { sessionId: string; content: string; payload?: Record<string, string> } }
+  | {
+      event: "scope:finalized";
+      payload: { sessionId: string; content: string; payload?: Record<string, string> };
+    }
   | { event: "scope:error"; payload: { error: string } }
   | { event: "connected"; payload: { channel: string } };
 
 type ConnectionStatus = "connected" | "connecting" | "reconnecting" | "disconnected";
 
-type OutboundMessage = { type: string; content?: string; cursors?: CursorMap; payload?: Record<string, string> };
+type OutboundMessage = {
+  type: string;
+  content?: string;
+  cursors?: CursorMap;
+  payload?: Record<string, string>;
+};
 
 const CURSOR_COLORS = ["#f59e0b", "#34d399", "#60a5fa", "#f472b6", "#a78bfa", "#fb923c"];
 const PREFILL_KEY = "marketpay_scope_prefill";
@@ -125,7 +143,7 @@ export default function ScopeSessionPage() {
 
     const connect = (attempt = 0) => {
       const wsUrl = `${protocol}//${api.host}/ws/scope/${encodeURIComponent(sessionId)}?participantId=${encodeURIComponent(
-        participantIdRef.current,
+        participantIdRef.current
       )}`;
 
       setConnectionStatus(attempt === 0 ? "connecting" : "reconnecting");
@@ -314,10 +332,16 @@ export default function ScopeSessionPage() {
       <div className="card space-y-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="font-display text-2xl font-bold text-amber-100">Scope Collaboration Session</h1>
+            <h1 className="font-display text-2xl font-bold text-amber-100">
+              Scope Collaboration Session
+            </h1>
             <div className="flex items-center gap-2 mt-1">
-              <span className={`w-2 h-2 rounded-full ${finalized ? "bg-emerald-400" : statusDotClass}`} />
-              <p className="text-sm text-amber-800">{finalized ? "Scope finalized — document is now locked" : statusLabel}</p>
+              <span
+                className={`w-2 h-2 rounded-full ${finalized ? "bg-emerald-400" : statusDotClass}`}
+              />
+              <p className="text-sm text-amber-800">
+                {finalized ? "Scope finalized — document is now locked" : statusLabel}
+              </p>
             </div>
           </div>
           {!finalized && (
@@ -337,7 +361,9 @@ export default function ScopeSessionPage() {
             <span className="text-emerald-400 text-lg">✓</span>
             <div>
               <p className="text-sm font-medium text-emerald-300">Scope finalized</p>
-              <p className="text-xs text-emerald-600">This document is locked and has been used to create the job.</p>
+              <p className="text-xs text-emerald-600">
+                This document is locked and has been used to create the job.
+              </p>
             </div>
           </div>
         )}
@@ -349,15 +375,24 @@ export default function ScopeSessionPage() {
               <div className="flex-1">
                 <p className="text-sm font-medium text-amber-300">Session expiring soon</p>
                 <p className="text-xs text-amber-600 mt-1">
-                  This session will expire in {formatTimeRemaining(timeRemaining)}. Save your content now.
+                  This session will expire in {formatTimeRemaining(timeRemaining)}. Save your
+                  content now.
                 </p>
               </div>
             </div>
             <div className="flex gap-2">
-              <button type="button" onClick={downloadContent} className="btn-secondary px-3 py-1.5 text-xs">
+              <button
+                type="button"
+                onClick={downloadContent}
+                className="btn-secondary px-3 py-1.5 text-xs"
+              >
                 Download Content
               </button>
-              <button type="button" onClick={renewSession} className="btn-primary px-3 py-1.5 text-xs">
+              <button
+                type="button"
+                onClick={renewSession}
+                className="btn-primary px-3 py-1.5 text-xs"
+              >
                 Extend Session (24h)
               </button>
             </div>
@@ -375,17 +410,27 @@ export default function ScopeSessionPage() {
                 </p>
               </div>
             </div>
-            <button type="button" onClick={downloadContent} className="btn-secondary px-3 py-1.5 text-xs mt-3">
+            <button
+              type="button"
+              onClick={downloadContent}
+              className="btn-secondary px-3 py-1.5 text-xs mt-3"
+            >
               Download Content
             </button>
           </div>
         )}
 
         <div className="rounded-xl border border-market-500/20 bg-market-900/30 p-4 space-y-2">
-          <p className="text-xs uppercase tracking-wider text-amber-800/70">Share this session URL</p>
+          <p className="text-xs uppercase tracking-wider text-amber-800/70">
+            Share this session URL
+          </p>
           <div className="flex gap-2">
             <input className="input-field flex-1 text-xs" value={shareUrl} readOnly />
-            <button type="button" className="btn-secondary px-4 py-2 text-sm" onClick={() => navigator.clipboard.writeText(shareUrl)}>
+            <button
+              type="button"
+              className="btn-secondary px-4 py-2 text-sm"
+              onClick={() => navigator.clipboard.writeText(shareUrl)}
+            >
               Copy
             </button>
           </div>
@@ -404,7 +449,10 @@ export default function ScopeSessionPage() {
                   border: `1px solid ${CURSOR_COLORS[idx % CURSOR_COLORS.length]}40`,
                 }}
               >
-                <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: CURSOR_COLORS[idx % CURSOR_COLORS.length] }} />
+                <span
+                  className="w-1.5 h-1.5 rounded-full animate-pulse"
+                  style={{ background: CURSOR_COLORS[idx % CURSOR_COLORS.length] }}
+                />
                 {peerId.slice(0, 8)}
               </span>
             ))}
@@ -414,7 +462,9 @@ export default function ScopeSessionPage() {
         <div>
           <label className="label">
             Shared Scope Document
-            {!finalized && <span className="ml-2 text-xs text-amber-800 font-normal">(auto-saves every 2s)</span>}
+            {!finalized && (
+              <span className="ml-2 text-xs text-amber-800 font-normal">(auto-saves every 2s)</span>
+            )}
           </label>
           <textarea
             ref={textareaRef}

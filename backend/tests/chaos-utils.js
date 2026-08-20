@@ -63,9 +63,7 @@ class ChaosInjector {
         new Promise((_, reject) => {
           const timeout = setTimeout(() => {
             clearTimeout(timeout);
-            const error = new Error(
-              `Query timeout after ${timeoutMs}ms`
-            );
+            const error = new Error(`Query timeout after ${timeoutMs}ms`);
             error.code = "ETIMEDOUT";
             reject(error);
           }, timeoutMs);
@@ -150,9 +148,7 @@ class ChaosInjector {
     }
 
     const averageLatency =
-      latencies.length > 0
-        ? latencies.reduce((a, b) => a + b, 0) / latencies.length
-        : 0;
+      latencies.length > 0 ? latencies.reduce((a, b) => a + b, 0) / latencies.length : 0;
 
     const summary = {
       scenario: scenarioName,

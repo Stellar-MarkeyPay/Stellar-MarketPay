@@ -4,13 +4,13 @@ Predictive learning-to-rank for freelancer–job matching.
 
 ## Overview
 
-| Component | Location |
-|-----------|----------|
-| Training pipeline | `ml/train.py` |
-| Fairness audit | `ml/fairness_audit.py` |
-| Feature engineering | `backend/src/ml/featureEngineering.js` |
-| In-process ranker | `backend/src/ml/ranker.js` |
-| Serving API | `backend/src/routes/ranking.js` |
+| Component           | Location                                         |
+| ------------------- | ------------------------------------------------ |
+| Training pipeline   | `ml/train.py`                                    |
+| Fairness audit      | `ml/fairness_audit.py`                           |
+| Feature engineering | `backend/src/ml/featureEngineering.js`           |
+| In-process ranker   | `backend/src/ml/ranker.js`                       |
+| Serving API         | `backend/src/routes/ranking.js`                  |
 | Shadow-mode storage | `ml_ranking_shadow_events` table (V15 migration) |
 
 ## Prediction targets
@@ -59,24 +59,24 @@ Compares impression share for new vs established freelancers. Mitigation is buil
 
 ## Serving
 
-| Endpoint | Description |
-|----------|-------------|
-| `GET /api/ranking/jobs/:publicKey` | Ranked jobs for a freelancer |
+| Endpoint                              | Description                  |
+| ------------------------------------- | ---------------------------- |
+| `GET /api/ranking/jobs/:publicKey`    | Ranked jobs for a freelancer |
 | `GET /api/ranking/freelancers/:jobId` | Ranked freelancers for a job |
-| `GET /api/ranking/health` | Model + config status |
-| `GET /api/ranking/shadow-stats` | Shadow-mode comparison stats |
-| `GET /api/ranking/fairness-audit` | Live fairness exposure audit |
+| `GET /api/ranking/health`             | Model + config status        |
+| `GET /api/ranking/shadow-stats`       | Shadow-mode comparison stats |
+| `GET /api/ranking/fairness-audit`     | Live fairness exposure audit |
 
 ### Environment variables
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `ML_RANKING_ENABLED` | `true` | Set `false` to force baseline fallback |
-| `ML_RANKING_SHADOW_MODE` | `false` | Log ML vs baseline rankings |
-| `ML_RANKING_LATENCY_BUDGET_MS` | `200` | Warn threshold for p95 monitoring |
-| `ML_RANKING_COLD_START_MIN_HISTORY` | `2` | Min completed jobs before ML ranking |
-| `ML_RANKING_EXPLORATION_BUDGET` | `0.15` | Fraction of slots reserved for new talent |
-| `ML_RANKING_MODEL_PATH` | `backend/src/ml/defaultModel.json` | Exported model artifact |
+| Variable                            | Default                            | Description                               |
+| ----------------------------------- | ---------------------------------- | ----------------------------------------- |
+| `ML_RANKING_ENABLED`                | `true`                             | Set `false` to force baseline fallback    |
+| `ML_RANKING_SHADOW_MODE`            | `false`                            | Log ML vs baseline rankings               |
+| `ML_RANKING_LATENCY_BUDGET_MS`      | `200`                              | Warn threshold for p95 monitoring         |
+| `ML_RANKING_COLD_START_MIN_HISTORY` | `2`                                | Min completed jobs before ML ranking      |
+| `ML_RANKING_EXPLORATION_BUDGET`     | `0.15`                             | Fraction of slots reserved for new talent |
+| `ML_RANKING_MODEL_PATH`             | `backend/src/ml/defaultModel.json` | Exported model artifact                   |
 
 ### Cold-start fallback
 

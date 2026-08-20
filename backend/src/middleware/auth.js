@@ -50,10 +50,9 @@ async function requireAdmin2FA(req, res, next) {
   if (req.user?.role !== "admin") return next();
 
   try {
-    const { rows } = await pool.query(
-      "SELECT totp_enabled FROM admin_profiles WHERE id = $1",
-      [req.user.publicKey]
-    );
+    const { rows } = await pool.query("SELECT totp_enabled FROM admin_profiles WHERE id = $1", [
+      req.user.publicKey,
+    ]);
     if (rows[0]?.totp_enabled && !req.user["2fa_verified"]) {
       return res.status(403).json({ error: "2FA required", requires2FA: true });
     }

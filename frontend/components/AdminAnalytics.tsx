@@ -76,7 +76,12 @@ interface MetricsData {
   jobVolume: Array<{ date: string; jobs_created: number; jobs_completed: number }>;
 }
 
-function MetricCard({ title, value, subtitle, color = "blue" }: {
+function MetricCard({
+  title,
+  value,
+  subtitle,
+  color = "blue",
+}: {
   title: string;
   value: string | number;
   subtitle?: string;
@@ -106,7 +111,7 @@ export default function AdminAnalytics({ publicKey }: AdminAnalyticsProps) {
 
   useEffect(() => {
     if (!publicKey) return;
-    
+
     const loadMetrics = async () => {
       try {
         setLoading(true);
@@ -125,7 +130,7 @@ export default function AdminAnalytics({ publicKey }: AdminAnalyticsProps) {
 
   const exportCSV = () => {
     if (!metrics) return;
-    
+
     const csvData = [
       ["Metric", "Value"],
       ["Total Jobs", metrics.platformHealth.total_jobs],
@@ -142,7 +147,7 @@ export default function AdminAnalytics({ publicKey }: AdminAnalyticsProps) {
       ["Average Rating", metrics.qualityMetrics.avg_rating],
     ];
 
-    const csvContent = csvData.map(row => row.join(",")).join("\n");
+    const csvContent = csvData.map((row) => row.join(",")).join("\n");
     const blob = new Blob([csvContent], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -172,11 +177,11 @@ export default function AdminAnalytics({ publicKey }: AdminAnalyticsProps) {
 
   // Chart data
   const userGrowthData = {
-    labels: metrics.weeklyGrowth.map(w => format(new Date(w.week), "MMM dd")),
+    labels: metrics.weeklyGrowth.map((w) => format(new Date(w.week), "MMM dd")),
     datasets: [
       {
         label: "New Users",
-        data: metrics.weeklyGrowth.map(w => w.new_users),
+        data: metrics.weeklyGrowth.map((w) => w.new_users),
         borderColor: "rgb(59, 130, 246)",
         backgroundColor: "rgba(59, 130, 246, 0.1)",
         tension: 0.4,
@@ -185,34 +190,34 @@ export default function AdminAnalytics({ publicKey }: AdminAnalyticsProps) {
   };
 
   const jobVolumeData = {
-    labels: metrics.jobVolume.slice(-14).map(d => format(new Date(d.date), "MMM dd")),
+    labels: metrics.jobVolume.slice(-14).map((d) => format(new Date(d.date), "MMM dd")),
     datasets: [
       {
         label: "Jobs Created",
-        data: metrics.jobVolume.slice(-14).map(d => d.jobs_created),
+        data: metrics.jobVolume.slice(-14).map((d) => d.jobs_created),
         backgroundColor: "rgba(34, 197, 94, 0.8)",
       },
       {
         label: "Jobs Completed",
-        data: metrics.jobVolume.slice(-14).map(d => d.jobs_completed),
+        data: metrics.jobVolume.slice(-14).map((d) => d.jobs_completed),
         backgroundColor: "rgba(59, 130, 246, 0.8)",
       },
     ],
   };
 
   const disputeData = {
-    labels: metrics.disputeMetrics.map(d => format(new Date(d.week), "MMM dd")),
+    labels: metrics.disputeMetrics.map((d) => format(new Date(d.week), "MMM dd")),
     datasets: [
       {
         label: "Disputes Opened",
-        data: metrics.disputeMetrics.map(d => d.disputes_opened),
+        data: metrics.disputeMetrics.map((d) => d.disputes_opened),
         borderColor: "rgb(239, 68, 68)",
         backgroundColor: "rgba(239, 68, 68, 0.1)",
         tension: 0.4,
       },
       {
         label: "Disputes Resolved",
-        data: metrics.disputeMetrics.map(d => d.disputes_resolved),
+        data: metrics.disputeMetrics.map((d) => d.disputes_resolved),
         borderColor: "rgb(34, 197, 94)",
         backgroundColor: "rgba(34, 197, 94, 0.1)",
         tension: 0.4,
@@ -269,8 +274,16 @@ export default function AdminAnalytics({ publicKey }: AdminAnalyticsProps) {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <MetricCard title="Total Jobs" value={metrics.platformHealth.total_jobs} color="blue" />
           <MetricCard title="Open Jobs" value={metrics.platformHealth.open_jobs} color="amber" />
-          <MetricCard title="Completion Rate" value={`${metrics.platformHealth.completion_rate}%`} color="green" />
-          <MetricCard title="Dispute Rate" value={`${metrics.platformHealth.dispute_rate}%`} color="red" />
+          <MetricCard
+            title="Completion Rate"
+            value={`${metrics.platformHealth.completion_rate}%`}
+            color="green"
+          />
+          <MetricCard
+            title="Dispute Rate"
+            value={`${metrics.platformHealth.dispute_rate}%`}
+            color="red"
+          />
         </div>
       </section>
 
@@ -281,11 +294,19 @@ export default function AdminAnalytics({ publicKey }: AdminAnalyticsProps) {
           <MetricCard title="Total Users" value={metrics.userGrowth.total_users} color="blue" />
           <MetricCard title="Freelancers" value={metrics.userGrowth.freelancers} color="green" />
           <MetricCard title="Clients" value={metrics.userGrowth.clients} color="amber" />
-          <MetricCard title="New Users" value={metrics.userGrowth.new_users_period} subtitle={`Last ${period}`} color="blue" />
+          <MetricCard
+            title="New Users"
+            value={metrics.userGrowth.new_users_period}
+            subtitle={`Last ${period}`}
+            color="blue"
+          />
         </div>
         <div className="bg-market-800 p-4 rounded-lg">
           <h4 className="font-medium text-amber-100 mb-3">Weekly User Growth</h4>
-          <Line data={userGrowthData} options={{ responsive: true, plugins: { legend: { display: false } } }} />
+          <Line
+            data={userGrowthData}
+            options={{ responsive: true, plugins: { legend: { display: false } } }}
+          />
         </div>
       </section>
 
@@ -293,10 +314,26 @@ export default function AdminAnalytics({ publicKey }: AdminAnalyticsProps) {
       <section>
         <h3 className="font-semibold text-amber-100 mb-4">Financial Overview</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <MetricCard title="XLM in Escrow" value={`${Number(metrics.financialMetrics.total_xlm_escrow).toFixed(2)}`} color="amber" />
-          <MetricCard title="XLM Released" value={`${Number(metrics.financialMetrics.total_xlm_released).toFixed(2)}`} color="green" />
-          <MetricCard title="Avg Job Budget" value={`${Number(metrics.financialMetrics.avg_job_budget).toFixed(2)} XLM`} color="blue" />
-          <MetricCard title="Active Escrows" value={metrics.financialMetrics.active_escrows} color="amber" />
+          <MetricCard
+            title="XLM in Escrow"
+            value={`${Number(metrics.financialMetrics.total_xlm_escrow).toFixed(2)}`}
+            color="amber"
+          />
+          <MetricCard
+            title="XLM Released"
+            value={`${Number(metrics.financialMetrics.total_xlm_released).toFixed(2)}`}
+            color="green"
+          />
+          <MetricCard
+            title="Avg Job Budget"
+            value={`${Number(metrics.financialMetrics.avg_job_budget).toFixed(2)} XLM`}
+            color="blue"
+          />
+          <MetricCard
+            title="Active Escrows"
+            value={metrics.financialMetrics.active_escrows}
+            color="amber"
+          />
         </div>
       </section>
 
@@ -305,19 +342,28 @@ export default function AdminAnalytics({ publicKey }: AdminAnalyticsProps) {
         {/* Job Volume Chart */}
         <div className="bg-market-800 p-4 rounded-lg">
           <h4 className="font-medium text-amber-100 mb-3">Daily Job Volume (Last 14 days)</h4>
-          <Bar data={jobVolumeData} options={{ responsive: true, plugins: { legend: { position: "top" } } }} />
+          <Bar
+            data={jobVolumeData}
+            options={{ responsive: true, plugins: { legend: { position: "top" } } }}
+          />
         </div>
 
         {/* Job Status Distribution */}
         <div className="bg-market-800 p-4 rounded-lg">
           <h4 className="font-medium text-amber-100 mb-3">Job Status Distribution</h4>
-          <Doughnut data={jobStatusData} options={{ responsive: true, plugins: { legend: { position: "bottom" } } }} />
+          <Doughnut
+            data={jobStatusData}
+            options={{ responsive: true, plugins: { legend: { position: "bottom" } } }}
+          />
         </div>
 
         {/* Dispute Trends */}
         <div className="bg-market-800 p-4 rounded-lg">
           <h4 className="font-medium text-amber-100 mb-3">Dispute Trends</h4>
-          <Line data={disputeData} options={{ responsive: true, plugins: { legend: { position: "top" } } }} />
+          <Line
+            data={disputeData}
+            options={{ responsive: true, plugins: { legend: { position: "top" } } }}
+          />
         </div>
 
         {/* Top Earners */}
@@ -325,7 +371,10 @@ export default function AdminAnalytics({ publicKey }: AdminAnalyticsProps) {
           <h4 className="font-medium text-amber-100 mb-3">Top Earners</h4>
           <div className="space-y-2 max-h-64 overflow-y-auto">
             {metrics.topEarners.map((earner, index) => (
-              <div key={earner.public_key} className="flex items-center justify-between p-2 bg-market-700 rounded">
+              <div
+                key={earner.public_key}
+                className="flex items-center justify-between p-2 bg-market-700 rounded"
+              >
                 <div>
                   <p className="text-sm font-medium text-amber-100">
                     #{index + 1} {earner.display_name || "Anonymous"}
@@ -347,9 +396,21 @@ export default function AdminAnalytics({ publicKey }: AdminAnalyticsProps) {
       <section>
         <h3 className="font-semibold text-amber-100 mb-4">Quality Metrics</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <MetricCard title="Average Rating" value={`${Number(metrics.qualityMetrics.avg_rating).toFixed(1)} ⭐`} color="green" />
-          <MetricCard title="Total Ratings" value={metrics.qualityMetrics.total_ratings} color="blue" />
-          <MetricCard title="Repeat Hires" value={metrics.qualityMetrics.repeat_hires} color="amber" />
+          <MetricCard
+            title="Average Rating"
+            value={`${Number(metrics.qualityMetrics.avg_rating).toFixed(1)} ⭐`}
+            color="green"
+          />
+          <MetricCard
+            title="Total Ratings"
+            value={metrics.qualityMetrics.total_ratings}
+            color="blue"
+          />
+          <MetricCard
+            title="Repeat Hires"
+            value={metrics.qualityMetrics.repeat_hires}
+            color="amber"
+          />
         </div>
       </section>
     </div>

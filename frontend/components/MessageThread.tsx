@@ -18,7 +18,11 @@ interface MessageThreadProps {
   otherUserAddress: string;
 }
 
-export default function MessageThread({ jobId, currentUserAddress, otherUserAddress }: MessageThreadProps) {
+export default function MessageThread({
+  jobId,
+  currentUserAddress,
+  otherUserAddress,
+}: MessageThreadProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
@@ -116,9 +120,7 @@ export default function MessageThread({ jobId, currentUserAddress, otherUserAddr
 
       // Replace optimistic message with real one
       if (isMountedRef.current) {
-        setMessages((prev) =>
-          prev.map((m) => (m.id === tempId ? sentMessage : m))
-        );
+        setMessages((prev) => prev.map((m) => (m.id === tempId ? sentMessage : m)));
       }
     } catch (e: unknown) {
       // Remove optimistic message on error
@@ -143,11 +145,14 @@ export default function MessageThread({ jobId, currentUserAddress, otherUserAddr
       <div className="card border-market-500/12">
         <div className="flex flex-col gap-3 py-8">
           {[1, 2, 3].map((i) => (
-            <div key={i} className={clsx(
-              "animate-pulse rounded-2xl px-4 py-3 max-w-[80%]",
-              i === 2 ? "mx-auto w-fit" : "",
-              i % 2 === 1 ? "ml-auto bg-market-500/10" : "bg-ink-800"
-            )}>
+            <div
+              key={i}
+              className={clsx(
+                "animate-pulse rounded-2xl px-4 py-3 max-w-[80%]",
+                i === 2 ? "mx-auto w-fit" : "",
+                i % 2 === 1 ? "ml-auto bg-market-500/10" : "bg-ink-800"
+              )}
+            >
               <div className="h-4 bg-market-500/20 rounded w-32 mb-2" />
               <div className="h-3 bg-market-500/15 rounded w-24" />
             </div>
@@ -188,9 +193,7 @@ export default function MessageThread({ jobId, currentUserAddress, otherUserAddr
       >
         {messages.length === 0 ? (
           <div className="text-center py-12">
-            <p className="text-amber-800 text-sm">
-              No messages yet. Start the conversation!
-            </p>
+            <p className="text-amber-800 text-sm">No messages yet. Start the conversation!</p>
           </div>
         ) : (
           messages.map((msg) => {
@@ -207,13 +210,9 @@ export default function MessageThread({ jobId, currentUserAddress, otherUserAddr
                   <span className="text-xs font-semibold text-market-400">
                     {own ? "You" : shortenAddress(msg.senderAddress)}
                   </span>
-                  <span className="text-[10px] text-amber-900">
-                    {timeAgo(msg.createdAt)}
-                  </span>
+                  <span className="text-[10px] text-amber-900">{timeAgo(msg.createdAt)}</span>
                 </div>
-                <p className="text-amber-100 text-sm leading-relaxed break-words">
-                  {msg.content}
-                </p>
+                <p className="text-amber-100 text-sm leading-relaxed break-words">{msg.content}</p>
               </div>
             );
           })
@@ -246,15 +245,13 @@ export default function MessageThread({ jobId, currentUserAddress, otherUserAddr
             disabled={!input.trim() || sending}
             className={clsx(
               "btn-primary text-sm py-2.5 px-5 whitespace-nowrap",
-              (!input.trim() || sending) ? "opacity-50 cursor-not-allowed" : ""
+              !input.trim() || sending ? "opacity-50 cursor-not-allowed" : ""
             )}
           >
             {sending ? "Sending…" : "Send"}
           </button>
         </div>
-        <p className="text-[10px] text-amber-900 mt-2 text-right">
-          {input.length}/2000
-        </p>
+        <p className="text-[10px] text-amber-900 mt-2 text-right">{input.length}/2000</p>
       </form>
     </div>
   );

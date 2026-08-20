@@ -296,10 +296,9 @@ async function reviewInvoice({ invoiceId, clientAddress, decision, contractTxHas
     throw e;
   }
 
-  const { rows: invRows } = await pool.query(
-    "SELECT * FROM time_invoices WHERE id = $1",
-    [invoiceId]
-  );
+  const { rows: invRows } = await pool.query("SELECT * FROM time_invoices WHERE id = $1", [
+    invoiceId,
+  ]);
   if (!invRows.length) {
     const e = new Error("Invoice not found");
     e.status = 404;

@@ -3,7 +3,12 @@
  * Send XLM or USDC payment from the connected wallet.
  */
 import { useEffect, useMemo, useState } from "react";
-import { buildPaymentTransaction, submitTransaction, isValidStellarAddress, explorerUrl } from "@/lib/stellar";
+import {
+  buildPaymentTransaction,
+  submitTransaction,
+  isValidStellarAddress,
+  explorerUrl,
+} from "@/lib/stellar";
 import { signTransactionWithWallet } from "@/lib/wallet";
 import clsx from "clsx";
 
@@ -36,16 +41,16 @@ interface SendPaymentFormProps {
 }
 
 export default function SendPaymentForm({ fromPublicKey }: SendPaymentFormProps) {
-  const [asset, setAsset]         = useState<Asset>("XLM");
+  const [asset, setAsset] = useState<Asset>("XLM");
   const [recipient, setRecipient] = useState("");
   const [contacts, setContacts] = useState<AddressBookContact[]>([]);
   const [contactNickname, setContactNickname] = useState("");
   const [lastRecipient, setLastRecipient] = useState("");
-  const [amount, setAmount]       = useState("");
-  const [memo, setMemo]           = useState("");
+  const [amount, setAmount] = useState("");
+  const [memo, setMemo] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [txHash, setTxHash]         = useState<string | null>(null);
-  const [error, setError]           = useState<string | null>(null);
+  const [txHash, setTxHash] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     setContacts(loadContacts());
@@ -56,9 +61,10 @@ export default function SendPaymentForm({ fromPublicKey }: SendPaymentFormProps)
     const query = recipient.trim().toLowerCase();
     if (!query) return contacts.slice(0, 5);
     return contacts
-      .filter((contact) =>
-        contact.nickname.toLowerCase().includes(query) ||
-        contact.address.toLowerCase().includes(query),
+      .filter(
+        (contact) =>
+          contact.nickname.toLowerCase().includes(query) ||
+          contact.address.toLowerCase().includes(query)
       )
       .slice(0, 5);
   }, [contacts, recipient]);
@@ -80,9 +86,15 @@ export default function SendPaymentForm({ fromPublicKey }: SendPaymentFormProps)
     setError(null);
     setTxHash(null);
 
-    if (!recipientValid) { setError("Invalid Stellar address."); return; }
+    if (!recipientValid) {
+      setError("Invalid Stellar address.");
+      return;
+    }
     const parsed = parseFloat(amount);
-    if (isNaN(parsed) || parsed <= 0) { setError("Enter a valid amount greater than 0."); return; }
+    if (isNaN(parsed) || parsed <= 0) {
+      setError("Enter a valid amount greater than 0.");
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -186,7 +198,9 @@ export default function SendPaymentForm({ fromPublicKey }: SendPaymentFormProps)
       />
 
       {/* Memo */}
-      <label className="label block mb-1">Memo <span className="text-amber-900 font-normal">(optional)</span></label>
+      <label className="label block mb-1">
+        Memo <span className="text-amber-900 font-normal">(optional)</span>
+      </label>
       <input
         type="text"
         value={memo}
@@ -205,13 +219,20 @@ export default function SendPaymentForm({ fromPublicKey }: SendPaymentFormProps)
         <div className="mb-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm space-y-3">
           <p>
             ✅ Sent!{" "}
-            <a href={explorerUrl(txHash)} target="_blank" rel="noopener noreferrer" className="underline hover:text-emerald-300">
+            <a
+              href={explorerUrl(txHash)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline hover:text-emerald-300"
+            >
               View on Stellar Expert ↗
             </a>
           </p>
           {lastRecipient && !contacts.some((contact) => contact.address === lastRecipient) && (
             <div className="rounded-lg border border-emerald-500/20 bg-ink-900/50 p-3">
-              <p className="text-xs text-emerald-200 mb-2">Add this recipient to your address book?</p>
+              <p className="text-xs text-emerald-200 mb-2">
+                Add this recipient to your address book?
+              </p>
               <div className="flex gap-2">
                 <input
                   value={contactNickname}

@@ -3,8 +3,8 @@
  */
 "use strict";
 const express = require("express");
-const router  = express.Router();
-const pool    = require("../db/pool");
+const router = express.Router();
+const pool = require("../db/pool");
 const { createRateLimiter } = require("../middleware/rateLimiter");
 const { verifyJWT } = require("../middleware/auth");
 const multer = require("multer");
@@ -41,7 +41,8 @@ router.get("/", generalProfileRateLimiter, async (req, res, next) => {
     const { role, availability, search, limit } = req.query;
     const profiles = await listProfiles({
       role: typeof role === "string" && role.trim() ? role : undefined,
-      availability: typeof availability === "string" && availability.trim() ? availability : undefined,
+      availability:
+        typeof availability === "string" && availability.trim() ? availability : undefined,
       search: typeof search === "string" && search.trim() ? search : undefined,
       limit: typeof limit === "string" ? Number(limit) : undefined,
     });
@@ -54,7 +55,9 @@ router.get("/", generalProfileRateLimiter, async (req, res, next) => {
 router.get(
   "/:publicKey",
   generalProfileRateLimiter,
-  edgeCacheControl(CONTENT_TYPES.SEMI_DYNAMIC, { surrogateKeys: (req) => surrogateKeysForProfile(req.params.publicKey) }),
+  edgeCacheControl(CONTENT_TYPES.SEMI_DYNAMIC, {
+    surrogateKeys: (req) => surrogateKeysForProfile(req.params.publicKey),
+  }),
   async (req, res, next) => {
     try {
       const key = cache.profileKey(req.params.publicKey);
@@ -72,19 +75,26 @@ router.get(
       });
       res.set("X-Cache", "MISS");
       res.json({ success: true, data });
+    } catch (e) {
+      next(e);
     }
-    catch (e) { next(e); }
   }
 );
 
 router.get("/:publicKey/stats", generalProfileRateLimiter, async (req, res, next) => {
-  try { res.json({ success: true, data: await getProfileStats(req.params.publicKey) }); }
-  catch (e) { next(e); }
+  try {
+    res.json({ success: true, data: await getProfileStats(req.params.publicKey) });
+  } catch (e) {
+    next(e);
+  }
 });
 
 router.get("/:publicKey/response-time", generalProfileRateLimiter, async (req, res, next) => {
-  try { res.json({ success: true, data: await getResponseTime(req.params.publicKey) }); }
-  catch (e) { next(e); }
+  try {
+    res.json({ success: true, data: await getResponseTime(req.params.publicKey) });
+  } catch (e) {
+    next(e);
+  }
 });
 
 router.post("/", profileUpdateRateLimiter, async (req, res, next) => {
@@ -92,8 +102,9 @@ router.post("/", profileUpdateRateLimiter, async (req, res, next) => {
     const data = await upsertProfile(req.body);
     if (req.body.publicKey) await cache.del(cache.profileKey(req.body.publicKey));
     res.json({ success: true, data });
+  } catch (e) {
+    next(e);
   }
-  catch (e) { next(e); }
 });
 
 // GET /api/profiles/:publicKey/notifications - Get notification preferences
@@ -101,7 +112,7 @@ router.get("/:publicKey/notifications", generalProfileRateLimiter, async (req, r
   try {
     const { getUserPreferences } = require("../services/notificationService");
     const prefs = await getUserPreferences(req.params.publicKey);
-    
+
     if (!prefs) {
       return res.status(404).json({ success: false, error: "Profile not found" });
     }
@@ -155,8 +166,9 @@ router.post("/:publicKey/availability", profileUpdateRateLimiter, async (req, re
       success: true,
       data: await updateAvailability(req.params.publicKey, req.body),
     });
+  } catch (e) {
+    next(e);
   }
-  catch (e) { next(e); }
 });
 
 router.get("/:publicKey/price-alerts", generalProfileRateLimiter, async (req, res, next) => {
@@ -233,19 +245,28 @@ router.post("/:publicKey/block", verifyJWT, profileUpdateRateLimiter, async (req
     const { address } = req.body;
     const profile = await blockFreelancer(req.params.publicKey, address);
     res.json({ success: true, data: profile });
-  } catch (e) { next(e); }
+  } catch (e) {
+    next(e);
+  }
 });
 
 // DELETE /api/profiles/:publicKey/block/:address — unblock a freelancer
-router.delete("/:publicKey/block/:address", verifyJWT, profileUpdateRateLimiter, async (req, res, next) => {
-  try {
-    if (req.user.publicKey !== req.params.publicKey) {
-      return res.status(403).json({ error: "You can only manage your own block list" });
+router.delete(
+  "/:publicKey/block/:address",
+  verifyJWT,
+  profileUpdateRateLimiter,
+  async (req, res, next) => {
+    try {
+      if (req.user.publicKey !== req.params.publicKey) {
+        return res.status(403).json({ error: "You can only manage your own block list" });
+      }
+      const profile = await unblockFreelancer(req.params.publicKey, req.params.address);
+      res.json({ success: true, data: profile });
+    } catch (e) {
+      next(e);
     }
-    const profile = await unblockFreelancer(req.params.publicKey, req.params.address);
-    res.json({ success: true, data: profile });
-  } catch (e) { next(e); }
-});
+  }
+);
 
 // GET /api/profiles/:publicKey/earnings — freelancer earnings history (Issue #181)
 router.get("/:publicKey/earnings", generalProfileRateLimiter, async (req, res, next) => {
@@ -314,9 +335,10 @@ router.get("/:publicKey/earnings", generalProfileRateLimiter, async (req, res, n
         })),
       },
     });
-  } catch (e) { next(e); }
+  } catch (e) {
+    next(e);
+  }
 });
-
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -329,9 +351,13 @@ router.post("/:publicKey/portfolio", verifyJWT, upload.single("file"), async (re
     if (req.user.publicKey !== publicKey) return res.status(403).json({ error: "Unauthorized" });
     if (!req.file) return res.status(400).json({ error: "File is required" });
 
-    const { rows } = await pool.query("SELECT portfolio_items FROM profiles WHERE public_key = $1", [publicKey]);
+    const { rows } = await pool.query(
+      "SELECT portfolio_items FROM profiles WHERE public_key = $1",
+      [publicKey]
+    );
     const current = rows[0]?.portfolio_items || [];
-    if (current.length >= 10) return res.status(400).json({ error: "Maximum 10 portfolio items allowed" });
+    if (current.length >= 10)
+      return res.status(400).json({ error: "Maximum 10 portfolio items allowed" });
 
     const uploaded = await uploadFile(req.file.buffer, req.file.originalname, req.file.mimetype);
     const item = {
@@ -347,10 +373,15 @@ router.post("/:publicKey/portfolio", verifyJWT, upload.single("file"), async (re
     };
 
     const updated = [...current, item];
-    await pool.query("UPDATE profiles SET portfolio_items = $2::jsonb, updated_at = NOW() WHERE public_key = $1", [publicKey, JSON.stringify(updated)]);
+    await pool.query(
+      "UPDATE profiles SET portfolio_items = $2::jsonb, updated_at = NOW() WHERE public_key = $1",
+      [publicKey, JSON.stringify(updated)]
+    );
 
     res.json({ success: true, data: item });
-  } catch (e) { next(e); }
+  } catch (e) {
+    next(e);
+  }
 });
 
 // GET /api/profiles/:publicKey/endorsements — get skill endorsements
@@ -358,7 +389,9 @@ router.get("/:publicKey/endorsements", generalProfileRateLimiter, async (req, re
   try {
     const data = await getSkillEndorsements(req.params.publicKey);
     res.json({ success: true, data });
-  } catch (e) { next(e); }
+  } catch (e) {
+    next(e);
+  }
 });
 
 // POST /api/profiles/:publicKey/endorse — endorse a skill
@@ -400,7 +433,9 @@ router.post("/:publicKey/endorse", verifyJWT, async (req, res, next) => {
     await endorseSkill({ skill: skill.trim(), endorserAddress, recipientAddress: publicKey });
 
     res.status(201).json({ success: true, data: { skill: skill.trim(), endorsed: true } });
-  } catch (e) { next(e); }
+  } catch (e) {
+    next(e);
+  }
 });
 
 router.delete("/:publicKey/portfolio/:itemId", verifyJWT, async (req, res, next) => {
@@ -408,17 +443,24 @@ router.delete("/:publicKey/portfolio/:itemId", verifyJWT, async (req, res, next)
     const { publicKey, itemId } = req.params;
     if (req.user.publicKey !== publicKey) return res.status(403).json({ error: "Unauthorized" });
 
-    const { rows } = await pool.query("SELECT portfolio_items FROM profiles WHERE public_key = $1", [publicKey]);
+    const { rows } = await pool.query(
+      "SELECT portfolio_items FROM profiles WHERE public_key = $1",
+      [publicKey]
+    );
     const current = rows[0]?.portfolio_items || [];
     const nextItems = current.filter((item) => item.id !== itemId);
 
-    if (nextItems.length === current.length) return res.status(404).json({ error: "Portfolio item not found" });
+    if (nextItems.length === current.length)
+      return res.status(404).json({ error: "Portfolio item not found" });
 
-    await pool.query("UPDATE profiles SET portfolio_items = $2::jsonb, updated_at = NOW() WHERE public_key = $1", [publicKey, JSON.stringify(nextItems)]);
+    await pool.query(
+      "UPDATE profiles SET portfolio_items = $2::jsonb, updated_at = NOW() WHERE public_key = $1",
+      [publicKey, JSON.stringify(nextItems)]
+    );
 
     res.json({ success: true, data: { deleted: true } });
-  } catch (e) { next(e); }
+  } catch (e) {
+    next(e);
+  }
 });
 module.exports = router;
-
-

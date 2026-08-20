@@ -86,7 +86,7 @@ describe("analytics service", () => {
           category: "Smart Contracts",
           deadline: "2026-12-31T23:59:59Z",
         },
-        "GABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABC",
+        "GABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABC"
       );
 
       expect(prediction.estimatedDurationDays).toBeGreaterThan(0);

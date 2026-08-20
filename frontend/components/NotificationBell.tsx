@@ -16,7 +16,9 @@ interface NotificationBellProps {
 }
 
 function resolveNotificationHref(notification: NotificationItem) {
-  return notification.linkPath || (notification.jobId ? `/jobs/${notification.jobId}` : "/notifications");
+  return (
+    notification.linkPath || (notification.jobId ? `/jobs/${notification.jobId}` : "/notifications")
+  );
 }
 
 export default function NotificationBell({ publicKey }: NotificationBellProps) {
@@ -51,10 +53,12 @@ export default function NotificationBell({ publicKey }: NotificationBellProps) {
     fetchNotificationPreferences()
       .then((result) => {
         if (!active) return;
-        setDecentralizedEnabled(Boolean(
-          result.preferences.escrow_created?.decentralized
-            && result.preferences.dispute_opened?.decentralized,
-        ));
+        setDecentralizedEnabled(
+          Boolean(
+            result.preferences.escrow_created?.decentralized &&
+            result.preferences.dispute_opened?.decentralized
+          )
+        );
       })
       .catch(() => undefined);
 
@@ -80,9 +84,7 @@ export default function NotificationBell({ publicKey }: NotificationBellProps) {
   async function handleNotificationClick(notification: NotificationItem) {
     if (!notification.read) {
       setNotifications((items) =>
-        items.map((item) =>
-          item.id === notification.id ? { ...item, read: true } : item,
-        ),
+        items.map((item) => (item.id === notification.id ? { ...item, read: true } : item))
       );
       setUnreadCount((count) => Math.max(count - 1, 0));
       await markNotificationRead(notification.id).catch(() => undefined);
@@ -122,8 +124,18 @@ export default function NotificationBell({ publicKey }: NotificationBellProps) {
         aria-label="Notifications"
         title="Notifications"
       >
-        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.4-1.4A2 2 0 0118 14.2V11a6 6 0 10-12 0v3.2c0 .5-.2 1-.6 1.4L4 17h5m6 0a3 3 0 11-6 0m6 0H9" />
+        <svg
+          className="w-4 h-4"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={2}
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M15 17h5l-1.4-1.4A2 2 0 0118 14.2V11a6 6 0 10-12 0v3.2c0 .5-.2 1-.6 1.4L4 17h5m6 0a3 3 0 11-6 0m6 0H9"
+          />
         </svg>
         {unreadCount > 0 && (
           <span className="absolute -top-1 -right-1 min-w-[1.1rem] h-[1.1rem] px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold leading-[1.1rem] text-center">
@@ -157,7 +169,9 @@ export default function NotificationBell({ publicKey }: NotificationBellProps) {
               />
               <span>
                 <span className="block font-semibold text-amber-100">Decentralized alerts</span>
-                <span className="text-amber-700">Use Push Protocol for funded jobs and disputes, even if MarketPay is offline.</span>
+                <span className="text-amber-700">
+                  Use Push Protocol for funded jobs and disputes, even if MarketPay is offline.
+                </span>
               </span>
             </label>
           </div>
@@ -175,7 +189,7 @@ export default function NotificationBell({ publicKey }: NotificationBellProps) {
                   onClick={() => handleNotificationClick(notification)}
                   className={clsx(
                     "w-full px-4 py-3 text-left border-b border-amber-900/20 hover:bg-market-500/8 transition-colors",
-                    !notification.read && "bg-market-500/10",
+                    !notification.read && "bg-market-500/10"
                   )}
                 >
                   <span className="flex items-start gap-2">

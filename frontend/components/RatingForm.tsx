@@ -13,16 +13,24 @@ interface RatingFormProps {
   onSuccess?: () => void;
 }
 
-export default function RatingForm({ jobId, ratedAddress, ratedLabel, onSuccess }: RatingFormProps) {
-  const [stars, setStars]     = useState(0);
+export default function RatingForm({
+  jobId,
+  ratedAddress,
+  ratedLabel,
+  onSuccess,
+}: RatingFormProps) {
+  const [stars, setStars] = useState(0);
   const [hovered, setHovered] = useState(0);
-  const [review, setReview]   = useState("");
+  const [review, setReview] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [submitted, setSubmitted]   = useState(false);
-  const [error, setError]           = useState<string | null>(null);
+  const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async () => {
-    if (stars < 1) { setError("Please select a star rating."); return; }
+    if (stars < 1) {
+      setError("Please select a star rating.");
+      return;
+    }
     setSubmitting(true);
     setError(null);
     try {

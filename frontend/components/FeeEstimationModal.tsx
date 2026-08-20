@@ -64,9 +64,7 @@ export default function FeeEstimationModal({
   return (
     <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
       <div className="card max-w-md w-full bg-ink-900 border border-market-500/20">
-        <h2 className="font-display text-xl font-bold text-amber-100 mb-1">
-          Confirm transaction
-        </h2>
+        <h2 className="font-display text-xl font-bold text-amber-100 mb-1">Confirm transaction</h2>
         <p className="text-xs text-amber-700 mb-4">
           {describeContractCall(functionName)} — review the fee before signing.
         </p>
@@ -95,7 +93,9 @@ export default function FeeEstimationModal({
             <div className="flex justify-between">
               <dt className="text-amber-700">Wallet balance</dt>
               <dd className="font-mono">
-                {balance ? `${parseFloat(balance).toLocaleString("en-US", { maximumFractionDigits: 7 })} XLM` : "—"}
+                {balance
+                  ? `${parseFloat(balance).toLocaleString("en-US", { maximumFractionDigits: 7 })} XLM`
+                  : "—"}
               </dd>
             </div>
           </dl>

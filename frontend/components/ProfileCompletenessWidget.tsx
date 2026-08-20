@@ -82,7 +82,7 @@ export default function ProfileCompletenessWidget({
     <div
       className={clsx(
         "rounded-2xl border bg-gradient-to-br from-ink-800 to-ink-900 overflow-hidden transition-all duration-300",
-        isComplete ? "border-emerald-500/30" : "border-market-500/20",
+        isComplete ? "border-emerald-500/30" : "border-market-500/20"
       )}
       role="region"
       aria-label="Profile completeness"
@@ -95,7 +95,7 @@ export default function ProfileCompletenessWidget({
             "flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center text-xs font-mono font-bold border-2",
             isComplete
               ? "border-emerald-400 text-emerald-400 bg-emerald-500/10"
-              : "border-market-400 text-market-400 bg-market-500/10",
+              : "border-market-400 text-market-400 bg-market-500/10"
           )}
           aria-hidden="true"
         >
@@ -118,7 +118,7 @@ export default function ProfileCompletenessWidget({
                 "h-full rounded-full transition-all duration-500",
                 isComplete
                   ? "bg-gradient-to-r from-emerald-500 to-emerald-400"
-                  : "bg-gradient-to-r from-market-500 to-market-400",
+                  : "bg-gradient-to-r from-market-500 to-market-400"
               )}
               style={{ width: `${completionPercentage}%` }}
               role="progressbar"
@@ -142,7 +142,7 @@ export default function ProfileCompletenessWidget({
             <svg
               className={clsx(
                 "w-4 h-4 transition-transform duration-200",
-                collapsed ? "rotate-180" : "",
+                collapsed ? "rotate-180" : ""
               )}
               fill="none"
               viewBox="0 0 24 24"
@@ -173,7 +173,7 @@ export default function ProfileCompletenessWidget({
                 "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border text-left transition-all",
                 item.completed
                   ? "bg-emerald-500/5 border-emerald-500/15 cursor-default"
-                  : "bg-ink-900/60 border-market-500/15 hover:border-market-500/40 hover:bg-ink-900/80 cursor-pointer group",
+                  : "bg-ink-900/60 border-market-500/15 hover:border-market-500/40 hover:bg-ink-900/80 cursor-pointer group"
               )}
             >
               {/* Status icon */}
@@ -182,16 +182,11 @@ export default function ProfileCompletenessWidget({
                   "flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center",
                   item.completed
                     ? "bg-emerald-500/10 text-emerald-400"
-                    : "bg-market-500/10 text-market-400",
+                    : "bg-market-500/10 text-market-400"
                 )}
               >
                 {item.completed ? (
-                  <svg
-                    className="w-4 h-4"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path
                       strokeLinecap="round"
                       strokeLinejoin="round"
@@ -200,9 +195,7 @@ export default function ProfileCompletenessWidget({
                     />
                   </svg>
                 ) : (
-                  <span className="w-4 h-4 flex items-center justify-center">
-                    {item.icon}
-                  </span>
+                  <span className="w-4 h-4 flex items-center justify-center">{item.icon}</span>
                 )}
               </div>
 
@@ -210,9 +203,7 @@ export default function ProfileCompletenessWidget({
               <span
                 className={clsx(
                   "flex-1 text-sm font-medium",
-                  item.completed
-                    ? "text-emerald-400 line-through"
-                    : "text-amber-100",
+                  item.completed ? "text-emerald-400 line-through" : "text-amber-100"
                 )}
               >
                 {item.label}
@@ -257,8 +248,7 @@ export default function ProfileCompletenessWidget({
         <div className="px-4 pb-4">
           <div className="w-full h-px bg-emerald-500/10 mb-3" />
           <p className="text-sm text-amber-700">
-            Your profile is fully set up. Clients can find everything they need
-            to hire you.
+            Your profile is fully set up. Clients can find everything they need to hire you.
           </p>
         </div>
       )}

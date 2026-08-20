@@ -39,7 +39,7 @@ describe("PriceContext", () => {
 
   it("throws a descriptive error outside PriceProvider", () => {
     expect(() => render(<OutsideProviderProbe />)).toThrow(
-      "usePriceContext must be used within a PriceProvider",
+      "usePriceContext must be used within a PriceProvider"
     );
   });
 
@@ -51,7 +51,7 @@ describe("PriceContext", () => {
     render(
       <PriceProvider>
         <PriceProbe />
-      </PriceProvider>,
+      </PriceProvider>
     );
 
     expect(screen.getByTestId("currency")).toHaveTextContent("XLM");

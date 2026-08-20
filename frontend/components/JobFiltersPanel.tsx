@@ -26,7 +26,7 @@ interface JobFiltersPanelProps {
 
 export function buildActiveFilterChips(
   query: JobFilterQuery,
-  labels: Record<string, string>,
+  labels: Record<string, string>
 ): { key: string; label: string; removeKeys: string[] }[] {
   const chips: { key: string; label: string; removeKeys: string[] }[] = [];
   if (query.minBudget || query.maxBudget) {
@@ -109,7 +109,7 @@ export default function JobFiltersPanel({
             onChange={(e) =>
               onQueryChange(
                 { minBudget: e.target.value || undefined },
-                e.target.value ? undefined : ["minBudget"],
+                e.target.value ? undefined : ["minBudget"]
               )
             }
             className="w-full bg-market-900/40 border border-amber-900/30 rounded px-2 py-1 text-xs text-amber-100"
@@ -122,7 +122,7 @@ export default function JobFiltersPanel({
             onChange={(e) =>
               onQueryChange(
                 { maxBudget: e.target.value || undefined },
-                e.target.value ? undefined : ["maxBudget"],
+                e.target.value ? undefined : ["maxBudget"]
               )
             }
             className="w-full bg-market-900/40 border border-amber-900/30 rounded px-2 py-1 text-xs text-amber-100"
@@ -134,9 +134,7 @@ export default function JobFiltersPanel({
           max={5000}
           step={10}
           value={query.maxBudget ? Number(query.maxBudget) : 500}
-          onChange={(e) =>
-            onQueryChange({ maxBudget: e.target.value }, undefined)
-          }
+          onChange={(e) => onQueryChange({ maxBudget: e.target.value }, undefined)}
           className="w-full accent-market-400"
           aria-label={t("jobs.budgetRange")}
         />
@@ -152,7 +150,7 @@ export default function JobFiltersPanel({
             if (skillInput.trim() !== (query.skills || "")) {
               onQueryChange(
                 { skills: skillInput.trim() || undefined },
-                skillInput.trim() ? undefined : ["skills"],
+                skillInput.trim() ? undefined : ["skills"]
               );
             }
           }}
@@ -169,7 +167,7 @@ export default function JobFiltersPanel({
                 "text-[10px] px-2 py-0.5 rounded-full border transition-colors",
                 selectedSkills.includes(skill)
                   ? "bg-market-500/20 text-market-300 border-market-500/40"
-                  : "text-amber-800 border-amber-900/30 hover:border-market-500/30",
+                  : "text-amber-800 border-amber-900/30 hover:border-market-500/30"
               )}
             >
               {skill}
@@ -186,7 +184,7 @@ export default function JobFiltersPanel({
           onChange={(e) =>
             onQueryChange(
               { minClientRating: e.target.value || undefined },
-              e.target.value ? undefined : ["minClientRating"],
+              e.target.value ? undefined : ["minClientRating"]
             )
           }
           className="w-full bg-market-900/40 border border-amber-900/30 rounded px-2 py-1.5 text-xs text-amber-100"
@@ -207,7 +205,7 @@ export default function JobFiltersPanel({
           onChange={(e) =>
             onQueryChange(
               { duration: e.target.value || undefined },
-              e.target.value ? undefined : ["duration"],
+              e.target.value ? undefined : ["duration"]
             )
           }
           className="w-full bg-market-900/40 border border-amber-900/30 rounded px-2 py-1.5 text-xs text-amber-100"
@@ -227,7 +225,7 @@ export default function JobFiltersPanel({
           onChange={(e) =>
             onQueryChange(
               { postedSince: e.target.value || undefined },
-              e.target.value ? undefined : ["postedSince"],
+              e.target.value ? undefined : ["postedSince"]
             )
           }
           className="w-full bg-market-900/40 border border-amber-900/30 rounded px-2 py-1.5 text-xs text-amber-100"
@@ -246,14 +244,14 @@ export default function JobFiltersPanel({
           onClick={() =>
             onQueryChange(
               query.maxApplications === "5" ? {} : { maxApplications: "5" },
-              query.maxApplications === "5" ? ["maxApplications"] : undefined,
+              query.maxApplications === "5" ? ["maxApplications"] : undefined
             )
           }
           className={clsx(
             "w-full text-left px-3 py-2 rounded-lg text-sm transition-colors",
             query.maxApplications === "5"
               ? "bg-market-500/15 text-market-300 font-medium"
-              : "text-amber-700 hover:bg-market-500/8",
+              : "text-amber-700 hover:bg-market-500/8"
           )}
         >
           {t("jobs.lowCompetition")}
@@ -263,18 +261,15 @@ export default function JobFiltersPanel({
       <button
         type="button"
         onClick={() => {
-          onQueryChange(
-            {},
-            [
-              "minBudget",
-              "maxBudget",
-              "skills",
-              "minClientRating",
-              "duration",
-              "postedSince",
-              "maxApplications",
-            ],
-          );
+          onQueryChange({}, [
+            "minBudget",
+            "maxBudget",
+            "skills",
+            "minClientRating",
+            "duration",
+            "postedSince",
+            "maxApplications",
+          ]);
           setSkillInput("");
         }}
         className="text-xs text-market-400 hover:text-market-300 font-semibold w-full"

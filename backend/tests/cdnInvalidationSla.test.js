@@ -32,14 +32,21 @@ const SLA_SECONDS = 5;
 
 describe("CDN invalidation SLA (event -> targeted purge < 5s)", () => {
   test("a single job-closed event purges within SLA using the primary provider", async () => {
-    pool.query.mockResolvedValueOnce({ rows: [{ client_address: "GCLIENT", freelancer_address: "GFREELANCER" }] });
+    pool.query.mockResolvedValueOnce({
+      rows: [{ client_address: "GCLIENT", freelancer_address: "GFREELANCER" }],
+    });
 
     const primary = createMockProvider("primary");
     const cdnService = new CdnService({ providers: [primary] });
-    const invalidation = new CdnInvalidationService({ cdnService, publicBaseUrl: "https://app.example" });
+    const invalidation = new CdnInvalidationService({
+      cdnService,
+      publicBaseUrl: "https://app.example",
+    });
 
     const receivedAt = Date.now();
-    const result = await invalidation.handleContractEvent("escrow_released", "job-sla-1", { receivedAt });
+    const result = await invalidation.handleContractEvent("escrow_released", "job-sla-1", {
+      receivedAt,
+    });
 
     expect(result.latencySeconds).toBeLessThan(SLA_SECONDS);
     expect(result.provider).toBe("primary");
@@ -48,15 +55,25 @@ describe("CDN invalidation SLA (event -> targeted purge < 5s)", () => {
   });
 
   test("still meets SLA after failing over from a down primary to the secondary provider", async () => {
-    pool.query.mockResolvedValueOnce({ rows: [{ client_address: "GCLIENT", freelancer_address: null }] });
+    pool.query.mockResolvedValueOnce({
+      rows: [{ client_address: "GCLIENT", freelancer_address: null }],
+    });
 
-    const downProvider = { name: "primary-down", purge: () => Promise.reject(new Error("vendor outage")) };
+    const downProvider = {
+      name: "primary-down",
+      purge: () => Promise.reject(new Error("vendor outage")),
+    };
     const secondary = createMockProvider("secondary");
     const cdnService = new CdnService({ providers: [downProvider, secondary], timeoutMs: 500 });
-    const invalidation = new CdnInvalidationService({ cdnService, publicBaseUrl: "https://app.example" });
+    const invalidation = new CdnInvalidationService({
+      cdnService,
+      publicBaseUrl: "https://app.example",
+    });
 
     const receivedAt = Date.now();
-    const result = await invalidation.handleContractEvent("dispute_opened", "job-sla-2", { receivedAt });
+    const result = await invalidation.handleContractEvent("dispute_opened", "job-sla-2", {
+      receivedAt,
+    });
 
     expect(result.failedOver).toBe(true);
     expect(result.provider).toBe("secondary");
@@ -64,11 +81,16 @@ describe("CDN invalidation SLA (event -> targeted purge < 5s)", () => {
   });
 
   test("propagation latency across a burst of 20 concurrent events stays within SLA at p95", async () => {
-    pool.query.mockResolvedValue({ rows: [{ client_address: "GCLIENT", freelancer_address: "GFREELANCER" }] });
+    pool.query.mockResolvedValue({
+      rows: [{ client_address: "GCLIENT", freelancer_address: "GFREELANCER" }],
+    });
 
     const primary = createMockProvider("primary");
     const cdnService = new CdnService({ providers: [primary] });
-    const invalidation = new CdnInvalidationService({ cdnService, publicBaseUrl: "https://app.example" });
+    const invalidation = new CdnInvalidationService({
+      cdnService,
+      publicBaseUrl: "https://app.example",
+    });
 
     const latencies = await Promise.all(
       Array.from({ length: 20 }, (_, i) =>

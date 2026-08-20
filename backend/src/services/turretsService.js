@@ -35,7 +35,7 @@ async function submitViaTurret(transactionXDR, options = {}) {
     const payload = {
       xdr: transactionXDR,
       network: HORIZON_URL.includes("testnet") ? "testnet" : "public",
-      ...options
+      ...options,
     };
 
     // Add API key if available
@@ -47,8 +47,8 @@ async function submitViaTurret(transactionXDR, options = {}) {
     const response = await axios.post(`${TURRET_URL}/api/v1/submit`, payload, {
       headers,
       timeout: 30000,
-      "maxContentLength": 1000000,
-      "maxBodyLength": 1000000
+      maxContentLength: 1000000,
+      maxBodyLength: 1000000,
     });
 
     if (!response.data) {
@@ -61,18 +61,18 @@ async function submitViaTurret(transactionXDR, options = {}) {
       ledger: response.data.ledger,
       feeCharged: response.data.fee_charged || "0",
       turretUsed: true,
-      message: "Transaction submitted via Stellar Turret"
+      message: "Transaction submitted via Stellar Turret",
     };
   } catch (error) {
     console.error("Turret submission error:", error.response?.data || error.message);
-    
+
     if (error.response?.status === 400) {
       const message = error.response?.data?.error || "Invalid transaction";
       const e = new Error(`Turret error: ${message}`);
       e.status = 400;
       throw e;
     }
-    
+
     if (error.response?.status === 429) {
       const e = new Error("Turret rate limit exceeded. Please try again later.");
       e.status = 429;
@@ -103,20 +103,23 @@ async function submitTransaction(transactionXDR, options = {}) {
     const turretResult = await submitViaTurret(transactionXDR, options);
     return turretResult;
   } catch (turretError) {
-    console.warn("Turret submission failed, falling back to direct submission:", turretError.message);
-    
+    console.warn(
+      "Turret submission failed, falling back to direct submission:",
+      turretError.message
+    );
+
     // Fallback to direct Horizon submission
     try {
       const server = new Server(HORIZON_URL);
       const result = await server.submitTransaction(transactionXDR);
-      
+
       return {
         success: true,
         hash: result.hash,
         ledger: result.ledger,
         feeCharged: result.feeCharged || "0",
         turretUsed: false,
-        message: "Transaction submitted directly (Turret unavailable)"
+        message: "Transaction submitted directly (Turret unavailable)",
       };
     } catch (directError) {
       console.error("Direct submission also failed:", directError.message);
@@ -135,13 +138,13 @@ async function getTurretStatus() {
   if (!TURRET_URL) {
     return {
       available: false,
-      message: "Turret not configured"
+      message: "Turret not configured",
     };
   }
 
   try {
     const response = await axios.get(`${TURRET_URL}/api/v1/status`, {
-      timeout: 5000
+      timeout: 5000,
     });
 
     return {
@@ -150,14 +153,14 @@ async function getTurretStatus() {
       network: response.data.network || "unknown",
       version: response.data.version || "unknown",
       feeSponsorship: response.data.fee_sponsorship || false,
-      message: "Turret service available"
+      message: "Turret service available",
     };
   } catch (error) {
     return {
       available: false,
       url: TURRET_URL,
       message: "Turret service unavailable",
-      error: error.message
+      error: error.message,
     };
   }
 }
@@ -183,7 +186,7 @@ async function estimateTurretFee(transactionXDR) {
   try {
     const payload = {
       xdr: transactionXDR,
-      network: HORIZON_URL.includes("testnet") ? "testnet" : "public"
+      network: HORIZON_URL.includes("testnet") ? "testnet" : "public",
     };
 
     const headers = {};
@@ -193,7 +196,7 @@ async function estimateTurretFee(transactionXDR) {
 
     const response = await axios.post(`${TURRET_URL}/api/v1/estimate`, payload, {
       headers,
-      timeout: 10000
+      timeout: 10000,
     });
 
     return {
@@ -201,11 +204,11 @@ async function estimateTurretFee(transactionXDR) {
       baseFee: response.data.base_fee || "100",
       turretFee: response.data.turret_fee || "0",
       totalFee: response.data.total_fee || "100",
-      feeSponsored: response.data.fee_sponsored || false
+      feeSponsored: response.data.fee_sponsored || false,
     };
   } catch (error) {
     console.error("Turret fee estimation error:", error.response?.data || error.message);
-    
+
     // Return default fee estimation
     return {
       success: false,
@@ -213,7 +216,7 @@ async function estimateTurretFee(transactionXDR) {
       turretFee: "0",
       totalFee: "100",
       feeSponsored: false,
-      message: "Unable to estimate Turret fees, using default"
+      message: "Unable to estimate Turret fees, using default",
     };
   }
 }
@@ -243,5 +246,5 @@ module.exports = {
   submitTransaction,
   getTurretStatus,
   estimateTurretFee,
-  shouldUseTurret
+  shouldUseTurret,
 };

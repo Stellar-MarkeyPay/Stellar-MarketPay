@@ -18,7 +18,7 @@ const {
 } = require("../services/jobInvitationService");
 const { submitApplication } = require("../services/applicationService");
 
-const readLimiter  = createRateLimiter(60, 1);
+const readLimiter = createRateLimiter(60, 1);
 const writeLimiter = createRateLimiter(20, 1);
 
 /**
@@ -55,10 +55,9 @@ router.patch("/:id/decline", verifyJWT, writeLimiter, async (req, res, next) => 
 router.post("/:id/accept", verifyJWT, writeLimiter, async (req, res, next) => {
   try {
     const pool = require("../db/pool");
-    const { rows } = await pool.query(
-      "SELECT * FROM job_invitations WHERE id = $1",
-      [req.params.id]
-    );
+    const { rows } = await pool.query("SELECT * FROM job_invitations WHERE id = $1", [
+      req.params.id,
+    ]);
     if (!rows.length) {
       const e = new Error("Invitation not found");
       e.status = 404;
@@ -86,10 +85,9 @@ router.post("/:id/accept", verifyJWT, writeLimiter, async (req, res, next) => {
     });
 
     // Mark invitation as accepted
-    await pool.query(
-      "UPDATE job_invitations SET status = 'accepted' WHERE id = $1",
-      [req.params.id]
-    );
+    await pool.query("UPDATE job_invitations SET status = 'accepted' WHERE id = $1", [
+      req.params.id,
+    ]);
 
     res.status(201).json({ success: true, data: application });
   } catch (e) {

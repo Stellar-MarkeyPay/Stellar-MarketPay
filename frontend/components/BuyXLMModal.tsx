@@ -86,7 +86,9 @@ export default function BuyXLMModal({ publicKey, onClose, onComplete }: BuyXLMMo
       if (finalRecord?.status === "completed") {
         setTransaction(finalRecord);
         setPhase("completed");
-        toast.success(`Deposit complete — ${finalRecord.amount_out || ""} ${assetCode} arrived in your wallet.`);
+        toast.success(
+          `Deposit complete — ${finalRecord.amount_out || ""} ${assetCode} arrived in your wallet.`
+        );
         onComplete?.();
       } else if (finalRecord) {
         setTransaction(finalRecord);
@@ -137,7 +139,9 @@ export default function BuyXLMModal({ publicKey, onClose, onComplete }: BuyXLMMo
                 className="input-field"
               >
                 {availableAssets.map((code) => (
-                  <option key={code} value={code}>{code}</option>
+                  <option key={code} value={code}>
+                    {code}
+                  </option>
                 ))}
               </select>
             </label>
@@ -175,12 +179,23 @@ export default function BuyXLMModal({ publicKey, onClose, onComplete }: BuyXLMMo
             )}
             {transaction && (
               <dl className="text-xs text-amber-200 space-y-1">
-                <div className="flex justify-between"><dt>Transaction ID</dt><dd className="font-mono">{transaction.id.slice(0, 10)}…</dd></div>
+                <div className="flex justify-between">
+                  <dt>Transaction ID</dt>
+                  <dd className="font-mono">{transaction.id.slice(0, 10)}…</dd>
+                </div>
                 {transaction.amount_in && (
-                  <div className="flex justify-between"><dt>Amount in</dt><dd>{transaction.amount_in}</dd></div>
+                  <div className="flex justify-between">
+                    <dt>Amount in</dt>
+                    <dd>{transaction.amount_in}</dd>
+                  </div>
                 )}
                 {transaction.amount_out && (
-                  <div className="flex justify-between"><dt>Amount out</dt><dd>{transaction.amount_out} {assetCode}</dd></div>
+                  <div className="flex justify-between">
+                    <dt>Amount out</dt>
+                    <dd>
+                      {transaction.amount_out} {assetCode}
+                    </dd>
+                  </div>
                 )}
               </dl>
             )}
@@ -191,7 +206,13 @@ export default function BuyXLMModal({ publicKey, onClose, onComplete }: BuyXLMMo
           <div className="space-y-3">
             <p className="text-emerald-400 text-sm font-medium">Deposit complete.</p>
             <dl className="text-xs text-amber-200 space-y-1">
-              <div className="flex justify-between"><dt>Received</dt><dd>{transaction.amount_out} {assetCode} {usdNote && <span className="text-amber-700">({usdNote})</span>}</dd></div>
+              <div className="flex justify-between">
+                <dt>Received</dt>
+                <dd>
+                  {transaction.amount_out} {assetCode}{" "}
+                  {usdNote && <span className="text-amber-700">({usdNote})</span>}
+                </dd>
+              </div>
               {transaction.stellar_transaction_id && (
                 <div className="flex justify-between">
                   <dt>Stellar tx</dt>
@@ -199,7 +220,9 @@ export default function BuyXLMModal({ publicKey, onClose, onComplete }: BuyXLMMo
                 </div>
               )}
             </dl>
-            <button onClick={onClose} className="btn-primary w-full">Done</button>
+            <button onClick={onClose} className="btn-primary w-full">
+              Done
+            </button>
           </div>
         )}
 

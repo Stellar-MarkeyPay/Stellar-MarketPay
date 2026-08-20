@@ -68,13 +68,11 @@ describe("profileService", () => {
         availableFrom: "2026-05-01T00:00:00.000Z",
       });
       expect(pool.query).toHaveBeenCalledTimes(1);
-      expect(JSON.parse(pool.query.mock.calls[0][1][4])).toEqual(
-        [
-          { title: "Repo", url: "https://github.com/example/repo", type: "github" },
-          { title: "Launch", url: "https://example.com", type: "live" },
-          { title: "Escrow release", url: "abc123tx", type: "stellar_tx" },
-        ]
-      );
+      expect(JSON.parse(pool.query.mock.calls[0][1][4])).toEqual([
+        { title: "Repo", url: "https://github.com/example/repo", type: "github" },
+        { title: "Launch", url: "https://example.com", type: "live" },
+        { title: "Escrow release", url: "abc123tx", type: "stellar_tx" },
+      ]);
     });
 
     it("rejects invalid portfolio item type", async () => {
@@ -128,9 +126,7 @@ describe("profileService", () => {
       // The Rising Talent tier requires an account younger than 90 days, so
       // anchor the fixture to "now" instead of a fixed date that ages out of
       // the window and turns this into a Newcomer months after it was written.
-      const recentCreatedAt = new Date(
-        Date.now() - 30 * 24 * 60 * 60 * 1000,
-      ).toISOString();
+      const recentCreatedAt = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
       const profileRow = {
         public_key: publicKey,
         display_name: "Jane Doe",
@@ -152,17 +148,17 @@ describe("profileService", () => {
         created_at: recentCreatedAt,
         updated_at: recentCreatedAt,
       };
-      pool.query
-        .mockResolvedValueOnce({ rows: [profileRow] })
-        .mockResolvedValueOnce({
-          rows: [{
+      pool.query.mockResolvedValueOnce({ rows: [profileRow] }).mockResolvedValueOnce({
+        rows: [
+          {
             created_at: profileRow.created_at,
             completed_jobs: 3,
             total_jobs: 3,
             total_earned_xlm: "150.0000000",
             avg_rating: "4.80",
-          }],
-        });
+          },
+        ],
+      });
 
       const profile = await getProfile(publicKey);
 
@@ -182,23 +178,27 @@ describe("profileService", () => {
 
   describe("calculateFreelancerTier", () => {
     it("returns Expert for high volume, rating, and earnings", () => {
-      expect(calculateFreelancerTier({
-        completedJobs: 20,
-        totalJobs: 20,
-        rating: 4.8,
-        totalEarnedXlm: 500,
-        createdAt: "2025-01-01T00:00:00.000Z",
-      })).toBe("Expert");
+      expect(
+        calculateFreelancerTier({
+          completedJobs: 20,
+          totalJobs: 20,
+          rating: 4.8,
+          totalEarnedXlm: 500,
+          createdAt: "2025-01-01T00:00:00.000Z",
+        })
+      ).toBe("Expert");
     });
 
     it("returns Top Rated for strong rating and completion rate", () => {
-      expect(calculateFreelancerTier({
-        completedJobs: 9,
-        totalJobs: 10,
-        rating: 4.5,
-        totalEarnedXlm: 300,
-        createdAt: "2025-01-01T00:00:00.000Z",
-      })).toBe("Top Rated");
+      expect(
+        calculateFreelancerTier({
+          completedJobs: 9,
+          totalJobs: 10,
+          rating: 4.5,
+          totalEarnedXlm: 300,
+          createdAt: "2025-01-01T00:00:00.000Z",
+        })
+      ).toBe("Top Rated");
     });
   });
 

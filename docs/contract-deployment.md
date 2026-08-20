@@ -4,12 +4,12 @@ This guide walks through building, deploying, and verifying the MarketPay escrow
 
 ## Prerequisites
 
-| Tool | Notes |
-|------|--------|
-| Rust ≥ 1.74 | `rustup` with `wasm32-unknown-unknown` target |
-| Soroban CLI | [Stellar CLI](https://developers.stellar.org/docs/build/smart-contracts/getting-started/setup) (`stellar` command) |
-| Stellar account | Funded account on the target network (testnet via Friendbot) |
-| Node.js ≥ 18 | For backend env updates after deploy |
+| Tool            | Notes                                                                                                              |
+| --------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Rust ≥ 1.74     | `rustup` with `wasm32-unknown-unknown` target                                                                      |
+| Soroban CLI     | [Stellar CLI](https://developers.stellar.org/docs/build/smart-contracts/getting-started/setup) (`stellar` command) |
+| Stellar account | Funded account on the target network (testnet via Friendbot)                                                       |
+| Node.js ≥ 18    | For backend env updates after deploy                                                                               |
 
 Install the WASM target:
 
@@ -125,11 +125,11 @@ Confirm the transaction on [Stellar Expert (testnet)](https://stellar.expert/exp
 
 Mainnet follows the same commands with `--network mainnet` and mainnet endpoints:
 
-| Setting | Value |
-|---------|--------|
-| `HORIZON_URL` | `https://horizon.stellar.org` |
-| `SOROBAN_RPC` | `https://soroban-mainnet.stellar.org` |
-| `STELLAR_NETWORK` | `mainnet` |
+| Setting           | Value                                 |
+| ----------------- | ------------------------------------- |
+| `HORIZON_URL`     | `https://horizon.stellar.org`         |
+| `SOROBAN_RPC`     | `https://soroban-mainnet.stellar.org` |
+| `STELLAR_NETWORK` | `mainnet`                             |
 
 Checklist before mainnet:
 

@@ -33,7 +33,7 @@ async function fundTestnetWallet(publicKey) {
   try {
     // Get current balance before funding
     const account = await stellarAccountCache.getAccount(publicKey);
-    const currentBalance = account.balances.find(b => b.asset_type === "native")?.balance || "0";
+    const currentBalance = account.balances.find((b) => b.asset_type === "native")?.balance || "0";
 
     // If account already has balance, don't fund it
     if (parseFloat(currentBalance) > 0) {
@@ -41,13 +41,13 @@ async function fundTestnetWallet(publicKey) {
         success: false,
         message: "Account already has testnet XLM balance",
         currentBalance,
-        fundedAmount: "0"
+        fundedAmount: "0",
       };
     }
 
     // Call Friendbot to fund the account
     const response = await axios.post(`${FRIENDBOT_URL}?addr=${publicKey}`);
-    
+
     if (!response.data) {
       throw new Error("Invalid response from Friendbot");
     }
@@ -55,7 +55,8 @@ async function fundTestnetWallet(publicKey) {
     // Get updated balance after funding — invalidate cache to fetch fresh data
     stellarAccountCache.invalidate(publicKey);
     const updatedAccount = await stellarAccountCache.getAccount(publicKey);
-    const newBalance = updatedAccount.balances.find(b => b.asset_type === "native")?.balance || "0";
+    const newBalance =
+      updatedAccount.balances.find((b) => b.asset_type === "native")?.balance || "0";
     const fundedAmount = (parseFloat(newBalance) - parseFloat(currentBalance)).toString();
 
     return {
@@ -64,11 +65,11 @@ async function fundTestnetWallet(publicKey) {
       fundedAmount,
       newBalance,
       transactionHash: response.data.hash,
-      ledger: response.data.ledger
+      ledger: response.data.ledger,
     };
   } catch (error) {
     console.error("Faucet funding error:", error.response?.data || error.message);
-    
+
     // Handle specific Friendbot errors
     if (error.response?.status === 400) {
       const message = error.response?.data?.detail || "Invalid request";
@@ -76,7 +77,7 @@ async function fundTestnetWallet(publicKey) {
       e.status = 400;
       throw e;
     }
-    
+
     if (error.response?.status === 429) {
       const e = new Error("Rate limit exceeded. Please try again later.");
       e.status = 429;
@@ -110,12 +111,12 @@ async function checkAccountNeedsFunding(publicKey) {
 
   try {
     const account = await stellarAccountCache.getAccount(publicKey);
-    const balance = account.balances.find(b => b.asset_type === "native")?.balance || "0";
-    
+    const balance = account.balances.find((b) => b.asset_type === "native")?.balance || "0";
+
     return {
       needsFunding: parseFloat(balance) === 0,
       currentBalance: balance,
-      exists: true
+      exists: true,
     };
   } catch (error) {
     // If account doesn't exist, it needs funding
@@ -123,10 +124,10 @@ async function checkAccountNeedsFunding(publicKey) {
       return {
         needsFunding: true,
         currentBalance: "0",
-        exists: false
+        exists: false,
       };
     }
-    
+
     console.error("Account check error:", error.message);
     const e = new Error(`Failed to check account: ${error.message}`);
     e.status = 500;
@@ -145,5 +146,5 @@ function isTestnet() {
 module.exports = {
   fundTestnetWallet,
   checkAccountNeedsFunding,
-  isTestnet
+  isTestnet,
 };

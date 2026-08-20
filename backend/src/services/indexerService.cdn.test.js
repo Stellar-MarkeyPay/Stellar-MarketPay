@@ -70,11 +70,17 @@ describe("IndexerService -> CdnInvalidationService wiring", () => {
     await indexer.processEvent(makeEvent({ topic: ["message_sent", "job-1"] }));
     await Promise.resolve();
 
-    expect(cdnInvalidation.handleContractEvent).toHaveBeenCalledWith("message_sent", "job-1", expect.anything());
+    expect(cdnInvalidation.handleContractEvent).toHaveBeenCalledWith(
+      "message_sent",
+      "job-1",
+      expect.anything()
+    );
   });
 
   test("a rejected purge is logged, not thrown, so indexing continues", async () => {
-    const cdnInvalidation = { handleContractEvent: jest.fn().mockRejectedValue(new Error("all providers down")) };
+    const cdnInvalidation = {
+      handleContractEvent: jest.fn().mockRejectedValue(new Error("all providers down")),
+    };
     const indexer = makeIndexer(cdnInvalidation);
     const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
 
@@ -82,7 +88,10 @@ describe("IndexerService -> CdnInvalidationService wiring", () => {
     await Promise.resolve();
     await Promise.resolve();
 
-    expect(errorSpy).toHaveBeenCalledWith("[Indexer] CDN invalidation failed:", "all providers down");
+    expect(errorSpy).toHaveBeenCalledWith(
+      "[Indexer] CDN invalidation failed:",
+      "all providers down"
+    );
     errorSpy.mockRestore();
   });
 

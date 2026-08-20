@@ -150,9 +150,7 @@ const API_BASE = optionalClientEnv("NEXT_PUBLIC_API_URL", "http://localhost:4000
  *
  * @param forceRefresh  When true, tells the backend to bypass its cache.
  */
-export async function fetchDynamicFeeTiers(
-  forceRefresh = false,
-): Promise<DynamicFeeEstimate> {
+export async function fetchDynamicFeeTiers(forceRefresh = false): Promise<DynamicFeeEstimate> {
   const path = forceRefresh ? "/api/gas-estimate/refresh" : "/api/gas-estimate";
   const res = await fetch(`${API_BASE}${path}`, {
     headers: { "Content-Type": "application/json" },
@@ -164,7 +162,7 @@ export async function fetchDynamicFeeTiers(
     throw new Error(`Gas estimator request failed: ${res.status} ${res.statusText}`);
   }
 
-  const json = await res.json() as { success: boolean; data: DynamicFeeEstimate };
+  const json = (await res.json()) as { success: boolean; data: DynamicFeeEstimate };
   if (!json.success || !json.data) {
     throw new Error("Gas estimator returned an unexpected response shape");
   }
@@ -182,7 +180,7 @@ export async function fetchDynamicFeeTiers(
  */
 export function pickTierFeeStroops(
   estimate: DynamicFeeEstimate,
-  tier: "slow" | "medium" | "fast" = "medium",
+  tier: "slow" | "medium" | "fast" = "medium"
 ): number {
   return Number(estimate[tier].feeStroops);
 }

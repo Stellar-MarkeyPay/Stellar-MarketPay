@@ -38,13 +38,13 @@ The Decentralized Storage Insurance system monitors the availability of files st
 
 The insurance system defines SLA requirements:
 
-| Metric | Value | Purpose |
-|--------|-------|---------|
-| **Availability Threshold** | 99% | Minimum availability requirement |
-| **Premium Rate** | 2% annually | Insurance premium as % of file value |
-| **Maximum Payout** | 100% | Maximum claim payout per file |
-| **Check Interval** | 1 hour | Frequency of availability checks |
-| **Claim Wait Period** | 24 hours | Time before claim can be paid out |
+| Metric                     | Value       | Purpose                              |
+| -------------------------- | ----------- | ------------------------------------ |
+| **Availability Threshold** | 99%         | Minimum availability requirement     |
+| **Premium Rate**           | 2% annually | Insurance premium as % of file value |
+| **Maximum Payout**         | 100%        | Maximum claim payout per file        |
+| **Check Interval**         | 1 hour      | Frequency of availability checks     |
+| **Claim Wait Period**      | 24 hours    | Time before claim can be paid out    |
 
 ### Premium Model
 
@@ -55,10 +55,12 @@ Premium = File Value × Base Rate (2%) × Size Multiplier
 ```
 
 **Size Multiplier:**
+
 - 1-10 MB: 0.1x - 1.0x
 - 10-100 MB: Caps at 2.0x
 
 **Example:**
+
 - File: 5 MB, Value: 1000 XLM
 - Size Multiplier: 5/10 = 0.5
 - Premium: 1000 × 0.02 × 0.5 = **10 XLM/year**
@@ -72,6 +74,7 @@ Availability Score = Passed Checks / Total Checks
 ```
 
 When score drops below 99%:
+
 1. SLA violation is detected
 2. Insurance claim is automatically created
 3. User can submit proof of unavailability
@@ -107,6 +110,7 @@ Response:
 ```
 
 **On-Chain:**
+
 - Policy stored on Soroban
 - Premium amount locked (optional)
 - Policy ID generated
@@ -120,6 +124,7 @@ await slaMonitor.performAvailabilityCheck(fileId);
 ```
 
 **Process:**
+
 1. Query IPFS node or Arweave gateway
 2. Record result (available/unavailable)
 3. Update availability score
@@ -134,6 +139,7 @@ const claim = await slaMonitor.evaluateInsuranceClaim(fileId);
 ```
 
 **Automatically creates claim with:**
+
 - Evidence: availability metrics
 - Status: pending
 - Wait period: 24 hours
@@ -157,6 +163,7 @@ Content-Type: application/json
 ```
 
 **Proof verifies:**
+
 - File is actually unavailable
 - Checks were performed correctly
 - Oracle is authorized
@@ -171,6 +178,7 @@ contract.approve_and_payout(claim_id);
 ```
 
 **Payout:**
+
 - Transfers claim amount to user's address
 - Marks policy as claimed
 - Logs transaction on blockchain
@@ -199,6 +207,7 @@ GET /api/insurance/claims/:id
 ### Insurance Policies
 
 #### Create Policy
+
 ```http
 POST /api/insurance/policies
 Authorization: Bearer <token>
@@ -213,6 +222,7 @@ Content-Type: application/json
 ```
 
 **Response:** `201 Created`
+
 ```json
 {
   "success": true,
@@ -227,12 +237,14 @@ Content-Type: application/json
 ```
 
 #### List User's Policies
+
 ```http
 GET /api/insurance/policies
 Authorization: Bearer <token>
 ```
 
 **Response:** `200 OK`
+
 ```json
 {
   "success": true,
@@ -250,6 +262,7 @@ Authorization: Bearer <token>
 ```
 
 #### Get Policy Details
+
 ```http
 GET /api/insurance/policies/:id
 Authorization: Bearer <token>
@@ -258,6 +271,7 @@ Authorization: Bearer <token>
 ### Insurance Claims
 
 #### Submit Claim
+
 ```http
 POST /api/insurance/claims
 Authorization: Bearer <token>
@@ -269,6 +283,7 @@ Content-Type: application/json
 ```
 
 **Response:** `201 Created`
+
 ```json
 {
   "success": true,
@@ -282,18 +297,21 @@ Content-Type: application/json
 ```
 
 #### List User's Claims
+
 ```http
 GET /api/insurance/claims
 Authorization: Bearer <token>
 ```
 
 #### Get Claim Details
+
 ```http
 GET /api/insurance/claims/:id
 Authorization: Bearer <token>
 ```
 
 #### Submit Oracle Proof
+
 ```http
 POST /api/insurance/claims/:id/submit-proof
 Authorization: Bearer <token>
@@ -312,11 +330,13 @@ Content-Type: application/json
 ### Statistics
 
 #### Get Insurance Statistics
+
 ```http
 GET /api/insurance/stats
 ```
 
 **Response:** `200 OK`
+
 ```json
 {
   "success": true,
@@ -386,6 +406,7 @@ Admin rejects ineligible claim.
 ## Database Schema
 
 ### insured_files
+
 ```sql
 CREATE TABLE insured_files (
     id SERIAL PRIMARY KEY,
@@ -404,6 +425,7 @@ CREATE TABLE insured_files (
 ```
 
 ### insurance_claims
+
 ```sql
 CREATE TABLE insurance_claims (
     id SERIAL PRIMARY KEY,
@@ -420,6 +442,7 @@ CREATE TABLE insurance_claims (
 ```
 
 ### availability_check_history
+
 ```sql
 CREATE TABLE availability_check_history (
     id SERIAL PRIMARY KEY,
@@ -436,6 +459,7 @@ CREATE TABLE availability_check_history (
 ### Unit Tests
 
 Coverage includes:
+
 - Premium calculation ✅
 - Policy creation ✅
 - Availability tracking ✅
@@ -444,6 +468,7 @@ Coverage includes:
 - Payout processing ✅
 
 Run tests:
+
 ```bash
 npm test -- src/services/sla_monitor.test.js
 ```
@@ -451,6 +476,7 @@ npm test -- src/services/sla_monitor.test.js
 ### Integration Tests
 
 Test full workflows:
+
 - Policy → Monitoring → Claim → Payout
 - Multiple concurrent policies
 - SLA violation detection
@@ -461,6 +487,7 @@ Test full workflows:
 ### Oracle Proofs
 
 Oracle proofs must include:
+
 - **Signature:** Cryptographic proof by oracle
 - **Timestamp:** When check was performed
 - **Check results:** Failed/passed counts
@@ -519,6 +546,7 @@ STELLAR_NETWORK=testnet
 
 **Problem:** Availability check returns unavailable
 **Solutions:**
+
 - Verify file is pinned on IPFS
 - Check IPFS node connectivity
 - Ensure CID is correct
@@ -527,6 +555,7 @@ STELLAR_NETWORK=testnet
 
 **Problem:** Insurance claim is rejected
 **Reasons:**
+
 - Availability still above threshold
 - Proof doesn't verify
 - Policy already claimed
@@ -536,6 +565,7 @@ STELLAR_NETWORK=testnet
 
 **Problem:** Claim approved but payout fails
 **Reasons:**
+
 - Insufficient contract balance
 - Token transfer failure
 - Invalid payout address
@@ -543,6 +573,7 @@ STELLAR_NETWORK=testnet
 ## Roadmap
 
 Future enhancements:
+
 - [ ] Multi-tier insurance coverage
 - [ ] Deductible options
 - [ ] Custom check intervals

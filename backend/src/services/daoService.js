@@ -53,7 +53,7 @@ async function listProposals({ status } = {}) {
      ${where}
      GROUP BY p.id
      ORDER BY p.created_at DESC`,
-    params,
+    params
   );
   return rows.map(rowToProposal);
 }
@@ -68,7 +68,7 @@ async function getProposal(id) {
      LEFT JOIN dao_votes v ON v.proposal_id = p.id
      WHERE p.id = $1
      GROUP BY p.id`,
-    [id],
+    [id]
   );
   if (!rows.length) {
     const err = new Error("Proposal not found");
@@ -113,7 +113,7 @@ async function createProposal({
       amount != null ? amount : null,
       recipient || null,
       String(days),
-    ],
+    ]
   );
   return getProposal(rows[0].id);
 }
@@ -139,7 +139,7 @@ async function castVote({ proposalId, voter, support, weight, txHash }) {
      VALUES ($1, $2, $3, $4, $5)
      ON CONFLICT (proposal_id, voter)
      DO UPDATE SET support = EXCLUDED.support, weight = EXCLUDED.weight, tx_hash = EXCLUDED.tx_hash`,
-    [proposalId, voter, Boolean(support), voteWeight, txHash || null],
+    [proposalId, voter, Boolean(support), voteWeight, txHash || null]
   );
 
   return getProposal(proposalId);
@@ -155,13 +155,13 @@ async function finalizeExpiredProposals() {
             (SELECT COALESCE(SUM(weight) FILTER (WHERE support = false), 0)
              FROM dao_votes WHERE proposal_id = dao_proposals.id)
        THEN 'passed' ELSE 'rejected' END
-     WHERE status = 'active' AND voting_ends_at < NOW()`,
+     WHERE status = 'active' AND voting_ends_at < NOW()`
   );
 }
 
 async function listArbitrators() {
   const { rows } = await pool.query(
-    `SELECT * FROM dao_arbitrators WHERE active = true ORDER BY votes_received DESC, created_at ASC`,
+    `SELECT * FROM dao_arbitrators WHERE active = true ORDER BY votes_received DESC, created_at ASC`
   );
   return rows.map((r) => ({
     publicKey: r.public_key,
@@ -182,7 +182,7 @@ async function upsertArbitrator({ publicKey, displayName, bio }) {
      DO UPDATE SET display_name = COALESCE(EXCLUDED.display_name, dao_arbitrators.display_name),
                    bio = COALESCE(EXCLUDED.bio, dao_arbitrators.bio)
      RETURNING *`,
-    [publicKey, displayName || null, bio || null],
+    [publicKey, displayName || null, bio || null]
   );
   const r = rows[0];
   return {
@@ -202,7 +202,7 @@ async function voteForArbitrator({ voter, arbitratorKey, weight }) {
   await upsertArbitrator({ publicKey: arbitratorKey });
   await pool.query(
     `UPDATE dao_arbitrators SET votes_received = votes_received + $2 WHERE public_key = $1`,
-    [arbitratorKey, voteWeight],
+    [arbitratorKey, voteWeight]
   );
   return listArbitrators();
 }
@@ -217,7 +217,7 @@ async function getTreasurySummary() {
     `SELECT
        COALESCE(SUM(amount) FILTER (WHERE status IN ('passed', 'executed') AND type = 'treasury'), 0) AS allocated,
        COUNT(*) FILTER (WHERE status = 'active')::int AS active_proposals
-     FROM dao_proposals`,
+     FROM dao_proposals`
   );
   return {
     allocatedXlm: String(rows[0]?.allocated || 0),

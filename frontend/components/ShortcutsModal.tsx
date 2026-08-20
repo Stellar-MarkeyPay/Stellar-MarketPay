@@ -7,10 +7,18 @@ interface ShortcutsModalProps {
 }
 
 function Key({ children }: { children: string }) {
-  return <kbd className="rounded border border-market-500/25 bg-ink-800 px-2 py-1 text-xs font-semibold text-market-300">{children}</kbd>;
+  return (
+    <kbd className="rounded border border-market-500/25 bg-ink-800 px-2 py-1 text-xs font-semibold text-market-300">
+      {children}
+    </kbd>
+  );
 }
 
-export default function ShortcutsModal({ isOpen, onClose, showJobDetailShortcuts }: ShortcutsModalProps) {
+export default function ShortcutsModal({
+  isOpen,
+  onClose,
+  showJobDetailShortcuts,
+}: ShortcutsModalProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -31,7 +39,8 @@ export default function ShortcutsModal({ isOpen, onClose, showJobDetailShortcuts
   useEffect(() => {
     if (!isOpen) return;
 
-    const previousActiveElement = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const previousActiveElement =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
     closeButtonRef.current?.focus();
 
     const onTab = (event: KeyboardEvent) => {
@@ -81,10 +90,22 @@ export default function ShortcutsModal({ isOpen, onClose, showJobDetailShortcuts
         onClick={onClose}
       />
 
-      <div ref={dialogRef} className="relative w-full max-w-xl rounded-2xl border border-market-500/20 bg-ink-900 p-6 shadow-2xl">
+      <div
+        ref={dialogRef}
+        className="relative w-full max-w-xl rounded-2xl border border-market-500/20 bg-ink-900 p-6 shadow-2xl"
+      >
         <div className="mb-4 flex items-center justify-between">
-          <h2 id="shortcuts-title" className="font-display text-xl font-bold text-amber-100">Keyboard Shortcuts</h2>
-          <button ref={closeButtonRef} type="button" onClick={onClose} className="btn-ghost px-3 py-1 text-xs">Close</button>
+          <h2 id="shortcuts-title" className="font-display text-xl font-bold text-amber-100">
+            Keyboard Shortcuts
+          </h2>
+          <button
+            ref={closeButtonRef}
+            type="button"
+            onClick={onClose}
+            className="btn-ghost px-3 py-1 text-xs"
+          >
+            Close
+          </button>
         </div>
 
         <div className="space-y-2 text-sm" role="list" aria-label="Available keyboard shortcuts">
@@ -101,7 +122,9 @@ export default function ShortcutsModal({ isOpen, onClose, showJobDetailShortcuts
           )}
         </div>
 
-        <p id="shortcuts-description" className="mt-5 text-xs text-amber-800">Shortcuts are disabled while typing in form fields.</p>
+        <p id="shortcuts-description" className="mt-5 text-xs text-amber-800">
+          Shortcuts are disabled while typing in form fields.
+        </p>
       </div>
     </div>
   );
@@ -109,7 +132,10 @@ export default function ShortcutsModal({ isOpen, onClose, showJobDetailShortcuts
 
 function ShortcutRow({ keys, description }: { keys: string[]; description: string }) {
   return (
-    <div className="flex items-center justify-between gap-3 rounded-lg border border-market-500/10 bg-ink-800/50 px-3 py-2" role="listitem">
+    <div
+      className="flex items-center justify-between gap-3 rounded-lg border border-market-500/10 bg-ink-800/50 px-3 py-2"
+      role="listitem"
+    >
       <div className="flex items-center gap-1.5">
         {keys.map((key, idx) => (
           <div key={`${key}-${idx}`} className="flex items-center gap-1.5">

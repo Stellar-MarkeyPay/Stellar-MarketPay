@@ -48,8 +48,20 @@ function badgeClass(status: string) {
 function Spinner() {
   return (
     <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+      <circle
+        className="opacity-25"
+        cx="12"
+        cy="12"
+        r="10"
+        stroke="currentColor"
+        strokeWidth="4"
+        fill="none"
+      />
+      <path
+        className="opacity-75"
+        fill="currentColor"
+        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+      />
     </svg>
   );
 }
@@ -80,7 +92,10 @@ export default function JobDetail({ publicKey, onConnect }: JobDetailProps) {
   const [pendingTimeoutRefund, setPendingTimeoutRefund] = useState<Transaction | null>(null);
   // Milestone/partial-release state
   const [releasingMilestoneIndex, setReleasingMilestoneIndex] = useState<number | null>(null);
-  const [pendingRelease, setPendingRelease] = useState<{ transaction: Transaction; fnName: string } | null>(null);
+  const [pendingRelease, setPendingRelease] = useState<{
+    transaction: Transaction;
+    fnName: string;
+  } | null>(null);
 
   const isClient = Boolean(publicKey && job?.clientAddress === publicKey);
   const isFreelancer = Boolean(publicKey && job?.freelancerAddress === publicKey);
@@ -253,26 +268,30 @@ export default function JobDetail({ publicKey, onConnect }: JobDetailProps) {
                 {job.title}
               </h1>
 
-                <div className="mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                  <div className="flex flex-wrap gap-3 text-xs sm:text-sm text-amber-700">
-                    <span>Posted {timeAgo(job.createdAt)}</span>
-                    <span>{applications.length} application{applications.length === 1 ? "" : "s"}</span>
-                    {job.deadline && <span>Deadline: {formatDate(job.deadline)}</span>}
-                  </div>
-
-                  <div className="sm:text-right">
-                    <p className="text-xs text-amber-800 mb-1">Budget</p>
-                    <p className="font-mono font-bold text-xl sm:text-2xl text-market-400">{formatXLM(job.budget)} {job.currency}</p>
-                    <a
-                      href={accountUrl(job.clientAddress)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 mt-2 text-xs sm:text-sm text-amber-700 hover:text-market-400 transition-colors"
-                    >
-                      Client: {shortenAddress(job.clientAddress)} ↗
-                    </a>
-                  </div>
+              <div className="mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div className="flex flex-wrap gap-3 text-xs sm:text-sm text-amber-700">
+                  <span>Posted {timeAgo(job.createdAt)}</span>
+                  <span>
+                    {applications.length} application{applications.length === 1 ? "" : "s"}
+                  </span>
+                  {job.deadline && <span>Deadline: {formatDate(job.deadline)}</span>}
                 </div>
+
+                <div className="sm:text-right">
+                  <p className="text-xs text-amber-800 mb-1">Budget</p>
+                  <p className="font-mono font-bold text-xl sm:text-2xl text-market-400">
+                    {formatXLM(job.budget)} {job.currency}
+                  </p>
+                  <a
+                    href={accountUrl(job.clientAddress)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 mt-2 text-xs sm:text-sm text-amber-700 hover:text-market-400 transition-colors"
+                  >
+                    Client: {shortenAddress(job.clientAddress)} ↗
+                  </a>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -348,7 +367,9 @@ export default function JobDetail({ publicKey, onConnect }: JobDetailProps) {
                       <span className="font-mono text-market-400 font-semibold text-xs sm:text-sm whitespace-nowrap">
                         {formatXLM(application.bidAmount)}
                       </span>
-                      <span className={`text-xs px-2.5 py-1 rounded-full border flex-shrink-0 ${badgeClass(application.status)}`}>
+                      <span
+                        className={`text-xs px-2.5 py-1 rounded-full border flex-shrink-0 ${badgeClass(application.status)}`}
+                      >
                         {application.status}
                       </span>
                     </div>
@@ -412,35 +433,41 @@ export default function JobDetail({ publicKey, onConnect }: JobDetailProps) {
         )}
 
         {/* ── Escrow timeout countdown + refund UI ── */}
-        {job.escrowContractId && timeoutLedger && job.status !== "completed" && job.status !== "cancelled" && (
-          <div className="card mb-6">
-            <h2 className="font-display text-lg font-bold text-amber-100 mb-3">Escrow Timeout</h2>
+        {job.escrowContractId &&
+          timeoutLedger &&
+          job.status !== "completed" &&
+          job.status !== "cancelled" && (
+            <div className="card mb-6">
+              <h2 className="font-display text-lg font-bold text-amber-100 mb-3">Escrow Timeout</h2>
 
-            {timeoutRefundSuccess ? (
-              <div>
-                <p className="text-market-400 font-medium">Timeout refund processed successfully.</p>
-              </div>
-            ) : timeoutCountdown && currentLedger < timeoutLedger ? (
-              <div className="flex items-center gap-3">
-                <span className="text-sm text-amber-700">Auto-refund available in:</span>
-                <span className="font-mono text-sm text-market-400 bg-market-500/8 px-3 py-1 rounded border border-market-500/15">
-                  {timeoutCountdown}
-                </span>
-              </div>
-            ) : isClient && currentLedger >= timeoutLedger ? (
-              <div>
-                <p className="text-sm text-red-400 mb-3">
-                  The freelancer did not start work within the timeout period. You can claim a refund.
+              {timeoutRefundSuccess ? (
+                <div>
+                  <p className="text-market-400 font-medium">
+                    Timeout refund processed successfully.
+                  </p>
+                </div>
+              ) : timeoutCountdown && currentLedger < timeoutLedger ? (
+                <div className="flex items-center gap-3">
+                  <span className="text-sm text-amber-700">Auto-refund available in:</span>
+                  <span className="font-mono text-sm text-market-400 bg-market-500/8 px-3 py-1 rounded border border-market-500/15">
+                    {timeoutCountdown}
+                  </span>
+                </div>
+              ) : isClient && currentLedger >= timeoutLedger ? (
+                <div>
+                  <p className="text-sm text-red-400 mb-3">
+                    The freelancer did not start work within the timeout period. You can claim a
+                    refund.
+                  </p>
+                  <WalletConnect onConnect={onConnect} />
+                </div>
+              ) : (
+                <p className="text-sm text-amber-700">
+                  Timeout period has expired. Only the client can claim a refund.
                 </p>
-                <WalletConnect onConnect={onConnect} />
-              </div>
-            ) : (
-              <p className="text-sm text-amber-700">
-                Timeout period has expired. Only the client can claim a refund.
-              </p>
-            )}
-          </div>
-        )}
+              )}
+            </div>
+          )}
 
         {/* ── Escrow release (client, in_progress) ── */}
         {isClient && job.status === "in_progress" && (
@@ -463,9 +490,7 @@ export default function JobDetail({ publicKey, onConnect }: JobDetailProps) {
           </div>
         )}
 
-        {actionError && (
-          <p className="mt-3 mb-6 text-red-400 text-sm">{actionError}</p>
-        )}
+        {actionError && <p className="mt-3 mb-6 text-red-400 text-sm">{actionError}</p>}
 
         {/* ── Rating form (after completion) ── */}
         {job.status === "completed" && publicKey && !ratingSubmitted && (
@@ -491,9 +516,7 @@ export default function JobDetail({ publicKey, onConnect }: JobDetailProps) {
       </div>
 
       {/* ── Modals ── */}
-      {showShareModal && (
-        <ShareJobModal job={job} onClose={() => setShowShareModal(false)} />
-      )}
+      {showShareModal && <ShareJobModal job={job} onClose={() => setShowShareModal(false)} />}
 
       {pendingTimeoutRefund && publicKey && (
         <FeeEstimationModal
@@ -508,11 +531,18 @@ export default function JobDetail({ publicKey, onConnect }: JobDetailProps) {
       {/* ── Dispute modal ── */}
       {showDisputeModal && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-ink-950/80 backdrop-blur-sm" onClick={() => setShowDisputeModal(false)} />
+          <div
+            className="absolute inset-0 bg-ink-950/80 backdrop-blur-sm"
+            onClick={() => setShowDisputeModal(false)}
+          />
           <div className="relative w-full max-w-md bg-ink-900 border border-market-500/20 rounded-2xl p-4 sm:p-6 shadow-2xl animate-scale-in max-h-[90vh] overflow-y-auto">
-            <h3 className="font-display text-lg sm:text-xl font-bold text-amber-100 mb-2">Raise a Dispute</h3>
-            <p className="text-xs sm:text-sm text-amber-800 mb-6">Flag this job for admin review. This will block escrow release until resolved.</p>
-            
+            <h3 className="font-display text-lg sm:text-xl font-bold text-amber-100 mb-2">
+              Raise a Dispute
+            </h3>
+            <p className="text-xs sm:text-sm text-amber-800 mb-6">
+              Flag this job for admin review. This will block escrow release until resolved.
+            </p>
+
             <div className="space-y-4">
               <div>
                 <label className="label">Reason</label>

@@ -62,10 +62,10 @@ async function migrate() {
       await client.query("BEGIN");
       try {
         await client.query(migration.upSql);
-        await client.query(
-          "INSERT INTO schema_migrations (version, name) VALUES ($1, $2)",
-          [migration.version, migration.name]
-        );
+        await client.query("INSERT INTO schema_migrations (version, name) VALUES ($1, $2)", [
+          migration.version,
+          migration.name,
+        ]);
         await client.query("COMMIT");
         console.log(`✅ Applied V${migration.version}`);
       } catch (err) {

@@ -53,10 +53,7 @@ async function checkDatabase() {
           END AS replay_lag_seconds
       `),
       new Promise((_, reject) => {
-        timeout = setTimeout(
-          () => reject(new Error("Database check timed out")),
-          CHECK_TIMEOUT_MS,
-        );
+        timeout = setTimeout(() => reject(new Error("Database check timed out")), CHECK_TIMEOUT_MS);
       }),
     ]);
     const row = result.rows?.[0] || {};
@@ -84,8 +81,7 @@ async function checkDatabase() {
  * @returns {{ status: "ok", network: string, ledger: number } | { status: "error", message: string }}
  */
 async function checkStellar() {
-  const horizonUrl =
-    process.env.HORIZON_URL || "https://horizon-testnet.stellar.org";
+  const horizonUrl = process.env.HORIZON_URL || "https://horizon-testnet.stellar.org";
   const network = process.env.STELLAR_NETWORK || "testnet";
 
   try {
@@ -113,10 +109,7 @@ async function checkStellar() {
     const ledger = data?._embedded?.records?.[0]?.sequence ?? null;
     return { status: "ok", network, ledger };
   } catch (err) {
-    const message =
-      err.name === "AbortError"
-        ? "Stellar Horizon check timed out"
-        : err.message;
+    const message = err.name === "AbortError" ? "Stellar Horizon check timed out" : err.message;
     return { status: "error", message };
   }
 }
@@ -158,20 +151,20 @@ async function checkStellar() {
  *         description: One or more dependencies are down
  */
 function liveHandler(req, res) {
-  res.set("Cache-Control", "no-store").status(200).json({
-    status: "alive",
-    region: process.env.REGION || "unknown",
-    cluster_role: process.env.CLUSTER_ROLE || "unknown",
-    uptime_seconds: Math.floor((Date.now() - SERVER_START) / 1000),
-    version: VERSION,
-  });
+  res
+    .set("Cache-Control", "no-store")
+    .status(200)
+    .json({
+      status: "alive",
+      region: process.env.REGION || "unknown",
+      cluster_role: process.env.CLUSTER_ROLE || "unknown",
+      uptime_seconds: Math.floor((Date.now() - SERVER_START) / 1000),
+      version: VERSION,
+    });
 }
 
 async function dependencyHealthHandler(req, res, requireWritable) {
-  const [database, stellar] = await Promise.all([
-    checkDatabase(),
-    checkStellar(),
-  ]);
+  const [database, stellar] = await Promise.all([checkDatabase(), checkStellar()]);
 
   const databaseReady =
     database.status === "ok" && (!requireWritable || database.writable === true);
@@ -186,9 +179,7 @@ async function dependencyHealthHandler(req, res, requireWritable) {
     uptime_seconds: Math.floor((Date.now() - SERVER_START) / 1000),
     version: VERSION,
     // Keep the indexer field for backwards compatibility
-    indexer: req.app.locals.indexerService
-      ? req.app.locals.indexerService.getHealth()
-      : null,
+    indexer: req.app.locals.indexerService ? req.app.locals.indexerService.getHealth() : null,
   };
 
   res
@@ -198,23 +189,13 @@ async function dependencyHealthHandler(req, res, requireWritable) {
 }
 
 router.get("/live", liveHandler);
-router.get("/standby", healthRateLimiter, (req, res) =>
-  dependencyHealthHandler(req, res, false)
-);
+router.get("/standby", healthRateLimiter, (req, res) => dependencyHealthHandler(req, res, false));
 router.get("/ready", healthRateLimiter, (req, res) =>
-  dependencyHealthHandler(
-    req,
-    res,
-    process.env.REQUIRE_WRITABLE_DB === "true",
-  )
+  dependencyHealthHandler(req, res, process.env.REQUIRE_WRITABLE_DB === "true")
 );
 // Preserve the existing endpoint for clients and older manifests.
 router.get("/", healthRateLimiter, (req, res) =>
-  dependencyHealthHandler(
-    req,
-    res,
-    process.env.REQUIRE_WRITABLE_DB === "true",
-  )
+  dependencyHealthHandler(req, res, process.env.REQUIRE_WRITABLE_DB === "true")
 );
 
 module.exports = router;

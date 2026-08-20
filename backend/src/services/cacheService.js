@@ -145,7 +145,7 @@ module.exports = { get, set, del, delPattern, jobListKey, profileKey, jobDetailK
 
 // TTL constants exported so callers don't hard-code numbers.
 module.exports.TTL = {
-  JOBS_LIST: 30,   // 30 s — jobs change frequently
-  PROFILE: 300,    // 5 min
-  JOB_DETAIL: 30,  // 30 s — same volatility as the list; event-driven purge covers the rest
+  JOBS_LIST: 30, // 30 s — jobs change frequently
+  PROFILE: 300, // 5 min
+  JOB_DETAIL: 30, // 30 s — same volatility as the list; event-driven purge covers the rest
 };

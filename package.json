@@ -1,0 +1,52 @@
+{
+  "name": "stellar-marketpay",
+  "version": "1.0.0",
+  "description": "Decentralised freelance marketplace powered by Stellar blockchain and Soroban smart contracts.",
+  "private": true,
+  "scripts": {
+    "prepare": "husky",
+    "lint": "npm --prefix frontend run lint && npm --prefix backend run lint",
+    "lint:fix": "npm --prefix frontend run lint -- --fix && npm --prefix backend run lint -- --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "type-check": "npm --prefix frontend run type-check",
+    "test": "npm run test:fast",
+    "test:fast": "npm --prefix frontend test && npm --prefix backend test:unit && cargo test --manifest-path contracts/marketpay-contract/Cargo.toml --features std",
+    "test:frontend": "npm --prefix frontend test",
+    "test:backend": "npm --prefix backend test",
+    "test:contracts": "cargo test --manifest-path contracts/marketpay-contract/Cargo.toml --features std",
+    "commit": "cz",
+    "release": "commit-and-tag-version",
+    "release:minor": "commit-and-tag-version --release-as minor",
+    "release:patch": "commit-and-tag-version --release-as patch",
+    "release:major": "commit-and-tag-version --release-as major"
+  },
+  "config": {
+    "commitizen": {
+      "path": "@commitlint/cz-commitlint"
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ajulaybeeb/Stellar-MarketPay.git"
+  },
+  "keywords": [
+    "stellar",
+    "soroban",
+    "freelance",
+    "marketplace",
+    "smart-contracts"
+  ],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@commitlint/cli": "^21.2.2",
+    "@commitlint/config-conventional": "^21.2.2",
+    "@commitlint/cz-commitlint": "^21.2.2",
+    "commit-and-tag-version": "^13.1.2",
+    "commitizen": "^4.3.2",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.3.0",
+    "prettier": "^3.9.6"
+  }
+}

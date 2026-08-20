@@ -13,10 +13,8 @@ const { submitApplication, acceptApplication } = require("./applicationService")
 const { createJob } = require("./jobService");
 
 describe("applicationService", () => {
-  const validClientAddress =
-    "GABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABC";
-  const validFreelancerAddress =
-    "GBBCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABC";
+  const validClientAddress = "GABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABC";
+  const validFreelancerAddress = "GBBCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABC";
 
   let openJob;
 
@@ -24,8 +22,7 @@ describe("applicationService", () => {
     pool.reset();
     openJob = await createJob({
       title: "Build a decentralized app",
-      description:
-        "Looking for a full-stack developer to build a dApp on Stellar.",
+      description: "Looking for a full-stack developer to build a dApp on Stellar.",
       budget: "500",
       category: "Smart Contracts",
       clientAddress: validClientAddress,
@@ -58,7 +55,7 @@ describe("applicationService", () => {
           proposal:
             "I am a highly experienced Stellar developer with 5 years of Rust experience and I can build this right now.",
           bidAmount: "450",
-        }),
+        })
       ).rejects.toThrow("You cannot apply to your own job");
     });
 
@@ -73,7 +70,7 @@ describe("applicationService", () => {
 
       await submitApplication(appData);
       await expect(submitApplication(appData)).rejects.toThrow(
-        "You have already applied to this job",
+        "You have already applied to this job"
       );
       expect(pool.applications.size).toBe(1);
     });
@@ -95,8 +92,7 @@ describe("applicationService", () => {
 
       const app2 = await submitApplication({
         jobId: openJob.id,
-        freelancerAddress:
-          "GCCCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABC",
+        freelancerAddress: "GCCCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABC",
         proposal:
           "Another great proposal from another freelancer that is long enough to pass validation checks for fifty chars.",
         bidAmount: "500",
@@ -105,26 +101,20 @@ describe("applicationService", () => {
     });
 
     it("accepts one application and rejects the rest", async () => {
-      const acceptedApp = await acceptApplication(
-        applicationId,
-        validClientAddress,
-      );
+      const acceptedApp = await acceptApplication(applicationId, validClientAddress);
 
       expect(acceptedApp.status).toBe("accepted");
       expect(pool.applications.get(otherApplicationId).status).toBe("rejected");
       expect(pool.jobs.get(openJob.id).status).toBe("in_progress");
-      expect(pool.jobs.get(openJob.id).freelancer_address).toBe(
-        validFreelancerAddress,
-      );
+      expect(pool.jobs.get(openJob.id).freelancer_address).toBe(validFreelancerAddress);
     });
 
     it("rejects non-clients", async () => {
-      const wrongClient =
-        "GDDDDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABC";
+      const wrongClient = "GDDDDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABC";
 
-      await expect(
-        acceptApplication(applicationId, wrongClient),
-      ).rejects.toThrow("Only the job client can accept applications");
+      await expect(acceptApplication(applicationId, wrongClient)).rejects.toThrow(
+        "Only the job client can accept applications"
+      );
       expect(pool.applications.get(applicationId).status).toBe("pending");
     });
   });

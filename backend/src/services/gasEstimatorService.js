@@ -21,11 +21,11 @@ const cache = require("./cacheService");
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const CACHE_KEY = "gas:estimate:v1";
-const CACHE_TTL_SECONDS = 15;            // refresh every 15 s
+const CACHE_TTL_SECONDS = 15; // refresh every 15 s
 const HISTORY_CACHE_KEY = "gas:history:v1";
-const HISTORY_TTL_SECONDS = 600;         // keep 10 min of rolling history
-const MAX_HISTORY_POINTS = 40;           // ~10 min @ 15 s cadence
-const SPIKE_MULTIPLIER = 1.5;            // p50 > 1.5× rolling avg → spike
+const HISTORY_TTL_SECONDS = 600; // keep 10 min of rolling history
+const MAX_HISTORY_POINTS = 40; // ~10 min @ 15 s cadence
+const SPIKE_MULTIPLIER = 1.5; // p50 > 1.5× rolling avg → spike
 
 // Minimum inclusion fee floor enforced by the Stellar protocol (100 stroops).
 const BASE_FEE_FLOOR = 100n;
@@ -134,7 +134,7 @@ function computeTiers(feeStats) {
   };
 
   const slowFee = inclusion.p10 + resource.p10;
-  const medFee  = inclusion.p50 + resource.p50;
+  const medFee = inclusion.p50 + resource.p50;
   const fastFee = inclusion.p95 + resource.p90;
 
   return {

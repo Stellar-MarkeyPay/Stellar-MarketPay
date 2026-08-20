@@ -94,15 +94,8 @@ export default function DAO({ publicKey, onConnect }: DAOProps) {
     if (!publicKey) return;
     setVoting(proposalId);
     try {
-      const updated = await voteDaoProposal(
-        proposalId,
-        support,
-        votingPower,
-        `vote-${Date.now()}`,
-      );
-      setProposals((prev) =>
-        prev.map((p) => (p.id === proposalId ? updated : p)),
-      );
+      const updated = await voteDaoProposal(proposalId, support, votingPower, `vote-${Date.now()}`);
+      setProposals((prev) => prev.map((p) => (p.id === proposalId ? updated : p)));
       toast.success(support ? t("dao.voteFor") : t("dao.voteAgainst"));
     } catch {
       toast.error("Failed to vote. Please try again.");
@@ -197,9 +190,7 @@ export default function DAO({ publicKey, onConnect }: DAOProps) {
       </Head>
       <div className="max-w-4xl mx-auto px-4 sm:px-6 py-10">
         <div className="mb-8">
-          <h1 className="font-display text-3xl font-bold text-amber-100 mb-4">
-            {t("dao.title")}
-          </h1>
+          <h1 className="font-display text-3xl font-bold text-amber-100 mb-4">{t("dao.title")}</h1>
           <p className="text-amber-700 text-lg">{t("dao.subtitle")}</p>
         </div>
 
@@ -237,9 +228,7 @@ export default function DAO({ publicKey, onConnect }: DAOProps) {
               <h3 className="font-display text-lg font-semibold text-amber-300 mb-2">
                 {t("dao.votingPower")}
               </h3>
-              <p className="font-mono font-bold text-2xl text-market-400">
-                {votingPower}
-              </p>
+              <p className="font-mono font-bold text-2xl text-market-400">{votingPower}</p>
               <p className="text-xs text-amber-800 mt-1">1 XLM = 1 vote</p>
             </div>
           </div>
@@ -257,18 +246,14 @@ export default function DAO({ publicKey, onConnect }: DAOProps) {
                   href={`/dao/arbitrators/${a.publicKey}`}
                   className="card hover:border-market-500/30 transition-colors"
                 >
-                  <p className="font-mono text-sm text-market-300">
-                    {shortenAddress(a.publicKey)}
-                  </p>
+                  <p className="font-mono text-sm text-market-300">{shortenAddress(a.publicKey)}</p>
                   <p className="text-xs text-amber-800 mt-1">
                     {a.votesReceived} votes · {a.disputesResolved} resolved
                   </p>
                 </Link>
               ))
             ) : (
-              <p className="text-sm text-amber-800 col-span-3">
-                No arbitrators elected yet.
-              </p>
+              <p className="text-sm text-amber-800 col-span-3">No arbitrators elected yet.</p>
             )}
           </div>
           {publicKey && (
@@ -315,15 +300,9 @@ export default function DAO({ publicKey, onConnect }: DAOProps) {
         )}
 
         <div className="flex justify-between items-center mb-6">
-          <h2 className="font-display text-2xl font-bold text-amber-100">
-            {t("dao.proposals")}
-          </h2>
+          <h2 className="font-display text-2xl font-bold text-amber-100">{t("dao.proposals")}</h2>
           {publicKey && (
-            <button
-              type="button"
-              onClick={() => setShowNewProposal(true)}
-              className="btn-primary"
-            >
+            <button type="button" onClick={() => setShowNewProposal(true)} className="btn-primary">
               {t("dao.createProposal")}
             </button>
           )}
@@ -348,9 +327,7 @@ export default function DAO({ publicKey, onConnect }: DAOProps) {
             />
             <select
               value={form.type}
-              onChange={(e) =>
-                setForm({ ...form, type: e.target.value as DaoProposal["type"] })
-              }
+              onChange={(e) => setForm({ ...form, type: e.target.value as DaoProposal["type"] })}
               className="input-field"
             >
               <option value="platform">Platform</option>
@@ -391,9 +368,7 @@ export default function DAO({ publicKey, onConnect }: DAOProps) {
                   <h3 className="font-display text-xl font-semibold text-amber-100 mb-2">
                     {proposal.title}
                   </h3>
-                  <p className="text-amber-700 mb-4 leading-relaxed">
-                    {proposal.description}
-                  </p>
+                  <p className="text-amber-700 mb-4 leading-relaxed">{proposal.description}</p>
                   {proposal.amount && (
                     <p className="mb-4 text-sm">
                       <span className="text-amber-800">{t("dao.amount")}: </span>
@@ -416,20 +391,16 @@ export default function DAO({ publicKey, onConnect }: DAOProps) {
                   </div>
                   <div className="flex flex-wrap gap-4 text-xs text-amber-800">
                     <span>
-                      {t("dao.created")}:{" "}
-                      {new Date(proposal.createdAt).toLocaleDateString()}
+                      {t("dao.created")}: {new Date(proposal.createdAt).toLocaleDateString()}
                     </span>
                     <span>
-                      {t("dao.ends")}:{" "}
-                      {new Date(proposal.votingEndsAt).toLocaleDateString()}
+                      {t("dao.ends")}: {new Date(proposal.votingEndsAt).toLocaleDateString()}
                     </span>
                   </div>
                 </div>
                 <div className="lg:w-64">
                   <div className="text-center mb-4">
-                    <div className="text-sm text-amber-800 mb-2">
-                      {t("dao.votingResults")}
-                    </div>
+                    <div className="text-sm text-amber-800 mb-2">{t("dao.votingResults")}</div>
                     <div className="flex justify-center gap-6 mb-4">
                       <div className="text-center">
                         <div className="font-mono font-bold text-2xl text-green-400">
