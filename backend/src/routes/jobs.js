@@ -438,11 +438,9 @@ router.post("/", jobCreationRateLimiter, verifyJWT, async (req, res, next) => {
       typeof req.body.clientAddress === "string" ? req.body.clientAddress.trim() : "";
 
     if (!signedAddress || !payloadClientAddress) {
-      return res
-        .status(401)
-        .json({
-          error: "Unauthorized: clientAddress is required and must match the signed wallet address",
-        });
+      return res.status(401).json({
+        error: "Unauthorized: clientAddress is required and must match the signed wallet address",
+      });
     }
 
     if (payloadClientAddress !== signedAddress) {

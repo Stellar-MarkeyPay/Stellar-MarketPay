@@ -1,1 +1,2 @@
+export PATH=$PATH:$HOME/.nvm/versions/node/v24.18.0/bin
 npx lint-staged

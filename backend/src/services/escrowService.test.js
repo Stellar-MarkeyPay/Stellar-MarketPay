@@ -243,13 +243,11 @@ describe("escrowService", () => {
 
     it("rejects duplicate partial release", async () => {
       getJob.mockResolvedValue(makeJob());
-      mockQuery
-        .mockReset()
-        .mockResolvedValueOnce({
-          rows: [
-            { milestones: [{ description: "Final delivery", amount: "500", status: "released" }] },
-          ],
-        });
+      mockQuery.mockReset().mockResolvedValueOnce({
+        rows: [
+          { milestones: [{ description: "Final delivery", amount: "500", status: "released" }] },
+        ],
+      });
 
       await expect(partialRelease(JOB_ID, CLIENT_ADDRESS, TX_HASH)).rejects.toThrow(
         "Milestone already released"
