@@ -8,7 +8,8 @@ export type JobStatus =
   | "in_progress"
   | "completed"
   | "cancelled"
-  | "disputed";
+  | "disputed"
+  | "archived";
 export type UserRole = "client" | "freelancer" | "both";
 export type Currency = "XLM" | "USDC";
 export type JobVisibility = "public" | "private" | "invite_only";

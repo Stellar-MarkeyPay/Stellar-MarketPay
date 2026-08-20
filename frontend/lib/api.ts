@@ -1081,6 +1081,14 @@ export async function bulkBoostJobs(jobIds: string[], txHash: string): Promise<B
   return data.data;
 }
 
+export async function bulkArchiveJobs(jobIds: string[]): Promise<BulkActionResponse> {
+  const { data } = await api.post<{ success: boolean; data: BulkActionResponse }>(
+    "/api/jobs/bulk-archive",
+    { jobIds },
+  );
+  return data.data;
+}
+
 
 // ─── IPFS File Upload (Issue #202) ──────────────────────────────────────────
 

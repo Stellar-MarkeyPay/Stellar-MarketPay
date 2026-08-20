@@ -957,4 +957,31 @@ router.post(
   },
 );
 
+// POST /api/jobs/bulk-archive — archive multiple open or cancelled jobs at once
+router.post(
+  "/bulk-archive",
+  verifyJWT,
+  jobCreationRateLimiter,
+  async (req, res, next) => {
+    try {
+      const { jobIds } = req.body;
+      if (!Array.isArray(jobIds) || jobIds.length === 0) {
+        return res
+          .status(400)
+          .json({ success: false, error: "jobIds must be a non-empty array" });
+      }
+      const { bulkArchiveJobs } = require("../services/jobService");
+      const results = await bulkArchiveJobs(jobIds, req.user.publicKey);
+      const succeeded = results.filter((r) => r.success).length;
+      const failed = results.filter((r) => !r.success).length;
+      res.json({
+        success: true,
+        data: { results, succeeded, failed },
+      });
+    } catch (e) {
+      next(e);
+    }
+  },
+);
+
 module.exports = router;
