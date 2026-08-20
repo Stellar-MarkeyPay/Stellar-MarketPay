@@ -48,6 +48,8 @@ stellar-marketpay/
 | ---------------- | ---------------------- |
 | Node.js          | ≥ 18.x                 |
 | npm              | Latest                 |
+| Python 3         | ≥ 3.9 (for seeding)    |
+| psql             | PostgreSQL client      |
 | Rust + Cargo     | ≥ 1.74 (for contracts) |
 | Freighter Wallet | Browser extension      |
 
@@ -64,6 +66,25 @@ cd stellar-marketpay
 chmod +x scripts/setup-dev.sh
 ./scripts/setup-dev.sh
 ```
+
+This installs dependencies, runs migrations, and seeds the database with a realistic
+development dataset (50 users, 20 jobs, applications, escrows, messages, and ratings).
+
+### 3. Seed the database manually
+
+```bash
+# Small dataset (default, ~50 users / 20 jobs)
+scripts/db/seed.sh --seed 42
+
+# Medium performance dataset (~200 users / 100 jobs)
+scripts/db/seed.sh --scale medium --seed 42
+
+# Large dataset (~1000 users / 500 jobs)
+scripts/db/seed.sh --scale large --seed 42
+```
+
+The seed script is deterministic: the same `--seed` always produces the same data.
+All data is synthetic and contains no real personal information.
 
 ### 3. Start Frontend
 
