@@ -156,12 +156,14 @@ sections to check are:
 **`auth`** — the array of authorisation trees for each host function call.
 Each element records which address signed the call and which sub-invocations
 were authorised. Verify that:
+
 - fund-moving functions (`create_escrow`, `release_escrow`, `refund_escrow`,
   `timeout_refund`, `approve_release`, `approve_refund`, milestone functions)
   still require the correct caller's signature.
 - no new function gained an empty auth entry when it should require one.
 
 **`ledger_entries`** — the on-chain storage state. Verify that:
+
 - the diff only touches entries you expected to change.
 - token balances move in the correct direction and by the correct amount.
 - no unexpected keys appear or disappear.
@@ -186,17 +188,17 @@ the change.
 "Fund-moving" means any code path that calls `token::Client::transfer(...)`.
 The current paths are:
 
-| Function | Direction |
-|---|---|
-| `create_escrow_internal` | client → contract |
-| `release_escrow_core` | contract → freelancer (and optionally referrer / admin) |
-| `refund_escrow_core` | contract → client |
-| `timeout_refund` | contract → client |
-| `release_with_conversion` | contract → freelancer |
-| `finalize_dispute` | contract → client and/or freelancer |
-| `emergency_admin_resolve` | contract → recipient |
-| `verify_milestone_oracle` (in `oracle.rs`) | contract → freelancer |
-| `distribute_tree_rewards` (in `referral.rs`) | contract → referral tree ancestors |
+| Function                                     | Direction                                               |
+| -------------------------------------------- | ------------------------------------------------------- |
+| `create_escrow_internal`                     | client → contract                                       |
+| `release_escrow_core`                        | contract → freelancer (and optionally referrer / admin) |
+| `refund_escrow_core`                         | contract → client                                       |
+| `timeout_refund`                             | contract → client                                       |
+| `release_with_conversion`                    | contract → freelancer                                   |
+| `finalize_dispute`                           | contract → client and/or freelancer                     |
+| `emergency_admin_resolve`                    | contract → recipient                                    |
+| `verify_milestone_oracle` (in `oracle.rs`)   | contract → freelancer                                   |
+| `distribute_tree_rewards` (in `referral.rs`) | contract → referral tree ancestors                      |
 
 Any PR that adds a new call to `token_client.transfer(...)`, or that changes the
 arguments to an existing one, must satisfy **all** of the following before it
@@ -314,14 +316,14 @@ All structs annotated with `#[contracttype]` are serialised to XDR when written
 to storage. The following changes are backward-compatible (old stored bytes can
 still be deserialised):
 
-| Change | Safe? | Notes |
-|---|---|---|
+| Change                                 | Safe?  | Notes                                       |
+| -------------------------------------- | ------ | ------------------------------------------- |
 | Add a new `Option<T>` field at the end | ✅ Yes | Absent in old data → deserialises as `None` |
-| Add a new field with a `Default` impl | ✅ Yes | Old data fills with the default value |
-| Rename a field | ❌ No | Field names are encoded in XDR |
-| Change a field's type | ❌ No | Breaks deserialisation of old records |
-| Remove a field | ❌ No | Any code reading the old field now panics |
-| Reorder fields | ❌ No | XDR is positional |
+| Add a new field with a `Default` impl  | ✅ Yes | Old data fills with the default value       |
+| Rename a field                         | ❌ No  | Field names are encoded in XDR              |
+| Change a field's type                  | ❌ No  | Breaks deserialisation of old records       |
+| Remove a field                         | ❌ No  | Any code reading the old field now panics   |
+| Reorder fields                         | ❌ No  | XDR is positional                           |
 
 If you need to make a breaking struct change, you must write a migration
 function. See the upgrade guide in `contracts/marketpay-contract/README.md` for
@@ -698,12 +700,12 @@ Fix any warnings before opening a PR.
 
 ## Appendix: quick reference
 
-| Task | Command |
-|---|---|
-| Build WASM | `cargo build --target wasm32-unknown-unknown --release` |
-| Run all tests | `cargo test` |
-| Run one test | `cargo test <test_name>` |
-| Run one module | `cargo test <module_name>` |
-| Regenerate snapshots | `SOROBAN_WRITE_SNAPSHOTS=1 cargo test` |
-| Clippy (with testutils) | `cargo clippy --features testutils -- -D warnings` |
-| Deploy to testnet | see [contract-deployment.md](./contract-deployment.md) |
+| Task                    | Command                                                 |
+| ----------------------- | ------------------------------------------------------- |
+| Build WASM              | `cargo build --target wasm32-unknown-unknown --release` |
+| Run all tests           | `cargo test`                                            |
+| Run one test            | `cargo test <test_name>`                                |
+| Run one module          | `cargo test <module_name>`                              |
+| Regenerate snapshots    | `SOROBAN_WRITE_SNAPSHOTS=1 cargo test`                  |
+| Clippy (with testutils) | `cargo clippy --features testutils -- -D warnings`      |
+| Deploy to testnet       | see [contract-deployment.md](./contract-deployment.md)  |
