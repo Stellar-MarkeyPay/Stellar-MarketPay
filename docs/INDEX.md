@@ -24,6 +24,7 @@ Welcome to Stellar MarketPay documentation. This index helps you find what you n
 - **[DR and Blue-Green Runbook](./dr/runbook.md)** - Failover, deployment rollback, failback, and game-day procedures
 - **[Latest DR Game-Day Report](./dr/game-day-report.md)** - Measured recovery evidence and qualification
 - **[Soroban Contract Deployment](./contract-deployment.md)** - Build, deploy, and configure the escrow contract
+- **[Escrow and Payment Model](./escrow-payment-model.md)** - End-to-end payment flow, 1% platform fee, referral tree split, worked examples from contract tests, timeout/dispute/arbitration
 - **[Contract Contributor Guide](./contract-contributor-guide.md)** - Local setup, test snapshots, fund-moving review bar, storage compatibility, and a worked entrypoint example
 - **[Environment Variables](./environment-variables.md)** - Single source of truth for runtime config
 - **[CDN Strategy](./CDN_STRATEGY.md)** - Multi-CDN edge caching, event-driven invalidation, cache-key/TTL strategy, stampede protection
