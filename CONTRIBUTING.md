@@ -140,6 +140,20 @@ See [docs/contract-deployment.md](docs/contract-deployment.md) for Soroban build
 
 ---
 
+## 🌍 Adding Translated Strings
+
+The frontend ships English, Spanish, French, and Portuguese via `i18next`.
+Before adding or changing a user-facing string, read the
+**[i18n Contributor Guide](docs/i18n-guide.md)**. It covers:
+
+- Where locale files live and how to add a key to all four languages
+- Why money/fee/escrow/payout/security strings go into a tracked pending
+  list instead of being guessed at, and how to fill them in later
+- The CI check that fails a PR when a locale is missing an English key
+- The dev-mode console warning that flags a silent fallback to English
+
+---
+
 ## 🦀 Smart Contract Contributions
 
 The Soroban escrow contract (`contracts/marketpay-contract`) is the
