@@ -31,6 +31,7 @@ stellar-marketpay/
 ├── backend/           # Node.js + Express API
 ├── contracts/         # Stellar Soroban smart contracts (Rust)
 ├── docs/              # Architecture & API documentation
+│                      # Start at docs/INDEX.md; payment flow: docs/escrow-payment-model.md
 ├── scripts/           # Deployment & utility scripts
 ├── .github/           # CI/CD workflows & issue templates
 ├── CONTRIBUTING.md
@@ -188,6 +189,7 @@ For frontend development without a deployed Soroban contract:
 | E2E (Playwright)        | `cd frontend && npm run test:e2e`              | Includes full client/freelancer marketplace flow |
 
 Deploy or upgrade the Soroban escrow contract using [docs/contract-deployment.md](docs/contract-deployment.md).
+How a payment actually moves (fees, referrals, refunds, disputes): [docs/escrow-payment-model.md](docs/escrow-payment-model.md).
 
 ---
 
