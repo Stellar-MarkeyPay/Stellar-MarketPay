@@ -456,14 +456,17 @@ export async function signAndSubmitSorobanTx(xdrString: string): Promise<string>
 // Release escrow helpers (used by jobs/[id].tsx)
 // ---------------------------------------------------------------------------
 
-export async function buildReleaseEscrowTransaction(
+const MOCK_PREPARED_TX = { toXDR: () => "mock-prepared-xdr" };
+
+async function buildEscrowFunctionTransaction(
+  functionName: "release_escrow" | "refund_escrow" | "start_work",
   contractId: string,
   jobId: string,
   clientPublicKey: string,
   feeTier: FeeTierPreference = "medium"
 ) {
   if (USE_CONTRACT_MOCK) {
-    return { toXDR: () => "mock-prepared-xdr" };
+    return MOCK_PREPARED_TX;
   }
   const server = sorobanServer;
   const account = await server.getAccount(clientPublicKey);
@@ -476,7 +479,7 @@ export async function buildReleaseEscrowTransaction(
   })
     .addOperation(
       contract.call(
-        "release_escrow",
+        functionName,
         nativeToScVal(jobId, { type: "string" }),
         Address.fromString(clientPublicKey).toScVal()
       )
@@ -489,6 +492,45 @@ export async function buildReleaseEscrowTransaction(
     throw new Error(`Simulation failed: ${sim.error}`);
   }
   return SorobanRpc.assembleTransaction(tx, sim).build();
+}
+
+export async function buildReleaseEscrowTransaction(
+  contractId: string,
+  jobId: string,
+  clientPublicKey: string,
+  feeTier: FeeTierPreference = "medium"
+) {
+  return buildEscrowFunctionTransaction(
+    "release_escrow",
+    contractId,
+    jobId,
+    clientPublicKey,
+    feeTier
+  );
+}
+
+export async function buildRefundEscrowTransaction(
+  contractId: string,
+  jobId: string,
+  clientPublicKey: string,
+  feeTier: FeeTierPreference = "medium"
+) {
+  return buildEscrowFunctionTransaction(
+    "refund_escrow",
+    contractId,
+    jobId,
+    clientPublicKey,
+    feeTier
+  );
+}
+
+export async function buildStartWorkTransaction(
+  contractId: string,
+  jobId: string,
+  clientPublicKey: string,
+  feeTier: FeeTierPreference = "medium"
+) {
+  return buildEscrowFunctionTransaction("start_work", contractId, jobId, clientPublicKey, feeTier);
 }
 
 export async function buildPartialReleaseTransaction(
