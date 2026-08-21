@@ -9,8 +9,8 @@ import WalletConnect from "@/components/WalletConnect";
 import { fetchRecentlyCompletedJobs } from "@/lib/api";
 import { formatXLM } from "@/utils/format";
 import type { Job } from "@/utils/types";
+import { useTranslation } from "react-i18next";
 import useCountUp from "@/hooks/useCountUp";
-
 // Category → emoji icon mapping for compact cards
 const CATEGORY_ICONS: Record<string, string> = {
   "Smart Contracts": "📜",
@@ -97,6 +97,7 @@ function StatCard({
 
 export default function Home({ publicKey, onConnect, completedJobs }: HomeProps) {
   const [showConnect, setShowConnect] = useState(false);
+  const { t } = useTranslation("common");
 
   return (
     <div className="relative overflow-hidden">
@@ -108,16 +109,15 @@ export default function Home({ publicKey, onConnect, completedJobs }: HomeProps)
         <div className="text-center pt-20 pb-16 animate-fade-in">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-market-500/20 bg-market-500/6 text-market-400/90 text-xs font-medium mb-8 font-body">
             <span className="w-1.5 h-1.5 rounded-full bg-market-400 animate-pulse" />
-            Open Source · Built on Stellar · Powered by Soroban
+            {t("home.hero.badge")}
           </div>
 
           <h1 className="font-display text-5xl sm:text-6xl md:text-7xl font-bold text-amber-100 leading-tight mb-6">
-            Freelance without <span className="text-gradient-gold">middlemen</span>
+            {t("home.hero.titlePart1")} <span className="text-gradient-gold">{t("home.hero.titlePart2")}</span>
           </h1>
 
           <p className="text-amber-700 text-lg sm:text-xl max-w-2xl mx-auto mb-10 leading-relaxed font-body">
-            Stellar MarketPay connects clients and freelancers globally. Payments are secured in
-            Soroban smart contract escrow — released the moment work is approved.
+            {t("home.hero.subtitle")}
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
