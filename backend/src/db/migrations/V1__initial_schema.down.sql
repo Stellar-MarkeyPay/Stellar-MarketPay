@@ -1,3 +1,5 @@
+-- rollback: destructive. This removes all application data created by V1.
+DROP TABLE IF EXISTS notification_preferences CASCADE;
 DROP TABLE IF EXISTS dispute_evidence CASCADE;
 DROP TABLE IF EXISTS webauthn_credentials CASCADE;
 DROP TABLE IF EXISTS scope_sessions CASCADE;
@@ -7,6 +9,8 @@ DROP TABLE IF EXISTS progress_updates CASCADE;
 DROP TABLE IF EXISTS escrows CASCADE;
 DROP TABLE IF EXISTS private_messages CASCADE;
 DROP TABLE IF EXISTS job_views CASCADE;
+DROP TABLE IF EXISTS referral_payouts CASCADE;
+DROP TABLE IF EXISTS referrals CASCADE;
 DROP TABLE IF EXISTS applications CASCADE;
 DROP TABLE IF EXISTS jobs CASCADE;
 DROP TABLE IF EXISTS profiles CASCADE;

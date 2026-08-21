@@ -19,7 +19,10 @@ function loadMigrationPairs() {
     .map((upFile) => {
       const version = parseVersion(upFile);
       const downFile = upFile.replace(/\.up\.sql$/, ".down.sql");
-      if (version == null || !files.includes(downFile)) return null;
+      if (version == null) return null;
+      if (!files.includes(downFile)) {
+        throw new Error(`Rollback file missing for migration ${upFile}`);
+      }
       return {
         version,
         name: upFile.replace(/\.up\.sql$/, ""),
@@ -28,22 +31,50 @@ function loadMigrationPairs() {
       };
     })
     .filter(Boolean)
-    .sort((a, b) => a.version - b.version);
+    // Some historical migrations share a numeric version. The filename is the
+    // migration identity; version is only used to provide the primary ordering.
+    .sort((a, b) => a.version - b.version || a.name.localeCompare(b.name));
 }
 
 async function ensureMigrationsTable(client) {
   await client.query(`
     CREATE TABLE IF NOT EXISTS schema_migrations (
-      version INTEGER PRIMARY KEY,
-      name TEXT NOT NULL,
+      name TEXT PRIMARY KEY,
+      version INTEGER NOT NULL,
       applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+
+  // Upgrade the original version-keyed ledger in place. Version numbers are
+  // not unique in this repository, whereas a migration filename always is.
+  await client.query(`
+    DO $$
+    DECLARE
+      primary_key_name TEXT;
+    BEGIN
+      SELECT con.conname INTO primary_key_name
+      FROM pg_constraint con
+      JOIN pg_class rel ON rel.oid = con.conrelid
+      JOIN pg_namespace ns ON ns.oid = rel.relnamespace
+      WHERE con.contype = 'p'
+        AND rel.relname = 'schema_migrations'
+        AND ns.nspname = current_schema();
+
+      IF primary_key_name IS NOT NULL THEN
+        EXECUTE format('ALTER TABLE schema_migrations DROP CONSTRAINT %I', primary_key_name);
+      END IF;
+
+      ALTER TABLE schema_migrations
+        ADD CONSTRAINT schema_migrations_pkey PRIMARY KEY (name);
+    EXCEPTION
+      WHEN duplicate_object THEN NULL;
+    END $$;
+  `);
 }
 
-async function getAppliedVersions(client) {
-  const { rows } = await client.query("SELECT version FROM schema_migrations");
-  return new Set(rows.map((r) => Number(r.version)));
+async function getAppliedMigrationNames(client) {
+  const { rows } = await client.query("SELECT name FROM schema_migrations");
+  return new Set(rows.map((r) => r.name));
 }
 
 async function migrate() {
@@ -51,10 +82,10 @@ async function migrate() {
   try {
     await ensureMigrationsTable(client);
     const migrations = loadMigrationPairs();
-    const applied = await getAppliedVersions(client);
+    const applied = await getAppliedMigrationNames(client);
 
     for (const migration of migrations) {
-      if (applied.has(migration.version)) {
+      if (applied.has(migration.name)) {
         console.log(`⏭️  Skipping V${migration.version} (already applied)`);
         continue;
       }
@@ -62,9 +93,9 @@ async function migrate() {
       await client.query("BEGIN");
       try {
         await client.query(migration.upSql);
-        await client.query("INSERT INTO schema_migrations (version, name) VALUES ($1, $2)", [
-          migration.version,
+        await client.query("INSERT INTO schema_migrations (name, version) VALUES ($1, $2)", [
           migration.name,
+          migration.version,
         ]);
         await client.query("COMMIT");
         console.log(`✅ Applied V${migration.version}`);
@@ -73,7 +104,7 @@ async function migrate() {
         // Handle duplicate key error gracefully
         if (err.code === "23505" && err.constraint === "schema_migrations_pkey") {
           console.log(`⏭️  Skipping V${migration.version} (already applied, duplicate key)`);
-          applied.add(migration.version);
+          applied.add(migration.name);
           continue;
         }
         throw err;
@@ -90,7 +121,7 @@ async function rollbackLastMigration() {
   try {
     await ensureMigrationsTable(client);
     const { rows } = await client.query(
-      "SELECT version, name FROM schema_migrations ORDER BY version DESC LIMIT 1"
+      "SELECT version, name FROM schema_migrations ORDER BY version DESC, applied_at DESC, name DESC LIMIT 1"
     );
 
     if (!rows.length) return null;
@@ -138,4 +169,4 @@ if (require.main === module) {
     });
 }
 
-module.exports = { migrate, rollbackLastMigration };
+module.exports = { loadMigrationPairs, migrate, rollbackLastMigration };

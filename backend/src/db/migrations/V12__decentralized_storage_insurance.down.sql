@@ -1,4 +1,4 @@
--- Migration: V12__decentralized_storage_insurance.down.sql
+-- rollback: destructive. This deletes insurance, proof, and SLA history.
 -- Rollback insurance and SLA monitoring tables
 
 DROP VIEW IF EXISTS insurance_summary;

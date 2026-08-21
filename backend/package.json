@@ -15,7 +15,8 @@
     "build": "npm run generate-openapi && npm run lint",
     "migrate": "node src/db/migrate.js",
     "migrate:rollback": "node src/db/migrate.js down",
-    "reindex:job-search": "node scripts/reindex-job-search-vector.js"
+    "reindex:job-search": "node scripts/reindex-job-search-vector.js",
+    "test:migrations": "node scripts/verify-migration-roundtrip.js"
   },
   "dependencies": {
     "@simplewebauthn/server": "^9.0.3",
