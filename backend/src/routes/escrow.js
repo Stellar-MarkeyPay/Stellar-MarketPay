@@ -232,6 +232,38 @@ router.post("/:jobId/refund", async (req, res, next) => {
 });
 
 /**
+ * POST /api/escrow/:jobId/start-work
+ * Client confirms on-chain start_work after hiring a freelancer.
+ */
+router.post("/:jobId/start-work", async (req, res, next) => {
+  try {
+    const { jobId } = req.params;
+    const { clientAddress, contractTxHash } = req.body;
+    const job = await getJob(jobId);
+    if (job.clientAddress !== clientAddress) {
+      const e = new Error("Only the job client can start work");
+      e.status = 403;
+      throw e;
+    }
+
+    await logContractInteraction({
+      functionName: "start_work",
+      callerAddress: clientAddress,
+      jobId,
+      txHash: contractTxHash || `offchain-${Date.now()}`,
+    });
+
+    if (job.status === "open" && job.freelancerAddress) {
+      await updateJobStatus(jobId, "in_progress");
+    }
+
+    res.json({ success: true, message: "Work started" });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/**
  * POST /api/escrow/:jobId/timeout-refund
  * Issue #175 — Client claims refund after freelancer inactivity timeout.
  */

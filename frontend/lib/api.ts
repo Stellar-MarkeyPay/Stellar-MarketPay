@@ -617,6 +617,22 @@ export async function timeoutRefund(jobId: string, clientAddress: string, contra
   return data.data;
 }
 
+export async function refundEscrow(jobId: string, clientAddress: string, contractTxHash?: string) {
+  const { data } = await api.post(`/api/escrow/${jobId}/refund`, {
+    clientAddress,
+    ...(contractTxHash ? { contractTxHash } : {}),
+  });
+  return data.data;
+}
+
+export async function startWork(jobId: string, clientAddress: string, contractTxHash?: string) {
+  const { data } = await api.post(`/api/escrow/${jobId}/start-work`, {
+    clientAddress,
+    ...(contractTxHash ? { contractTxHash } : {}),
+  });
+  return data.data;
+}
+
 export async function inviteFreelancer(jobId: string, freelancerAddress: string) {
   const { data } = await api.post<{ success: boolean; data: any }>(`/api/jobs/${jobId}/invite`, {
     freelancerAddress,

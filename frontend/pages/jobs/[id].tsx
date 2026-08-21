@@ -13,9 +13,9 @@ import {
   fetchJob,
   fetchApplications,
   acceptApplication,
-  releaseEscrow,
   raiseDispute,
 } from "@/lib/api";
+import EscrowActions from "@/components/EscrowActions";
 import {
   formatXLM,
   formatDate,
@@ -24,13 +24,7 @@ import {
   statusLabel,
   statusClass,
 } from "@/utils/format";
-import {
-  accountUrl,
-  buildReleaseEscrowTransaction,
-  submitSignedSorobanTransaction,
-  buildPartialReleaseTransaction,
-} from "@/lib/stellar";
-import { signTransactionWithWallet } from "@/lib/wallet";
+import { accountUrl, buildPartialReleaseTransaction } from "@/lib/stellar";
 import type { Transaction } from "@stellar/stellar-sdk";
 import type { Application, Job } from "@/utils/types";
 
@@ -78,7 +72,6 @@ export default function JobDetail({ publicKey, onConnect }: JobDetailProps) {
   const [ratingSubmitted, setRatingSubmitted] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [releasingEscrow, setReleasingEscrow] = useState(false);
-  const [releaseSuccess, setReleaseSuccess] = useState(false);
   const [prefillData, setPrefillData] = useState<any>(null);
   const [showDisputeModal, setShowDisputeModal] = useState(false);
   const [disputeReason, setDisputeReason] = useState("");
@@ -135,38 +128,6 @@ export default function JobDetail({ publicKey, onConnect }: JobDetailProps) {
       setApplications(updatedApplications);
     } catch {
       setActionError("Failed to accept application.");
-    }
-  };
-
-  const handleReleaseEscrow = async () => {
-    if (!publicKey || !job) return;
-    if (!job.escrowContractId) {
-      setActionError("This job has no escrow contract ID.");
-      return;
-    }
-
-    setReleasingEscrow(true);
-    setActionError(null);
-
-    try {
-      const prepared = await buildReleaseEscrowTransaction(job.escrowContractId, job.id, publicKey);
-      const { signedXDR, error: signError } = await signTransactionWithWallet(prepared.toXDR());
-
-      if (signError || !signedXDR) {
-        setActionError(signError || "Signing was cancelled.");
-        return;
-      }
-
-      const { hash } = await submitSignedSorobanTransaction(signedXDR);
-      await releaseEscrow(job.id, publicKey, hash);
-
-      const refreshedJob = await fetchJob(job.id);
-      setJob(refreshedJob);
-      setReleaseSuccess(true);
-    } catch (error: unknown) {
-      setActionError(error instanceof Error ? error.message : "Could not complete escrow release.");
-    } finally {
-      setReleasingEscrow(false);
     }
   };
 
@@ -469,25 +430,8 @@ export default function JobDetail({ publicKey, onConnect }: JobDetailProps) {
             </div>
           )}
 
-        {/* ── Escrow release (client, in_progress) ── */}
-        {isClient && job.status === "in_progress" && (
-          <div className="card mb-6">
-            <h2 className="font-display text-lg sm:text-xl font-bold text-amber-100 mb-3">
-              Escrow
-            </h2>
-
-            <button
-              onClick={handleReleaseEscrow}
-              disabled={releasingEscrow}
-              className="btn-primary w-full sm:w-auto"
-            >
-              {releasingEscrow ? "Releasing..." : "Release Escrow"}
-            </button>
-
-            {releaseSuccess && (
-              <p className="mt-3 text-emerald-400 text-sm">Escrow released successfully.</p>
-            )}
-          </div>
+        {isClient && publicKey && job.escrowContractId && (
+          <EscrowActions job={job} setJob={setJob} publicKey={publicKey} />
         )}
 
         {actionError && <p className="mt-3 mb-6 text-red-400 text-sm">{actionError}</p>}
