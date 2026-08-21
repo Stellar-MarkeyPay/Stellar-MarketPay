@@ -137,14 +137,17 @@ async function rollbackLastMigration() {
     await client.query("BEGIN");
     try {
       await client.query(downSql);
-      await client.query("DELETE FROM schema_migrations WHERE version = $1", [last.version]);
+      // Versions are not unique in the historical migration set. Deleting by
+      // version removed every migration sharing that version and caused the
+      // round-trip verifier to stop early. The filename is the ledger key.
+      await client.query("DELETE FROM schema_migrations WHERE name = $1", [last.name]);
       await client.query("COMMIT");
     } catch (err) {
       await client.query("ROLLBACK");
       throw err;
     }
 
-    return Number(last.version);
+    return last.name;
   } finally {
     client.release();
   }
@@ -157,7 +160,7 @@ if (require.main === module) {
   run()
     .then((result) => {
       if (mode === "down") {
-        console.log(result == null ? "No migrations to rollback" : `Rolled back V${result}`);
+        console.log(result == null ? "No migrations to rollback" : `Rolled back ${result}`);
       } else {
         console.log("Migrations complete");
       }
