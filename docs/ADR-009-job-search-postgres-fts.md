@@ -95,7 +95,7 @@ Phase 1 (this PR) extends the existing index rather than replacing it:
 - All three would still require `jobService.js`'s existing SQL filters
   (budget, skills overlap, client rating, applicant count, visibility,
   keyset pagination) to run against Postgres regardless, since that data
-  and logic isn't moving — so adopting one now would mean querying *two*
+  and logic isn't moving — so adopting one now would mean querying _two_
   systems and reconciling their results, not simplifying the query path.
 
 ### When to revisit this decision
