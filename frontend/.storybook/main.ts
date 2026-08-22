@@ -1,4 +1,4 @@
-import type { StorybookConfig } from "@storybook/nextjs";
+import type { StorybookConfig } from "@storybook/react-webpack5";
 import path from "path";
 
 const config: StorybookConfig = {
@@ -6,9 +6,13 @@ const config: StorybookConfig = {
     "../stories/**/*.stories.@(js|jsx|mjs|ts|tsx)",
     "../components/**/*.stories.@(js|jsx|mjs|ts|tsx)",
   ],
-  addons: ["@storybook/addon-essentials", "@storybook/addon-a11y"],
+  addons: [
+    "@storybook/addon-webpack5-compiler-swc",
+    "@storybook/addon-essentials",
+    "@storybook/addon-a11y",
+  ],
   framework: {
-    name: "@storybook/nextjs",
+    name: "@storybook/react-webpack5",
     options: {},
   },
   staticDirs: ["../public"],
@@ -26,6 +30,12 @@ const config: StorybookConfig = {
         fs: false,
         net: false,
         tls: false,
+        crypto: false,
+        stream: false,
+        path: false,
+        http: false,
+        https: false,
+        zlib: false,
       };
     }
     return config;

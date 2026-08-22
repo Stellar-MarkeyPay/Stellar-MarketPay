@@ -89,7 +89,7 @@ export const AllTokens: Story = {
               <div className="flex items-center gap-2">
                 <span className="w-3 h-3 rounded-full" style={{ backgroundColor: val.solid }} />
                 <span
-                  className="text-xs font-bold uppercase tracking-wider capitalize"
+                  className="text-xs font-bold uppercase tracking-wider"
                   style={{ color: val.text }}
                 >
                   {status}
