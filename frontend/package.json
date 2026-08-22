@@ -12,7 +12,7 @@
     "test:update-snapshots": "jest -u",
     "test:a11y": "jest __tests__/accessibility.test.tsx",
     "test:visual": "playwright test tests/visual-regression.spec.ts",
-    "test:e2e": "playwright test",
+    "test:e2e": "playwright test tests/e2e",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build -o storybook-static"
   },
