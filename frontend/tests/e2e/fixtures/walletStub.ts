@@ -28,6 +28,9 @@ export async function installFreighterStub(
   });
 
   await page.addInitScript((publicKey: string) => {
+    try {
+      localStorage.setItem("smp_wallet_public_key", publicKey);
+    } catch {}
     (window as any).freighter = {
       isConnected: async () => ({ isConnected: true }),
       isAllowed: async () => ({ isAllowed: true }),

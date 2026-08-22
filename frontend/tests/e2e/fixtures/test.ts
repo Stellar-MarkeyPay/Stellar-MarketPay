@@ -15,6 +15,7 @@ export interface Persona {
 }
 
 interface Fixtures {
+  mockServer: void;
   apiClient: ApiClient;
   clientPage: Persona;
   freelancerPage: Persona;
@@ -45,6 +46,14 @@ async function makePersona(
 }
 
 export const test = base.extend<Fixtures>({
+  mockServer: [
+    async ({}, use: () => Promise<void>) => {
+      await sharedMockServer.start();
+      await use();
+    },
+    { auto: true },
+  ] as any,
+
   apiClient: async ({}, use) => {
     await sharedMockServer.start();
     await use(new ApiClient(apiBaseURL(), NETWORK_PASSPHRASE));
