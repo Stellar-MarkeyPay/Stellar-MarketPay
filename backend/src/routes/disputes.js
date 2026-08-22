@@ -45,7 +45,116 @@ const upload = multer({
 const readRateLimiter = createRateLimiter(30, 1);
 const uploadRateLimiter = createRateLimiter(5, 1);
 
-// GET /api/disputes/:jobId
+/**
+ * @swagger
+ * /api/disputes/{jobId}:
+ *   get:
+ *     summary: Get dispute detail and evidence for a job
+ *     description: >
+ *       Returns basic job info plus every evidence file uploaded for the
+ *       job's dispute, each enriched with a public IPFS gateway URL. This
+ *       endpoint is intentionally unauthenticated — per the module's design
+ *       (Issue #223), anyone can read dispute evidence for admin/public
+ *       visibility, while only the client or freelancer can upload it.
+ *     tags: [Disputes]
+ *     x-rate-limit:
+ *       limit: 30
+ *       windowMinutes: 1
+ *     parameters:
+ *       - in: path
+ *         name: jobId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Job ID
+ *         example: "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+ *     responses:
+ *       200:
+ *         description: Dispute detail retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     job:
+ *                       type: object
+ *                       properties:
+ *                         id:
+ *                           type: string
+ *                           format: uuid
+ *                         title:
+ *                           type: string
+ *                         status:
+ *                           type: string
+ *                         client_address:
+ *                           type: string
+ *                         freelancer_address:
+ *                           type: string
+ *                         created_at:
+ *                           type: string
+ *                           format: date-time
+ *                     evidence:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: string
+ *                             format: uuid
+ *                           uploaderAddress:
+ *                             type: string
+ *                           fileName:
+ *                             type: string
+ *                           fileSize:
+ *                             type: integer
+ *                             description: File size in bytes
+ *                           mimeType:
+ *                             type: string
+ *                           ipfsCid:
+ *                             type: string
+ *                           gatewayUrl:
+ *                             type: string
+ *                             description: Public Pinata IPFS gateway URL for the file
+ *                           createdAt:
+ *                             type: string
+ *                             format: date-time
+ *             example:
+ *               success: true
+ *               data:
+ *                 job:
+ *                   id: "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+ *                   title: "Build a landing page"
+ *                   status: in_progress
+ *                   client_address: "GCLIENT2345EFGH6789IJKL0123MNOP4567QRST8901UVWX2345YZAB6789C"
+ *                   freelancer_address: "GFREEL2345EFGH6789IJKL0123MNOP4567QRST8901UVWX2345YZAB6789C"
+ *                   created_at: "2026-08-10T00:00:00.000Z"
+ *                 evidence:
+ *                   - id: "1b2c3d4e-5f60-4718-9293-a4b5c6d7e8f9"
+ *                     uploaderAddress: "GCLIENT2345EFGH6789IJKL0123MNOP4567QRST8901UVWX2345YZAB6789C"
+ *                     fileName: "screenshot.png"
+ *                     fileSize: 204800
+ *                     mimeType: image/png
+ *                     ipfsCid: "QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG"
+ *                     gatewayUrl: "https://gateway.pinata.cloud/ipfs/QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG"
+ *                     createdAt: "2026-08-20T00:00:00.000Z"
+ *       404:
+ *         description: Job not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: Job not found
+ *       429:
+ *         $ref: '#/components/responses/TooManyRequests'
+ */
 router.get("/:jobId", readRateLimiter, async (req, res, next) => {
   try {
     const { jobId } = req.params;
@@ -91,7 +200,144 @@ router.get("/:jobId", readRateLimiter, async (req, res, next) => {
   }
 });
 
-// POST /api/disputes/:jobId/evidence
+/**
+ * @swagger
+ * /api/disputes/{jobId}/evidence:
+ *   post:
+ *     summary: Upload one dispute evidence file
+ *     description: >
+ *       Uploads a single evidence file (multipart/form-data, field name
+ *       `file`) for a job's dispute. Only the job's client or freelancer
+ *       (identified by the authenticated JWT's `publicKey`) may upload.
+ *       Enforces a maximum of 10 files per party per job and rejects any
+ *       MIME type other than image/jpeg, image/png, image/gif, image/webp,
+ *       application/pdf, or text/plain. On success, the file is pinned to
+ *       IPFS via Pinata and a `dispute_evidence` row is inserted recording
+ *       the returned CID. Note: the 5 MB per-file size limit is enforced by
+ *       multer's `limits.fileSize`, which throws a `MulterError` with no
+ *       `status`/`statusCode` property — the global error handler therefore
+ *       returns 500 (not 400) for oversized files, unlike the MIME-type
+ *       check, which explicitly sets `status: 400`.
+ *     tags: [Disputes]
+ *     x-rate-limit:
+ *       limit: 5
+ *       windowMinutes: 1
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: jobId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Job ID
+ *         example: "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - file
+ *             properties:
+ *               file:
+ *                 type: string
+ *                 format: binary
+ *                 description: >
+ *                   Evidence file, max 5 MB. Allowed types: image/jpeg,
+ *                   image/png, image/gif, image/webp, application/pdf,
+ *                   text/plain.
+ *     responses:
+ *       201:
+ *         description: Evidence uploaded and pinned to IPFS successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                       format: uuid
+ *                     uploaderAddress:
+ *                       type: string
+ *                     fileName:
+ *                       type: string
+ *                     fileSize:
+ *                       type: integer
+ *                       description: File size in bytes
+ *                     mimeType:
+ *                       type: string
+ *                     ipfsCid:
+ *                       type: string
+ *                     gatewayUrl:
+ *                       type: string
+ *                       description: Public Pinata IPFS gateway URL for the file
+ *                     createdAt:
+ *                       type: string
+ *                       format: date-time
+ *             example:
+ *               success: true
+ *               data:
+ *                 id: "1b2c3d4e-5f60-4718-9293-a4b5c6d7e8f9"
+ *                 uploaderAddress: "GCLIENT2345EFGH6789IJKL0123MNOP4567QRST8901UVWX2345YZAB6789C"
+ *                 fileName: "screenshot.png"
+ *                 fileSize: 204800
+ *                 mimeType: image/png
+ *                 ipfsCid: "QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG"
+ *                 gatewayUrl: "https://gateway.pinata.cloud/ipfs/QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG"
+ *                 createdAt: "2026-08-21T00:00:00.000Z"
+ *       400:
+ *         description: No file provided, disallowed MIME type, or the party's 10-file evidence limit has been reached
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: "Maximum 10 files allowed per party"
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         description: Authenticated user is neither the job's client nor freelancer
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: Only the client or freelancer can upload evidence
+ *       404:
+ *         description: Job not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       422:
+ *         description: The IPFS pinning service returned a CID that failed local format validation
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: Invalid IPFS CID returned from upload service
+ *       429:
+ *         $ref: '#/components/responses/TooManyRequests'
+ *       503:
+ *         description: The IPFS/Pinata upload service is unavailable, misconfigured, or rate-limited
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: Upload service temporarily unavailable. Please try again later.
+ */
 router.post(
   "/:jobId/evidence",
   verifyJWT,

@@ -182,6 +182,55 @@ router.post("/", async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/auth/refresh:
+ *   post:
+ *     summary: Rotate an access token using the refresh-token cookie
+ *     description: >
+ *       Reads the httpOnly `refreshToken` cookie, and if it corresponds to a valid, unexpired
+ *       refresh session, issues a brand new access/refresh token pair (rotating the refresh
+ *       token so the old one can no longer be reused) and sets them as the `jwt` and
+ *       `refreshToken` httpOnly cookies. Does not require an `Authorization` header.
+ *     tags: [Authentication]
+ *     parameters:
+ *       - in: cookie
+ *         name: refreshToken
+ *         required: false
+ *         schema:
+ *           type: string
+ *         description: >
+ *           Opaque refresh token previously set by POST /api/auth or a prior call to this
+ *           endpoint. Missing, unknown, or expired/already-rotated tokens result in a 401.
+ *         example: "3q2-7w15QmN2K8x9pL0vR1sT4uY6zA8bC0dE2fG4hI6j"
+ *     responses:
+ *       200:
+ *         description: >
+ *           New access token issued. A new `jwt` cookie and a rotated `refreshToken` cookie are
+ *           also set on the response.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 token:
+ *                   type: string
+ *                   description: New JWT access token (same claims as the original session).
+ *             example:
+ *               success: true
+ *               token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+ *       401:
+ *         description: Missing, invalid, expired, or already-rotated refresh token. Auth cookies are cleared.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: "Unauthorized: Invalid refresh token"
+ */
 router.post("/refresh", (req, res) => {
   const refreshToken = getRefreshTokenFromRequest(req);
   const rotated = rotateRefreshToken(refreshToken);
@@ -195,6 +244,34 @@ router.post("/refresh", (req, res) => {
   return res.json({ success: true, token: rotated.accessToken });
 });
 
+/**
+ * @swagger
+ * /api/auth/logout:
+ *   post:
+ *     summary: Log out and revoke the current refresh session
+ *     description: >
+ *       Revokes the refresh session identified by the httpOnly `refreshToken` cookie (a no-op
+ *       if it is missing or already invalid) and clears both the `jwt` and `refreshToken`
+ *       cookies. Always succeeds. Does not require an `Authorization` header.
+ *     tags: [Authentication]
+ *     parameters:
+ *       - in: cookie
+ *         name: refreshToken
+ *         required: false
+ *         schema:
+ *           type: string
+ *         description: Opaque refresh token to revoke, previously set by POST /api/auth or POST /api/auth/refresh.
+ *         example: "3q2-7w15QmN2K8x9pL0vR1sT4uY6zA8bC0dE2fG4hI6j"
+ *     responses:
+ *       200:
+ *         description: Logout succeeded. Auth cookies are cleared on the response.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Success'
+ *             example:
+ *               success: true
+ */
 router.post("/logout", (req, res) => {
   revokeRefreshToken(getRefreshTokenFromRequest(req));
   clearAuthCookies(res);

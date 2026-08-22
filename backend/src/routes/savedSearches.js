@@ -14,8 +14,52 @@ const logger = createServiceLogger("saved-searches");
 const MAX_SAVED_SEARCHES = 10;
 
 /**
- * GET /api/saved-searches
- * List the authenticated user's saved searches.
+ * @swagger
+ * /api/saved-searches:
+ *   get:
+ *     summary: List the authenticated user's saved searches
+ *     description: >
+ *       Returns all saved job-search alerts owned by the authenticated
+ *       user, newest first.
+ *     tags: [SavedSearches]
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: The user's saved searches
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id: { type: string, format: uuid }
+ *                       user_address: { type: string }
+ *                       query_params: { type: object }
+ *                       notify_in_app: { type: boolean }
+ *                       notify_email: { type: boolean }
+ *                       last_notified_at: { type: string, format: date-time, nullable: true }
+ *                       created_at: { type: string, format: date-time }
+ *                       updated_at: { type: string, format: date-time }
+ *             example:
+ *               success: true
+ *               data:
+ *                 - id: "1e2d3c4b-6666-4a2b-8c3d-4e5f6a7b8c9d"
+ *                   user_address: GAFREELANCER1XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+ *                   query_params: { category: "Smart Contracts", min_budget: 100 }
+ *                   notify_in_app: true
+ *                   notify_email: false
+ *                   last_notified_at: null
+ *                   created_at: "2026-08-15T10:00:00.000Z"
+ *                   updated_at: "2026-08-15T10:00:00.000Z"
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
  */
 router.get("/", verifyJWT, async (req, res, next) => {
   try {
@@ -33,8 +77,98 @@ router.get("/", verifyJWT, async (req, res, next) => {
 });
 
 /**
- * POST /api/saved-searches
- * Save a new search query. Enforces a 10-search limit per user.
+ * @swagger
+ * /api/saved-searches:
+ *   post:
+ *     summary: Save a new search query
+ *     description: >
+ *       Saves a new job-search alert for the authenticated user, with
+ *       optional in-app/email notification preferences. Enforces a
+ *       maximum of 10 saved searches per user; `notify_in_app` defaults
+ *       to true unless explicitly set to false, and `notify_email`
+ *       defaults to false.
+ *     tags: [SavedSearches]
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - query_params
+ *             properties:
+ *               query_params:
+ *                 type: object
+ *                 description: Arbitrary job-search filter parameters to re-run for alerting (e.g. category, skills, budget range)
+ *               notify_in_app:
+ *                 type: boolean
+ *                 default: true
+ *                 description: Whether to notify the user in-app when new matches are found
+ *               notify_email:
+ *                 type: boolean
+ *                 default: false
+ *                 description: Whether to email the user when new matches are found
+ *           example:
+ *             query_params:
+ *               category: "Smart Contracts"
+ *               skills: ["rust", "soroban"]
+ *               min_budget: 100
+ *             notify_in_app: true
+ *             notify_email: true
+ *     responses:
+ *       201:
+ *         description: Saved search created
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id: { type: string, format: uuid }
+ *                     user_address: { type: string }
+ *                     query_params: { type: object }
+ *                     notify_in_app: { type: boolean }
+ *                     notify_email: { type: boolean }
+ *                     last_notified_at: { type: string, format: date-time, nullable: true }
+ *                     created_at: { type: string, format: date-time }
+ *                     updated_at: { type: string, format: date-time }
+ *             example:
+ *               success: true
+ *               data:
+ *                 id: "1e2d3c4b-6666-4a2b-8c3d-4e5f6a7b8c9d"
+ *                 user_address: GAFREELANCER1XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+ *                 query_params: { category: "Smart Contracts", skills: ["rust", "soroban"], min_budget: 100 }
+ *                 notify_in_app: true
+ *                 notify_email: true
+ *                 last_notified_at: null
+ *                 created_at: "2026-08-21T10:00:00.000Z"
+ *                 updated_at: "2026-08-21T10:00:00.000Z"
+ *       400:
+ *         description: query_params is missing/not an object, or the user has reached the 10-saved-search limit
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: false }
+ *                 error: { type: string }
+ *             examples:
+ *               missingQueryParams:
+ *                 value:
+ *                   success: false
+ *                   error: query_params is required and must be an object
+ *               limitReached:
+ *                 value:
+ *                   success: false
+ *                   error: "You can save up to 10 searches. Please delete one first."
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
  */
 router.post("/", verifyJWT, async (req, res, next) => {
   try {
@@ -78,8 +212,89 @@ router.post("/", verifyJWT, async (req, res, next) => {
 });
 
 /**
- * PATCH /api/saved-searches/:id
- * Update notification preferences for a saved search.
+ * @swagger
+ * /api/saved-searches/{id}:
+ *   patch:
+ *     summary: Update notification preferences for a saved search
+ *     description: >
+ *       Updates `notify_in_app` and/or `notify_email` for a saved search
+ *       owned by the authenticated user. Omitted fields are left
+ *       unchanged (via COALESCE). Only the owning user can update their
+ *       own saved search.
+ *     tags: [SavedSearches]
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: UUID of the saved search to update
+ *         example: 1e2d3c4b-6666-4a2b-8c3d-4e5f6a7b8c9d
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               notify_in_app:
+ *                 type: boolean
+ *                 description: Whether to notify the user in-app when new matches are found
+ *               notify_email:
+ *                 type: boolean
+ *                 description: Whether to email the user when new matches are found
+ *           example:
+ *             notify_in_app: false
+ *             notify_email: true
+ *     responses:
+ *       200:
+ *         description: Saved search updated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id: { type: string, format: uuid }
+ *                     user_address: { type: string }
+ *                     query_params: { type: object }
+ *                     notify_in_app: { type: boolean }
+ *                     notify_email: { type: boolean }
+ *                     last_notified_at: { type: string, format: date-time, nullable: true }
+ *                     created_at: { type: string, format: date-time }
+ *                     updated_at: { type: string, format: date-time }
+ *             example:
+ *               success: true
+ *               data:
+ *                 id: "1e2d3c4b-6666-4a2b-8c3d-4e5f6a7b8c9d"
+ *                 user_address: GAFREELANCER1XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+ *                 query_params: { category: "Smart Contracts", min_budget: 100 }
+ *                 notify_in_app: false
+ *                 notify_email: true
+ *                 last_notified_at: null
+ *                 created_at: "2026-08-15T10:00:00.000Z"
+ *                 updated_at: "2026-08-21T11:00:00.000Z"
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       404:
+ *         description: Saved search not found, or not owned by the authenticated user
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: false }
+ *                 error: { type: string }
+ *             example:
+ *               success: false
+ *               error: Saved search not found
  */
 router.patch("/:id", verifyJWT, async (req, res, next) => {
   try {
@@ -107,8 +322,49 @@ router.patch("/:id", verifyJWT, async (req, res, next) => {
 });
 
 /**
- * DELETE /api/saved-searches/:id
- * Remove a saved search.
+ * @swagger
+ * /api/saved-searches/{id}:
+ *   delete:
+ *     summary: Delete a saved search
+ *     description: >
+ *       Deletes a saved search owned by the authenticated user. Only the
+ *       owning user can delete their own saved search.
+ *     tags: [SavedSearches]
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: UUID of the saved search to delete
+ *         example: 1e2d3c4b-6666-4a2b-8c3d-4e5f6a7b8c9d
+ *     responses:
+ *       200:
+ *         description: Saved search deleted
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Success'
+ *             example:
+ *               success: true
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       404:
+ *         description: Saved search not found, or not owned by the authenticated user
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: false }
+ *                 error: { type: string }
+ *             example:
+ *               success: false
+ *               error: Saved search not found
  */
 router.delete("/:id", verifyJWT, async (req, res, next) => {
   try {

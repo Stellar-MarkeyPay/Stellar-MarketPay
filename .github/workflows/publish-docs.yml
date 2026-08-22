@@ -1,0 +1,65 @@
+name: Publish API Documentation
+
+on:
+  release:
+    types: [published]
+  push:
+    branches: [main]
+    paths:
+      - "backend/src/routes/**"
+      - "backend/src/server.js"
+      - "backend/src/config/swaggerOptions.js"
+      - "backend/scripts/generate-openapi.js"
+      - ".github/workflows/publish-docs.yml"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Render OpenAPI spec to static docs
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: backend/package-lock.json
+
+      - run: npm ci
+
+      - name: Generate OpenAPI specification
+        run: npm run generate-openapi
+
+      - name: Render static Redoc site
+        run: npx --yes @redocly/cli build-docs docs/openapi.json --output docs/site/index.html --title "Stellar MarketPay API"
+
+      - name: Copy spec alongside rendered site
+        run: cp docs/openapi.json docs/site/openapi.json
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: backend/docs/site
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

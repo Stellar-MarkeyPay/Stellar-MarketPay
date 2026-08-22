@@ -47,6 +47,104 @@ const webauthnRateLimiter = createRateLimiter(10, 1);
 
 // ─── Registration ──────────────────────────────────────────────────────────────
 
+/**
+ * @swagger
+ * /api/webauthn/register-options:
+ *   post:
+ *     summary: Get WebAuthn passkey registration options
+ *     description: >
+ *       Generates a WebAuthn/FIDO2 `PublicKeyCredentialCreationOptions`
+ *       challenge (via `@simplewebauthn/server`) for registering a new
+ *       passkey on the authenticated user's account, excluding any
+ *       credentials already registered for that account. The challenge is
+ *       cached in memory (keyed by public key, 5-minute TTL) to be verified
+ *       by `POST /api/webauthn/register-verify`. Pass the returned `data`
+ *       object directly to `navigator.credentials.create({ publicKey: data })`.
+ *     tags: [WebAuthn]
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     x-rate-limit:
+ *       limit: 10
+ *       windowMinutes: 1
+ *     responses:
+ *       200:
+ *         description: Registration options generated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   description: PublicKeyCredentialCreationOptionsJSON
+ *                   properties:
+ *                     rp:
+ *                       type: object
+ *                       properties:
+ *                         name:
+ *                           type: string
+ *                         id:
+ *                           type: string
+ *                     user:
+ *                       type: object
+ *                       properties:
+ *                         id:
+ *                           type: string
+ *                         name:
+ *                           type: string
+ *                         displayName:
+ *                           type: string
+ *                     challenge:
+ *                       type: string
+ *                       description: base64url-encoded random challenge
+ *                     pubKeyCredParams:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                     attestation:
+ *                       type: string
+ *                       example: none
+ *                     excludeCredentials:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                     authenticatorSelection:
+ *                       type: object
+ *                       properties:
+ *                         residentKey:
+ *                           type: string
+ *                           example: preferred
+ *                         userVerification:
+ *                           type: string
+ *                           example: preferred
+ *             example:
+ *               success: true
+ *               data:
+ *                 rp:
+ *                   name: Stellar MarketPay
+ *                   id: localhost
+ *                 user:
+ *                   id: R0hDMzJYTU5TMkJTSFBGRUtDMjUyTDROUktCTDJUR1JFN1pXTlhBM0hWNUZLQlBNTzNXVlBEQlg
+ *                   name: GHC32XMN…PDBX
+ *                   displayName: GHC32XMN…PDBX
+ *                 challenge: Y2hhbGxlbmdlLWV4YW1wbGUtYmFzZTY0dXJs
+ *                 pubKeyCredParams:
+ *                   - alg: -7
+ *                     type: public-key
+ *                 attestation: none
+ *                 excludeCredentials: []
+ *                 authenticatorSelection:
+ *                   residentKey: preferred
+ *                   userVerification: preferred
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       429:
+ *         $ref: '#/components/responses/TooManyRequests'
+ */
 router.post("/register-options", verifyJWT, webauthnRateLimiter, async (req, res, next) => {
   try {
     const publicKey = req.user.publicKey;
@@ -80,6 +178,101 @@ router.post("/register-options", verifyJWT, webauthnRateLimiter, async (req, res
   }
 });
 
+/**
+ * @swagger
+ * /api/webauthn/register-verify:
+ *   post:
+ *     summary: Verify a passkey registration and store the credential
+ *     description: >
+ *       Verifies the browser's `PublicKeyCredential` attestation response
+ *       (from `navigator.credentials.create()`) against the challenge
+ *       previously issued by `POST /api/webauthn/register-options`, using
+ *       `@simplewebauthn/server`'s `verifyRegistrationResponse`. On success,
+ *       deletes the pending challenge and inserts the new credential
+ *       (credential ID, COSE public key, counter, transports) into
+ *       `webauthn_credentials` for the authenticated user.
+ *     tags: [WebAuthn]
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     x-rate-limit:
+ *       limit: 10
+ *       windowMinutes: 1
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - credential
+ *             properties:
+ *               credential:
+ *                 type: object
+ *                 description: RegistrationResponseJSON returned by navigator.credentials.create()
+ *                 properties:
+ *                   id:
+ *                     type: string
+ *                   rawId:
+ *                     type: string
+ *                   type:
+ *                     type: string
+ *                     example: public-key
+ *                   response:
+ *                     type: object
+ *                     properties:
+ *                       clientDataJSON:
+ *                         type: string
+ *                       attestationObject:
+ *                         type: string
+ *                       transports:
+ *                         type: array
+ *                         items:
+ *                           type: string
+ *               name:
+ *                 type: string
+ *                 description: Optional display name for the passkey (truncated to 64 chars, defaults to "Passkey")
+ *                 example: My iPhone
+ *           example:
+ *             credential:
+ *               id: AVGHb3fzZ9k2Lp1qXwR8tYcNmE
+ *               rawId: AVGHb3fzZ9k2Lp1qXwR8tYcNmE
+ *               type: public-key
+ *               response:
+ *                 clientDataJSON: eyJ0eXBlIjoid2ViYXV0aG4uY3JlYXRlIiwiY2hhbGxlbmdlIjoiWTJoaGJHeGxibWRsLWVYWXRZbVZ6WVRZMGRYSnMifQ
+ *                 attestationObject: o2NmbXRkbm9uZWdhdHRTdG10oGhhdXRoRGF0YVjE
+ *                 transports:
+ *                   - internal
+ *                   - hybrid
+ *             name: My iPhone
+ *     responses:
+ *       200:
+ *         description: Passkey registered successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Success'
+ *             example:
+ *               success: true
+ *               message: Passkey registered successfully
+ *       400:
+ *         description: No pending registration challenge for this account, or the attestation failed verification
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             examples:
+ *               noChallenge:
+ *                 value:
+ *                   error: No pending registration challenge. Please try again.
+ *               failedVerification:
+ *                 value:
+ *                   error: Passkey registration verification failed
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       429:
+ *         $ref: '#/components/responses/TooManyRequests'
+ */
 router.post("/register-verify", verifyJWT, webauthnRateLimiter, async (req, res, next) => {
   try {
     const publicKey = req.user.publicKey;
@@ -131,6 +324,94 @@ router.post("/register-verify", verifyJWT, webauthnRateLimiter, async (req, res,
 
 // ─── Authentication ─────────────────────────────────────────────────────────────
 
+/**
+ * @swagger
+ * /api/webauthn/login-options:
+ *   post:
+ *     summary: Get WebAuthn passkey authentication options
+ *     description: >
+ *       Generates a WebAuthn `PublicKeyCredentialRequestOptions` challenge
+ *       (via `@simplewebauthn/server`) listing the passkeys registered for
+ *       the given Stellar public key as `allowCredentials` (empty if the
+ *       account has none). The challenge is cached in memory (keyed by
+ *       public key, 5-minute TTL) to be verified by
+ *       `POST /api/webauthn/login-verify`. This endpoint does not require a
+ *       JWT — it is used to start passkey login. Pass the returned `data`
+ *       object to `navigator.credentials.get({ publicKey: data })`.
+ *     tags: [WebAuthn]
+ *     x-rate-limit:
+ *       limit: 10
+ *       windowMinutes: 1
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - publicKey
+ *             properties:
+ *               publicKey:
+ *                 type: string
+ *                 description: Stellar public key (G-address) attempting to log in
+ *           example:
+ *             publicKey: GHC32XMNS2BSHPFEKC252L4NRKBL2TGRE7ZWNXA3HV5FKBPMO3WVPDBX
+ *     responses:
+ *       200:
+ *         description: Authentication options generated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   description: PublicKeyCredentialRequestOptionsJSON
+ *                   properties:
+ *                     challenge:
+ *                       type: string
+ *                       description: base64url-encoded random challenge
+ *                     allowCredentials:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: string
+ *                           type:
+ *                             type: string
+ *                             example: public-key
+ *                           transports:
+ *                             type: array
+ *                             items:
+ *                               type: string
+ *                     userVerification:
+ *                       type: string
+ *                       example: preferred
+ *             example:
+ *               success: true
+ *               data:
+ *                 challenge: YXV0aC1jaGFsbGVuZ2UtZXhhbXBsZS1iYXNlNjR1cmw
+ *                 allowCredentials:
+ *                   - id: AVGHb3fzZ9k2Lp1qXwR8tYcNmE
+ *                     type: public-key
+ *                     transports:
+ *                       - internal
+ *                 userVerification: preferred
+ *       400:
+ *         description: publicKey missing or not a valid Stellar G-address
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: Invalid Stellar public key
+ *       429:
+ *         $ref: '#/components/responses/TooManyRequests'
+ */
 router.post("/login-options", webauthnRateLimiter, async (req, res, next) => {
   try {
     const { publicKey } = req.body;
@@ -165,6 +446,120 @@ router.post("/login-options", webauthnRateLimiter, async (req, res, next) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/webauthn/login-verify:
+ *   post:
+ *     summary: Verify a passkey assertion and log in
+ *     description: >
+ *       Verifies the browser's `PublicKeyCredential` assertion response
+ *       (from `navigator.credentials.get()`) against the challenge
+ *       previously issued by `POST /api/webauthn/login-options`, using
+ *       `@simplewebauthn/server`'s `verifyAuthenticationResponse` and the
+ *       stored credential's public key/counter. On success, updates the
+ *       stored signature counter, issues a fresh access/refresh JWT pair via
+ *       the same mechanism as the SEP-10 login flow, sets them as httpOnly
+ *       `jwt`/`refreshToken` cookies, and also returns the access token in
+ *       the response body.
+ *     tags: [WebAuthn]
+ *     x-rate-limit:
+ *       limit: 10
+ *       windowMinutes: 1
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - credential
+ *               - publicKey
+ *             properties:
+ *               credential:
+ *                 type: object
+ *                 description: AuthenticationResponseJSON returned by navigator.credentials.get()
+ *                 properties:
+ *                   id:
+ *                     type: string
+ *                   rawId:
+ *                     type: string
+ *                   type:
+ *                     type: string
+ *                     example: public-key
+ *                   response:
+ *                     type: object
+ *                     properties:
+ *                       clientDataJSON:
+ *                         type: string
+ *                       authenticatorData:
+ *                         type: string
+ *                       signature:
+ *                         type: string
+ *                       userHandle:
+ *                         type: string
+ *               publicKey:
+ *                 type: string
+ *                 description: Stellar public key (G-address) logging in
+ *           example:
+ *             credential:
+ *               id: AVGHb3fzZ9k2Lp1qXwR8tYcNmE
+ *               rawId: AVGHb3fzZ9k2Lp1qXwR8tYcNmE
+ *               type: public-key
+ *               response:
+ *                 clientDataJSON: eyJ0eXBlIjoid2ViYXV0aG4uZ2V0IiwiY2hhbGxlbmdlIjoiWVhWMExXTmhhR3hsYm1kbCJ9
+ *                 authenticatorData: SZYN5YgOjGh0NBcPZHZgW4_krrmihjLHmVzzuoMdl2M
+ *                 signature: MEUCIQDx8oV6P3s2h1zN9m4b6Kx2r5v8s1w3y7z9a1c3e5g7i9k1
+ *                 userHandle: R0hDMzJYTU5TMkJTSFBGRUtDMjUyTDROUktCTDJUR1JFN1pXTlhBM0hWNUZLQlBNTzNXVlBEQlg
+ *             publicKey: GHC32XMNS2BSHPFEKC252L4NRKBL2TGRE7ZWNXA3HV5FKBPMO3WVPDBX
+ *     responses:
+ *       200:
+ *         description: Passkey verified; JWT issued
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 token:
+ *                   type: string
+ *                   description: Short-lived (15 minute) JWT access token; also set as the httpOnly `jwt` cookie
+ *             example:
+ *               success: true
+ *               token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJwdWJsaWNLZXkiOiJHSEMzMlhNTlMyQlNIUEZFS0MyNTJMNE5SS0JMMlRHUkU3WldOWEEzSFY1RktCUE1PM1dWUERCWCJ9.4Q1p2z9x0w7y8v6u5t4s3r2q1p0o9n8m7l6k5j4i3h2g1f
+ *       400:
+ *         description: publicKey missing/invalid, or no pending authentication challenge for this account
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             examples:
+ *               invalidPublicKey:
+ *                 value:
+ *                   error: Invalid Stellar public key
+ *               noChallenge:
+ *                 value:
+ *                   error: No pending authentication challenge. Please try again.
+ *       401:
+ *         description: Assertion signature verification failed
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: Passkey authentication failed
+ *       404:
+ *         description: No credential matching the given ID is registered to this public key
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: Passkey not found for this account
+ *       429:
+ *         $ref: '#/components/responses/TooManyRequests'
+ */
 router.post("/login-verify", webauthnRateLimiter, async (req, res, next) => {
   try {
     const { credential, publicKey } = req.body;
@@ -231,6 +626,49 @@ router.post("/login-verify", webauthnRateLimiter, async (req, res, next) => {
 
 // ─── Credential management ─────────────────────────────────────────────────────
 
+/**
+ * @swagger
+ * /api/webauthn/credentials:
+ *   get:
+ *     summary: List registered passkeys
+ *     description: Lists the authenticated user's registered WebAuthn credentials, newest first.
+ *     tags: [WebAuthn]
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: Passkeys retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                         format: uuid
+ *                       credential_name:
+ *                         type: string
+ *                       created_at:
+ *                         type: string
+ *                         format: date-time
+ *             example:
+ *               success: true
+ *               data:
+ *                 - id: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+ *                   credential_name: My iPhone
+ *                   created_at: "2026-07-01T10:00:00.000Z"
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ */
 router.get("/credentials", verifyJWT, async (req, res, next) => {
   try {
     const { rows } = await pool.query(
@@ -243,6 +681,46 @@ router.get("/credentials", verifyJWT, async (req, res, next) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/webauthn/credentials/{id}:
+ *   delete:
+ *     summary: Remove a registered passkey
+ *     description: Deletes a WebAuthn credential belonging to the authenticated user.
+ *     tags: [WebAuthn]
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: The credential's internal `id` (from GET /api/webauthn/credentials), not its WebAuthn credential_id
+ *         example: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+ *     responses:
+ *       200:
+ *         description: Passkey removed
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Success'
+ *             example:
+ *               success: true
+ *               message: Passkey removed
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       404:
+ *         description: No passkey with that ID belongs to the authenticated user
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: Passkey not found
+ */
 router.delete("/credentials/:id", verifyJWT, async (req, res, next) => {
   try {
     const { rowCount } = await pool.query(

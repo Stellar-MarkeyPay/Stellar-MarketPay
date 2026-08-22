@@ -254,6 +254,9 @@ app.use(express.json({ limit: "20kb" }));
 app.use(sanitizeMiddleware({ strict: false }));
 
 // Swagger UI
+app.get("/api/docs/json", (req, res) => {
+  res.json(swaggerSpecs);
+});
 app.use(
   "/api/docs",
   swaggerUi.serve,
