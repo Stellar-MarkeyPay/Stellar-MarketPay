@@ -63,25 +63,38 @@ cd ../backend
 
 ### Start the Application
 
+For a clean local setup, start the shared dependencies in Docker and then run the app locally:
+
+```bash
+docker compose up -d postgres redis
+```
+
 Open two terminals:
 
 ```bash
 # Terminal 1 - Backend
 cd backend
+DATABASE_URL=postgresql://stellarwork:stellarwork_dev@localhost:5432/stellarwork \
+REDIS_URL=redis://localhost:6379 \
 npm run dev
 ```
 
 ```bash
 # Terminal 2 - Frontend
 cd frontend
+NEXT_PUBLIC_API_URL=http://localhost:4000 \
+NEXT_PUBLIC_USE_CONTRACT_MOCK=true \
 npm run dev
 ```
 
 Access the App
 
 - Frontend: http://localhost:3000
+- Backend API: http://localhost:4000
+- PostgreSQL: localhost:5432
+- Redis: localhost:6379
 
-- Backend API: http://localhost:3001
+If you prefer the full Compose stack, run `docker compose up --build` instead.
 
 ## 3. Getting Testnet XLM
 
@@ -175,7 +188,7 @@ Once the job is completed:
 
 #### App Not Loading
 
-- Ensure backend is running on port 3001
+- Ensure backend is running on port 4000
 - Ensure frontend is running on port 3000
 - Check browser console for errors
 

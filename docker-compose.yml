@@ -11,6 +11,7 @@ services:
       - NEXT_PUBLIC_STELLAR_NETWORK=testnet
       - NEXT_PUBLIC_HORIZON_URL=https://horizon-testnet.stellar.org
       - NEXT_PUBLIC_API_URL=http://localhost:4000
+      - NEXT_PUBLIC_USE_CONTRACT_MOCK=true
     volumes:
       - ./frontend:/app
       - /app/node_modules
@@ -39,14 +40,18 @@ services:
     environment:
       - PORT=4000
       - NODE_ENV=development
+      - DATABASE_URL=postgresql://stellarwork:stellarwork_dev@postgres:5432/stellarwork
+      - JWT_SECRET=dev-secret-change-me
       - STELLAR_NETWORK=testnet
       - HORIZON_URL=https://horizon-testnet.stellar.org
+      - CONTRACT_ID=CXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
       - ALLOWED_ORIGINS=http://localhost:3000
       - REDIS_URL=redis://redis:6379
     volumes:
       - ./backend:/app
       - /app/node_modules
     depends_on:
+      - postgres
       - redis
     command: npm run dev
 
