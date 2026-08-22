@@ -5,6 +5,8 @@ target/
 dist/
 build/
 storybook-static/
+test-results/
+playwright-report/
 *.tsbuildinfo
 *.log
 __pycache__/
