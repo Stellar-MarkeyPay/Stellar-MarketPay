@@ -13,7 +13,6 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
-    "@next/swc-win32-x64-msvc": "^16.3.2",
     "@simplewebauthn/browser": "^9.0.1",
     "@stellar/freighter-api": "^2.0.0",
     "@stellar/stellar-sdk": "^12.0.0",
@@ -38,7 +37,6 @@
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.3.0",
-    "@testing-library/user-event": "^14.6.6",
     "@types/jest": "^29.5.14",
     "@types/node": "^20",
     "@types/react": "^18",
