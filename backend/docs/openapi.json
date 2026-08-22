@@ -5752,6 +5752,29 @@
         }
       }
     },
+    "/api/ranking/drift": {
+      "get": {
+        "summary": "Feature and prediction drift monitoring status",
+        "tags": ["Ranking"],
+        "responses": {
+          "200": {
+            "description": "Drift check results with PSI scores and alerts"
+          }
+        }
+      }
+    },
+    "/api/ranking/model-registry": {
+      "get": {
+        "summary": "Model registry status and version history",
+        "tags": ["Ranking"]
+      }
+    },
+    "/api/ranking/rollback/{version}": {
+      "post": {
+        "summary": "Roll back to a previous model version",
+        "tags": ["Ranking"]
+      }
+    },
     "/api/public/jobs": {
       "get": {
         "summary": "List publicly visible open jobs",
