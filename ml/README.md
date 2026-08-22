@@ -49,19 +49,19 @@ Predictive learning-to-rank for freelancer–job matching.
 
 All features are defined in `ml/feature_contract.json` — the single source of truth for training and serving.
 
-| Feature                   | Description                         |
-| ------------------------- | ----------------------------------- |
-| `skill_overlap`           | Fraction of job skills matching     |
-| `freelancer_completion_rate` | Historical completion rate       |
-| `category_match_rate`     | Category-specific completion rate   |
-| `freelancer_rating_norm`  | Normalized freelancer rating        |
-| `budget_fit`              | Bid-to-budget ratio                 |
-| `job_recency`             | Exponential decay by job age        |
-| `response_time_score`     | Application response latency        |
-| `progress_frequency`      | Progress updates per job            |
-| `client_rating_norm`      | Client's normalized rating          |
-| `expected_rating_signal`  | Average stars from ratings          |
-| `time_to_completion_signal` | Historical completion speed       |
+| Feature                      | Description                       |
+| ---------------------------- | --------------------------------- |
+| `skill_overlap`              | Fraction of job skills matching   |
+| `freelancer_completion_rate` | Historical completion rate        |
+| `category_match_rate`        | Category-specific completion rate |
+| `freelancer_rating_norm`     | Normalized freelancer rating      |
+| `budget_fit`                 | Bid-to-budget ratio               |
+| `job_recency`                | Exponential decay by job age      |
+| `response_time_score`        | Application response latency      |
+| `progress_frequency`         | Progress updates per job          |
+| `client_rating_norm`         | Client's normalized rating        |
+| `expected_rating_signal`     | Average stars from ratings        |
+| `time_to_completion_signal`  | Historical completion speed       |
 
 ## Training
 
@@ -84,6 +84,7 @@ python pipeline.py --dry-run  # validate without training
 ```
 
 Every model artifact records:
+
 - The config hash (for traceability)
 - The dataset fingerprint (to detect drift)
 - The random seed used
@@ -105,6 +106,7 @@ Models are versioned and tracked in `ml/models/registry.json`:
 ### Promotion gate
 
 A model must pass both:
+
 1. **Evaluation gate**: `ndcg_at_10 > baseline_ndcg_at_10`
 2. **Fairness gate**: new freelancer impression share >= 10%
 
@@ -122,17 +124,18 @@ rollbackModel("2025.08.22");
 ## Drift Monitoring
 
 The drift monitor tracks:
+
 - **Prediction drift**: PSI (Population Stability Index) on live score distributions
 - **Feature drift**: Statistical tests on input feature distributions
 
 ### Configuration
 
-| Env var                      | Default | Description                       |
-| ---------------------------- | ------- | --------------------------------- |
-| `ML_DRIFT_KS_THRESHOLD`      | `0.15`  | Maximum KS statistic before alert |
-| `ML_DRIFT_PSI_THRESHOLD`     | `0.2`   | Maximum PSI before alert          |
-| `ML_DRIFT_MIN_SAMPLES`       | `100`   | Minimum samples for detection     |
-| `ML_DRIFT_WINDOW_HOURS`      | `24`    | Look-back window for drift        |
+| Env var                  | Default | Description                       |
+| ------------------------ | ------- | --------------------------------- |
+| `ML_DRIFT_KS_THRESHOLD`  | `0.15`  | Maximum KS statistic before alert |
+| `ML_DRIFT_PSI_THRESHOLD` | `0.2`   | Maximum PSI before alert          |
+| `ML_DRIFT_MIN_SAMPLES`   | `100`   | Minimum samples for detection     |
+| `ML_DRIFT_WINDOW_HOURS`  | `24`    | Look-back window for drift        |
 
 ### API
 
@@ -196,13 +199,13 @@ When the model is unavailable (file missing, corrupt, or unparseable), serving d
 
 ## Retraining Cadence
 
-| Trigger                        | Frequency  | Who                    |
-| ------------------------------ | ---------- | ---------------------- |
-| Scheduled retrain              | Weekly     | CI/CD (automated)      |
-| Drift alert (PSI > 0.2)       | On-demand  | ML engineer on-call    |
-| New fairness threshold breach  | On-demand  | ML engineer on-call    |
-| Major data schema change       | Immediate  | Backend team           |
-| New feature added              | After deploy| ML engineer           |
+| Trigger                       | Frequency    | Who                 |
+| ----------------------------- | ------------ | ------------------- |
+| Scheduled retrain             | Weekly       | CI/CD (automated)   |
+| Drift alert (PSI > 0.2)       | On-demand    | ML engineer on-call |
+| New fairness threshold breach | On-demand    | ML engineer on-call |
+| Major data schema change      | Immediate    | Backend team        |
+| New feature added             | After deploy | ML engineer         |
 
 ### Process
 
