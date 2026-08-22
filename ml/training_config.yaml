@@ -1,0 +1,72 @@
+# ML Ranking Training Configuration
+# Issue #265 — Productionise the ML pipeline (Phase 1: Reproducibility)
+#
+# This file is the single source of truth for a training run.
+# Commit this file alongside the exported model artifact so any run is
+# reproducible from a pinned configuration.
+
+# ── Environment ──────────────────────────────────────────────────────
+env:
+  database_url_env: DATABASE_URL # env var holding the PG connection string
+  random_seed: 42 # deterministic seed for LightGBM + numpy
+  python_version: "3.12" # document the expected Python version
+
+# ── Feature engineering ──────────────────────────────────────────────
+features:
+  names:
+    - skill_overlap
+    - freelancer_completion_rate
+    - category_match_rate
+    - freelancer_rating_norm
+    - budget_fit
+    - job_recency
+    - response_time_score
+    - progress_frequency
+    - client_rating_norm
+    - expected_rating_signal
+    - time_to_completion_signal
+
+  # Temporal split quantile (older jobs → train, newer → test)
+  split_quantile: 0.8
+
+# ── Training hyper-parameters ────────────────────────────────────────
+training:
+  algorithm: lambdarank
+  objective: lambdarank
+  metric: ndcg
+  n_estimators: 120
+  learning_rate: 0.08
+  num_leaves: 31
+  min_data_in_leaf: 5
+
+# ── Relevance labels ────────────────────────────────────────────────
+relevance:
+  # Maps application_status + job_status → numeric relevance
+  accepted_completed: 1.0
+  accepted: 0.6
+  pending: 0.2
+  default: 0.0
+
+# ── Evaluation ──────────────────────────────────────────────────────
+evaluation:
+  primary_metric: ndcg_at_10
+  evaluation_at: [10]
+  # A model must beat this baseline to be promoted
+  baseline: popularity_recency
+
+# ── Fairness ────────────────────────────────────────────────────────
+fairness:
+  exploration_boost: 0.12
+  new_freelancer_threshold_jobs: 3
+  # Minimum impression share for new freelancers (blocking gate)
+  min_new_freelancer_impression_share: 0.10
+
+# ── Export ──────────────────────────────────────────────────────────
+export:
+  output_path: ../backend/src/ml/defaultModel.json
+  artifact_type: linear
+  bias: -0.05
+  target_blend:
+    completion_prob: 0.5
+    expected_rating: 0.3
+    time_to_completion: 0.2

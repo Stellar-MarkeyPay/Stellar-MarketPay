@@ -1,5 +1,8 @@
 /**
  * ML ranking API routes — predictive match recommendations for jobs and freelancers.
+ *
+ * Issue #265 — Productionise the ML pipeline
+ * Added: drift monitoring, model registry, rollback, deterministic fallback endpoints.
  */
 "use strict";
 
@@ -11,6 +14,9 @@ const {
   getRankedFreelancersForJob,
   getShadowModeStats,
   runFairnessAudit,
+  getDriftStatus,
+  getModelRegistryInfo,
+  rollbackModel,
   CONFIG,
 } = require("../services/mlRankingService");
 
@@ -87,6 +93,62 @@ router.get("/fairness-audit", rankingRateLimiter, async (_req, res, next) => {
   try {
     const audit = await runFairnessAudit();
     res.json({ success: true, data: audit });
+  } catch (e) {
+    next(e);
+  }
+});
+
+// ── New endpoints (Issue #265) ────────────────────────────────────
+
+/**
+ * @openapi
+ * /api/ranking/drift:
+ *   get:
+ *     summary: Feature and prediction drift monitoring status
+ *     tags: [Ranking]
+ *     responses:
+ *       200:
+ *         description: Drift check results with PSI scores and alerts
+ */
+router.get("/drift", rankingRateLimiter, async (_req, res, next) => {
+  try {
+    const status = await getDriftStatus();
+    res.json({ success: true, data: status });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/**
+ * @openapi
+ * /api/ranking/model-registry:
+ *   get:
+ *     summary: Model registry status and version history
+ *     tags: [Ranking]
+ */
+router.get("/model-registry", rankingRateLimiter, async (_req, res, next) => {
+  try {
+    const info = await getModelRegistryInfo();
+    res.json({ success: true, data: info });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/**
+ * @openapi
+ * /api/ranking/rollback/{version}:
+ *   post:
+ *     summary: Roll back to a previous model version
+ *     tags: [Ranking]
+ */
+router.post("/rollback/:version", rankingRateLimiter, async (req, res, next) => {
+  try {
+    const result = await rollbackModel(req.params.version);
+    if (!result.success) {
+      return res.status(400).json({ success: false, error: result.message });
+    }
+    res.json({ success: true, data: result });
   } catch (e) {
     next(e);
   }

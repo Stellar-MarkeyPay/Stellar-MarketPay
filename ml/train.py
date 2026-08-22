@@ -9,6 +9,9 @@ Usage:
   export DATABASE_URL=postgresql://...
   python ml/train.py
   python ml/train.py --output backend/src/ml/defaultModel.json
+
+For reproducible runs, use pipeline.py which reads training_config.yaml:
+  python ml/pipeline.py
 """
 
 from __future__ import annotations
@@ -17,7 +20,8 @@ import argparse
 import json
 import math
 import os
-from datetime import datetime
+import random
+from datetime import datetime, timezone
 from pathlib import Path
 
 import lightgbm as lgb
@@ -42,6 +46,13 @@ FEATURE_NAMES = [
 ]
 
 load_dotenv()
+
+
+def _set_seeds(seed: int = 42):
+    """Pin random seeds for deterministic training."""
+    random.seed(seed)
+    np.random.seed(seed)
+    os.environ["PYTHONHASHSEED"] = str(seed)
 
 
 def connect():
@@ -220,7 +231,9 @@ def export_linear_weights(model: lgb.Booster) -> dict:
     return weights
 
 
-def train(output_path: Path, split_quantile: float = 0.8):
+def train(output_path: Path, split_quantile: float = 0.8, seed: int = 42):
+    _set_seeds(seed)
+
     conn = connect()
     try:
         raw = fetch_training_frame(conn)
@@ -255,7 +268,7 @@ def train(output_path: Path, split_quantile: float = 0.8):
         learning_rate=0.08,
         num_leaves=31,
         min_data_in_leaf=5,
-        random_state=42,
+        random_state=seed,
     )
 
     ranker.fit(
@@ -273,7 +286,7 @@ def train(output_path: Path, split_quantile: float = 0.8):
 
     weights = export_linear_weights(ranker.booster_)
     artifact = {
-        "version": datetime.utcnow().strftime("%Y.%m.%d"),
+        "version": datetime.now(timezone.utc).strftime("%Y.%m.%d"),
         "type": "linear",
         "featureNames": FEATURE_NAMES,
         "weights": weights,
@@ -286,7 +299,7 @@ def train(output_path: Path, split_quantile: float = 0.8):
         "evaluation": {
             "ndcg_at_10": round(model_score, 4),
             "baseline_ndcg_at_10": round(baseline, 4),
-            "temporal_split_date": split_ts.isoformat(),
+            "temporal_split_date": str(split_ts),
             "train_samples": int(len(train_df)),
             "test_samples": int(len(test_df)),
         },
@@ -312,5 +325,6 @@ if __name__ == "__main__":
         default=str(Path(__file__).resolve().parents[1] / "backend/src/ml/defaultModel.json"),
     )
     parser.add_argument("--split-quantile", type=float, default=0.8)
+    parser.add_argument("--seed", type=int, default=42, help="Random seed for deterministic training")
     args = parser.parse_args()
-    train(Path(args.output), args.split_quantile)
+    train(Path(args.output), args.split_quantile, args.seed)

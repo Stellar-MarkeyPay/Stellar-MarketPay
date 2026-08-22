@@ -33,10 +33,24 @@ function loadModel(modelPath) {
     return cachedModel;
   } catch {
     if (cachedModel) return cachedModel;
-    const raw = fs.readFileSync(DEFAULT_MODEL_PATH, "utf8");
-    cachedModel = JSON.parse(raw);
-    cachedModelPath = DEFAULT_MODEL_PATH;
-    return cachedModel;
+    try {
+      const raw = fs.readFileSync(DEFAULT_MODEL_PATH, "utf8");
+      cachedModel = JSON.parse(raw);
+      cachedModelPath = DEFAULT_MODEL_PATH;
+      return cachedModel;
+    } catch {
+      // Model file completely unavailable — return a minimal default
+      // so the system can degrade to deterministic fallback
+      return {
+        version: "unavailable",
+        type: "fallback",
+        weights: {},
+        bias: 0,
+        targetBlend: { completion_prob: 0.5, expected_rating: 0.3, time_to_completion: 0.2 },
+        fairness: { exploration_boost: 0.12, new_freelancer_threshold_jobs: 3 },
+        evaluation: { ndcg_at_10: 0, baseline_ndcg_at_10: 0 },
+      };
+    }
   }
 }
 
@@ -112,6 +126,7 @@ function getModelMetadata(modelPath) {
     type: model.type,
     evaluation: model.evaluation,
     fairness: model.fairness,
+    trainingConfig: model.training_config || null,
   };
 }
 
@@ -121,10 +136,15 @@ function resetModelCacheForTests() {
   cachedModelMtime = 0;
 }
 
+function isModelUnavailable() {
+  return cachedModel?.version === "unavailable";
+}
+
 module.exports = {
   loadModel,
   scoreFeatures,
   rankItems,
   getModelMetadata,
+  isModelUnavailable,
   resetModelCacheForTests,
 };

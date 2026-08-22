@@ -1,0 +1,119 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://stellar-marketpay.dev/ml/feature-contract.json",
+  "title": "ML Ranking Feature Contract",
+  "description": "Single source of truth for feature definitions, ensuring training and serving compute identically.",
+  "version": "1.0.0",
+  "features": [
+    {
+      "name": "skill_overlap",
+      "type": "float",
+      "range": [0.0, 1.0],
+      "description": "Fraction of job skills matching freelancer skills",
+      "formula": "count(job_skills ∩ freelancer_skills) / count(job_skills)",
+      "default": 0.5,
+      "training_source": "skills from profiles + jobs tables",
+      "serving_source": "skills from profiles + jobs tables"
+    },
+    {
+      "name": "freelancer_completion_rate",
+      "type": "float",
+      "range": [0.0, 1.0],
+      "description": "Historical job completion rate",
+      "formula": "completed_jobs / total_accepted_applications",
+      "default": 0.0,
+      "training_source": "applications + jobs tables",
+      "serving_source": "applications + jobs tables"
+    },
+    {
+      "name": "category_match_rate",
+      "type": "float",
+      "range": [0.0, 1.0],
+      "description": "Category-specific completion rate",
+      "formula": "completed_jobs_in_category / accepted_jobs_in_category",
+      "default": 0.5,
+      "training_source": "applications + jobs tables",
+      "serving_source": "applications + jobs tables"
+    },
+    {
+      "name": "freelancer_rating_norm",
+      "type": "float",
+      "range": [0.0, 1.0],
+      "description": "Normalized freelancer rating (0-5 → 0-1)",
+      "formula": "clamp(rating / 5, 0, 1)",
+      "default": 0.5,
+      "training_source": "profiles.rating",
+      "serving_source": "profiles.rating"
+    },
+    {
+      "name": "budget_fit",
+      "type": "float",
+      "range": [0.0, 1.0],
+      "description": "How close bid is to job budget",
+      "formula": "max(0, 1 - min(abs(bid - budget) / budget, 1))",
+      "default": 0.5,
+      "training_source": "applications.bid_amount + jobs.budget",
+      "serving_source": "applications.bid_amount + jobs.budget"
+    },
+    {
+      "name": "job_recency",
+      "type": "float",
+      "range": [0.0, 1.0],
+      "description": "Exponential decay by job age (30-day half-life)",
+      "formula": "exp(-max(days_old, 0) / 30)",
+      "default": 0.5,
+      "training_source": "jobs.created_at",
+      "serving_source": "jobs.created_at"
+    },
+    {
+      "name": "response_time_score",
+      "type": "float",
+      "range": [0.0, 1.0],
+      "description": "Application response latency score",
+      "formula": "max(0, 1 - avg_response_hours / 168)",
+      "default": 0.5,
+      "training_source": "applications.created_at - jobs.created_at",
+      "serving_source": "applications.created_at - jobs.created_at"
+    },
+    {
+      "name": "progress_frequency",
+      "type": "float",
+      "range": [0.0, 1.0],
+      "description": "Progress updates per completed job",
+      "formula": "min(progress_updates / completed_jobs / 5, 1)",
+      "default": 0.0,
+      "training_source": "progress_updates table",
+      "serving_source": "progress_updates table"
+    },
+    {
+      "name": "client_rating_norm",
+      "type": "float",
+      "range": [0.0, 1.0],
+      "description": "Client's normalized rating",
+      "formula": "clamp(client_rating / 5, 0, 1)",
+      "default": 0.5,
+      "training_source": "profiles.rating (client)",
+      "serving_source": "profiles.rating (client)"
+    },
+    {
+      "name": "expected_rating_signal",
+      "type": "float",
+      "range": [0.0, 1.0],
+      "description": "Average stars from ratings table",
+      "formula": "clamp(avg(stars) / 5, 0, 1)",
+      "default": 0.5,
+      "training_source": "ratings table",
+      "serving_source": "ratings table"
+    },
+    {
+      "name": "time_to_completion_signal",
+      "type": "float",
+      "range": [0.0, 1.0],
+      "description": "Historical completion speed",
+      "formula": "max(0, 1 - min(avg_completion_days / 60, 1))",
+      "default": 0.5,
+      "training_source": "jobs (freelancer_address, updated_at - created_at)",
+      "serving_source": "jobs (freelancer_address, updated_at - created_at)"
+    }
+  ]
+}
