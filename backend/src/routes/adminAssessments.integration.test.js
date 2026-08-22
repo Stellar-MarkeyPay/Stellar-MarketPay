@@ -42,7 +42,12 @@ async function resetTables() {
 
 const VALID_QUESTION = {
   questionText: "What does `cargo check` do?",
-  options: ["Runs tests", "Type-checks without building a binary", "Deploys to crates.io", "Formats code"],
+  options: [
+    "Runs tests",
+    "Type-checks without building a binary",
+    "Deploys to crates.io",
+    "Formats code",
+  ],
   correctOptionIndex: 1,
 };
 
@@ -160,7 +165,10 @@ describe("assessment authoring — real schema constraints", () => {
     const app = buildApp();
     const auth = { Authorization: `Bearer ${adminToken()}` };
 
-    await request(app).post("/api/admin/assessments/skills").set(auth).send({ slug: "rust", label: "Rust" });
+    await request(app)
+      .post("/api/admin/assessments/skills")
+      .set(auth)
+      .send({ slug: "rust", label: "Rust" });
 
     const questionRes = await request(app)
       .post("/api/admin/assessments/skills/rust/questions")
@@ -181,7 +189,9 @@ describe("assessment authoring — real schema constraints", () => {
     expect(publishQuestion.status).toBe(200);
     expect(publishQuestion.body.data.status).toBe("published");
 
-    const publishSkill = await request(app).post("/api/admin/assessments/skills/rust/publish").set(auth);
+    const publishSkill = await request(app)
+      .post("/api/admin/assessments/skills/rust/publish")
+      .set(auth);
     expect(publishSkill.status).toBe(200);
     expect(publishSkill.body.data.status).toBe("published");
 
@@ -194,14 +204,19 @@ describe("assessment authoring — real schema constraints", () => {
     const app = buildApp();
     const auth = { Authorization: `Bearer ${adminToken()}` };
 
-    await request(app).post("/api/admin/assessments/skills").set(auth).send({ slug: "rust", label: "Rust" });
+    await request(app)
+      .post("/api/admin/assessments/skills")
+      .set(auth)
+      .send({ slug: "rust", label: "Rust" });
     const created = await request(app)
       .post("/api/admin/assessments/skills/rust/questions")
       .set(auth)
       .send(VALID_QUESTION);
     const questionId = created.body.data.id;
 
-    await request(app).post(`/api/admin/assessments/skills/rust/questions/${questionId}/publish`).set(auth);
+    await request(app)
+      .post(`/api/admin/assessments/skills/rust/questions/${questionId}/publish`)
+      .set(auth);
 
     const edited = await request(app)
       .patch(`/api/admin/assessments/skills/rust/questions/${questionId}`)

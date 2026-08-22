@@ -129,7 +129,11 @@ describe("authoring endpoints reject malformed input before hitting the database
     const res = await request(buildApp())
       .post("/api/admin/assessments/skills/rust/questions")
       .set("Authorization", `Bearer ${adminToken()}`)
-      .send({ questionText: "What is ownership?", options: ["A single option"], correctOptionIndex: 0 });
+      .send({
+        questionText: "What is ownership?",
+        options: ["A single option"],
+        correctOptionIndex: 0,
+      });
 
     expect(res.status).toBe(400);
     expect(res.body.error).toMatch(/options/i);

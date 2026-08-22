@@ -60,8 +60,7 @@ router.post("/skills", async (req, res, next) => {
     const error = validateSkillInput(req.body);
     if (error) return res.status(400).json({ error });
 
-    const { slug, label, passScore, durationSeconds, cooldownDays, questionsPerAttempt } =
-      req.body;
+    const { slug, label, passScore, durationSeconds, cooldownDays, questionsPerAttempt } = req.body;
     const { rows } = await pool.query(
       `INSERT INTO assessment_skills
          (slug, label, pass_score, duration_seconds, cooldown_days, questions_per_attempt, created_by)
@@ -87,9 +86,10 @@ router.post("/skills", async (req, res, next) => {
 // ── GET /skills/:slug — skill detail + its questions (any status) ───────────
 router.get("/skills/:slug", async (req, res, next) => {
   try {
-    const { rows: skillRows } = await pool.query("SELECT * FROM assessment_skills WHERE slug = $1", [
-      req.params.slug.toLowerCase(),
-    ]);
+    const { rows: skillRows } = await pool.query(
+      "SELECT * FROM assessment_skills WHERE slug = $1",
+      [req.params.slug.toLowerCase()]
+    );
     if (!skillRows.length) return res.status(404).json({ error: "Skill not found" });
 
     const { rows: questionRows } = await pool.query(
