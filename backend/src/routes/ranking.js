@@ -443,7 +443,7 @@ router.get("/fairness-audit", rankingRateLimiter, async (_req, res, next) => {
 // ── New endpoints (Issue #265) ────────────────────────────────────
 
 /**
- * @openapi
+ * @swagger
  * /api/ranking/drift:
  *   get:
  *     summary: Feature and prediction drift monitoring status
@@ -462,11 +462,14 @@ router.get("/drift", rankingRateLimiter, async (_req, res, next) => {
 });
 
 /**
- * @openapi
+ * @swagger
  * /api/ranking/model-registry:
  *   get:
  *     summary: Model registry status and version history
  *     tags: [Ranking]
+ *     responses:
+ *       200:
+ *         description: Model registry status and version history
  */
 router.get("/model-registry", rankingRateLimiter, async (_req, res, next) => {
   try {
@@ -478,11 +481,23 @@ router.get("/model-registry", rankingRateLimiter, async (_req, res, next) => {
 });
 
 /**
- * @openapi
+ * @swagger
  * /api/ranking/rollback/{version}:
  *   post:
  *     summary: Roll back to a previous model version
  *     tags: [Ranking]
+ *     parameters:
+ *       - in: path
+ *         name: version
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Model version identifier to roll back to
+ *     responses:
+ *       200:
+ *         description: Rollback succeeded
+ *       400:
+ *         description: Rollback failed
  */
 router.post("/rollback/:version", rankingRateLimiter, async (req, res, next) => {
   try {
