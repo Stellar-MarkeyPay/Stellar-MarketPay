@@ -32,7 +32,11 @@ test("jobs page loads with job cards", async ({ page, apiClient, clientPage }) =
   await expect(jobsList.jobCard(jobInput.title)).toBeVisible();
 });
 
-test("clicking a job card navigates to the job detail page", async ({ page, apiClient, clientPage }) => {
+test("clicking a job card navigates to the job detail page", async ({
+  page,
+  apiClient,
+  clientPage,
+}) => {
   const jobInput = uniqueJobInput(Date.now().toString());
   const job = await apiClient.createJob(clientPage.token, {
     ...jobInput,
