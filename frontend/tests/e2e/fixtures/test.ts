@@ -3,6 +3,7 @@ import type { Keypair } from "@stellar/stellar-sdk";
 import { NETWORK_PASSPHRASE } from "@/lib/stellar";
 import { ApiClient } from "../api/apiClient";
 import { ADMIN, randomPersonaKeypair } from "../api/personas";
+import { sharedMockServer } from "../api/mockServer";
 import { installFreighterStub } from "./walletStub";
 
 export interface Persona {
@@ -45,6 +46,7 @@ async function makePersona(
 
 export const test = base.extend<Fixtures>({
   apiClient: async ({}, use) => {
+    await sharedMockServer.start();
     await use(new ApiClient(apiBaseURL(), NETWORK_PASSPHRASE));
   },
 
