@@ -15,8 +15,16 @@ const nextConfig = {
       { protocol: "https", hostname: "w3s.link" },
     ],
   },
-  webpack: (config) => {
-    config.resolve.fallback = { ...config.resolve.fallback, fs: false, net: false, tls: false };
+  webpack: (config, { isServer } = {}) => {
+    if (!isServer) {
+      config.resolve = config.resolve || {};
+      config.resolve.fallback = {
+        ...(config.resolve.fallback || {}),
+        fs: false,
+        net: false,
+        tls: false,
+      };
+    }
     return config;
   },
   env: {

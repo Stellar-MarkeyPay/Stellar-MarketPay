@@ -4,6 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+[![Storybook](https://img.shields.io/badge/Storybook-Component%20Library-ff4785.svg)](frontend/stories)
 [![Stellar](https://img.shields.io/badge/Stellar-Testnet-blue)](https://stellar.org)
 [![Soroban](https://img.shields.io/badge/Soroban-Smart%20Contracts-purple)](https://soroban.stellar.org)
 [![Backend Coverage](https://img.shields.io/badge/backend%20coverage-60%25%2B-brightgreen)](#testing)
@@ -20,6 +21,7 @@ Stellar MarketPay is an open-source decentralised freelance marketplace where cl
 - 🔒 **Escrow Payments** — Funds held in Soroban contract until work approved
 - ✅ **Release & Complete** — Client approves → funds released to freelancer instantly
 - 📜 **Job History** — Track all your jobs and earnings on-chain
+- 🎨 **Component Library & Storybook** — 48+ isolated components, theme & i18n decorators, design tokens, and visual regression testing ([docs/design-tokens.md](docs/design-tokens.md))
 
 ---
 

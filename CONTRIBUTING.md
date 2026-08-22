@@ -69,10 +69,44 @@ Local git hooks automatically run `lint-staged` on `pre-commit`, `commitlint` on
 
 - [ ] Tested locally on Testnet
 - [ ] No TypeScript / Rust errors
+- [ ] New/updated components include Storybook stories (`*.stories.tsx`) covering default, loading, error, and overflow states
+- [ ] Storybook builds cleanly (`npm run build-storybook`) and passes a11y tests (`npm run test:a11y`)
+- [ ] Uses documented design tokens ([docs/design-tokens.md](./docs/design-tokens.md)) rather than ad-hoc arbitrary values
 - [ ] Documentation updated if needed
 - [ ] No breaking changes (or clearly documented)
 
 ---
+
+## 🎨 Component Development & Storybook Guidelines
+
+All frontend UI components live under `frontend/components/` and are developed in isolation using Storybook.
+
+### Rules for Components:
+
+1. **Stories are Mandatory**: Every component MUST ship with a corresponding `[ComponentName].stories.tsx` file covering:
+   - Default state
+   - Loading & Skeleton states (where applicable)
+   - Empty & Error states (where applicable)
+   - Long-content overflow & edge cases
+2. **Design Tokens as Source of Truth**: Always use the design tokens from `frontend/styles/tokens.ts` and Tailwind design system tokens. Do not introduce arbitrary hardcoded values. See [docs/design-tokens.md](./docs/design-tokens.md).
+3. **Accessibility (WCAG 2.1 AA)**: Components must pass automated accessibility checks. Interactive elements must provide proper labels, keyboard navigation (Escape, Enter, Tab), and touch targets of at least `44px`.
+4. **Shared Primitives**: When adding common UI controls (buttons, badges, inputs, dialogs, cards), reuse or extend the primitives in `frontend/components/primitives/`.
+
+### Storybook Commands (inside `frontend/`):
+
+```bash
+# Start local Storybook environment
+npm run storybook
+
+# Build static Storybook bundle for review
+npm run build-storybook
+
+# Run automated accessibility checks
+npm run test:a11y
+
+# Run visual regression tests
+npm run test:visual
+```
 
 ## 📁 Project Structure
 

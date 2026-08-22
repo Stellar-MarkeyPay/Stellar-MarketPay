@@ -4,6 +4,8 @@ out/
 target/
 dist/
 build/
+storybook-static/
+*.tsbuildinfo
 *.log
 __pycache__/
 *.py[cod]

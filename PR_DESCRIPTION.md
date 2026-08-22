@@ -1,80 +1,105 @@
-# PR: Predictive ML Ranking Model for Freelancer-Job Matching
+# PR: Build Component Library with Storybook, Design Tokens, Shared Primitives & Visual Regression Testing
 
-closes #89
+closes #251
 
 ## Summary
 
-This PR adds a learning-to-rank pipeline that surfaces better-fit jobs to freelancers and better-fit freelancers to clients, using historical signals from applications, ratings, and progress updates.
+This PR establishes an isolated component library environment with Storybook 8 for Next.js, extracts and documents design tokens as the source of truth for both light and dark themes, consolidates duplicated UI patterns into shared primitives, adds automated WCAG 2.1 AA accessibility checks, and implements visual regression testing on CI.
 
-- **Offline training** (`ml/train.py`): LightGBM LambdaRank with temporal train/test split; evaluates NDCG@10 against a popularity/recency baseline and exports weights to `backend/src/ml/defaultModel.json`.
-- **Online serving** (`/api/ranking/*`): In-process ranker with ≤200 ms latency budget, cold-start fallback to the existing skill-match baseline, and shadow-mode logging for A/B comparison.
-- **Fairness**: Exploration boost + reserved slots for thin-history freelancers; live audit via `/api/ranking/fairness-audit` and offline script `ml/fairness_audit.py`.
-- **Frontend**: Jobs page uses ML-ranked recommendations when a wallet is connected; freelancers page supports `?jobId=` for job-specific ML ranking with graceful fallback to search/filter UX.
+### Key Achievements:
 
-## Prediction targets
+- **Storybook Infrastructure**: Configured `@storybook/nextjs` with custom context decorators for `ThemeContext` (dark/light theme switching), `PriceContext` (XLM/USD pricing mode), `i18n` (en/es/fr/pt language detection & toggle), `StellarAccountContext`, and `ToastProvider`.
+- **100% Component Story Coverage**: Added comprehensive story files for all 48 components across `frontend/components` and `frontend/components/Onboarding/`, covering default, loading/skeleton, empty, error, and long-content overflow states.
+- **Design Tokens Extraction**: Centralized tokens in `frontend/styles/tokens.ts` (colors, typography, spacing, radii, shadows, z-indices) and documented in `docs/design-tokens.md` and interactive Storybook doc `frontend/stories/DesignTokens.stories.tsx`.
+- **Shared UI Primitives**: Consolidated common UI patterns into reusable primitives under `frontend/components/primitives/`:
+  - `Button` (5 variants, 3 sizes, loading spinner, 44px touch targets)
+  - `Badge` (semantic status colors: open, progress, complete, cancelled, disputed, gold, neutral)
+  - `Modal` (accessible dialog with focus trap, backdrop blur, Escape key dismiss)
+  - `Input` & `Textarea` (form fields with label, error, helper text, and character counter)
+  - `Card` (standard card container with header, footer, hover states)
+  - `Skeleton` (text, circle, rectangle, card loading states)
+  - `StatCard` (metric display card with trend indicators and color schemes)
+- **Automated Accessibility Testing**: Configured `@storybook/addon-a11y` and added automated `axe-core` test suite in `frontend/__tests__/accessibility.test.tsx` ensuring zero serious/critical WCAG violations.
+- **Visual Regression Testing**: Added Jest story snapshot regression suite (`frontend/__tests__/stories.snapshot.test.tsx`) and Playwright visual screenshot suite (`frontend/tests/visual-regression.spec.ts`).
+- **CI/CD Integration**: Updated `.github/workflows/ci.yml` to build Storybook (`npm run build-storybook`), upload `storybook-static` as a reviewable artifact, run accessibility checks, and execute visual tests.
+- **Contribution Standards**: Documented component contribution rules in `CONTRIBUTING.md` requiring every new component to ship with stories and adhere to design tokens.
 
-Each (freelancer, job) pair is scored on:
+---
 
-1. Probability of job completion (from historical acceptance + completion outcomes)
-2. Expected rating (freelancer average stars)
-3. Expected time-to-completion (historical job duration)
+## Technical Details & Architecture
 
-## Features engineered
+### 1. Decorators in Storybook Preview
 
-- Skill-tag overlap
-- Freelancer completion rate and category-specific track record
-- Budget fit vs historical bid amounts
-- Job recency, response-time patterns, progress update frequency
-- Client reputation
+`.storybook/preview.tsx` injects all essential application contexts into every story:
 
-## API endpoints
+```tsx
+<I18nextProvider i18n={i18next}>
+  <ThemeProvider>
+    <PriceProvider>
+      <StellarAccountProvider>
+        <ToastProvider>
+          <Story />
+        </ToastProvider>
+      </StellarAccountProvider>
+    </PriceProvider>
+  </ThemeProvider>
+</I18nextProvider>
+```
 
-| Endpoint                              | Description                                  |
-| ------------------------------------- | -------------------------------------------- |
-| `GET /api/ranking/jobs/:publicKey`    | ML-ranked open jobs for a freelancer         |
-| `GET /api/ranking/freelancers/:jobId` | ML-ranked freelancers for a job              |
-| `GET /api/ranking/health`             | Model and config status                      |
-| `GET /api/ranking/shadow-stats`       | Shadow-mode comparison stats (7-day window)  |
-| `GET /api/ranking/fairness-audit`     | New vs established freelancer exposure audit |
+### 2. Design Tokens Schema
 
-## Evaluation (bootstrap model)
+Defined in `frontend/styles/tokens.ts`:
 
-| Metric  | Model | Baseline                  |
-| ------- | ----- | ------------------------- |
-| NDCG@10 | 0.71  | 0.54 (popularity/recency) |
+- **Colors**: Brand Gold (`market.50` - `market.900`), Brand Neutral (`ink.500` - `ink.950`), Semantic Status (`success`, `warning`, `error`, `info`, `purple`), Theme variables (`light` and `dark`).
+- **Typography**: Display (`Playfair Display`), Body (`DM Sans`), Mono (`JetBrains Mono`), scale (`xs` to `4xl`).
+- **Spacing & Radii**: 4px scale, 44px min touch target, `sm` (4px) to `2xl` (16px) & `full`.
 
-Re-run `python ml/train.py` against production data to refresh metrics after deployment.
+---
 
-## Test plan
+## Local CI & Testing Commands
 
-- [ ] Run DB migration: `npm run migrate` in `backend/`
-- [ ] Verify `GET /api/ranking/health` returns enabled config
-- [ ] Connect wallet on `/jobs` — confirm "Recommended for you" section shows ML-ranked jobs with match scores
-- [ ] Visit `/freelancers?jobId=<open-job-uuid>` — confirm freelancers are ranked with match scores
-- [ ] Test cold start: new freelancer with 0 completed jobs receives baseline recommendations (no ML badge)
-- [ ] Enable `ML_RANKING_SHADOW_MODE=true`, generate traffic, check `/api/ranking/shadow-stats`
-- [ ] Run `python ml/fairness_audit.py` and confirm new-freelancer exposure ≥ 10%
-- [ ] Train on staging data: `python ml/train.py` and verify NDCG@10 beats baseline
-- [ ] Disable model (`ML_RANKING_ENABLED=false`) — confirm frontend falls back without errors
+Run these terminal commands in `frontend/` before pushing:
 
-## Files added/changed
+```bash
+# 1. Run unit & snapshot tests
+npm test
 
-### Backend
+# 2. Run automated accessibility checks
+npm run test:a11y
 
-- `backend/src/ml/` — feature engineering, ranker, default model artifact
-- `backend/src/services/mlRankingService.js` — serving, fallback, shadow mode, fairness
-- `backend/src/routes/ranking.js` — API routes
-- `backend/src/db/migrations/V15__ml_ranking_shadow_mode.*.sql` — shadow event table
-- `backend/src/server.js` — mount `/api/ranking`
+# 3. Run TypeScript type checks
+npm run type-check
 
-### ML / docs
+# 4. Run ESLint lint checks
+npm run lint
 
-- `ml/train.py`, `ml/fairness_audit.py`, `ml/requirements.txt`, `ml/README.md`
-- `docs/ml-ranking.md`, `docs/environment-variables.md`
+# 5. Build static Storybook bundle
+npm run build-storybook
 
-### Frontend
+# 6. Run Next.js production build
+npm run build
 
-- `frontend/lib/api.ts` — `fetchMlRankedJobs`, `fetchMlRankedFreelancers`
-- `frontend/pages/jobs/index.tsx` — ML recommendations with fallback
-- `frontend/pages/freelancers/index.tsx` — job-scoped ML ranking via `?jobId=`
-- `frontend/components/FreelancerCard.tsx` — optional match score badge
+# 7. Run visual regression tests (requires dev server / mock mode)
+npm run test:visual
+```
+
+In root directory:
+
+```bash
+# Prettier check & format
+npm run format:check
+npm run format
+```
+
+---
+
+## Verification Plan
+
+- [x] All 48 components have corresponding `.stories.tsx` files.
+- [x] Storybook context decorators properly supply theme, price, and i18n contexts.
+- [x] Automated accessibility test suite runs axe-core with zero serious/critical violations.
+- [x] Jest story snapshot test verifies component structure and catches regression diffs.
+- [x] Design tokens documented in `docs/design-tokens.md` and `frontend/styles/tokens.ts`.
+- [x] `CONTRIBUTING.md` updated with component contribution rules.
+- [x] `README.md` updated with Storybook badge and component library links.
+- [x] CI workflow builds Storybook and uploads static artifacts on pull requests.
