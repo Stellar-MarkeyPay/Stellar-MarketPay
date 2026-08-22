@@ -231,9 +231,7 @@ describe("OpenAPI contract: response bodies match the published spec", () => {
     it("GET /api/auth — challenge — matches the documented schema", async () => {
       Utils.buildChallengeTx.mockReturnValue(CHALLENGE_XDR);
 
-      const res = await request(app)
-        .get("/api/auth")
-        .query({ account: TEST_KEYPAIR.publicKey() });
+      const res = await request(app).get("/api/auth").query({ account: TEST_KEYPAIR.publicKey() });
 
       expect(res.status).toBe(200);
       expect(res).toSatisfyApiSpec();
@@ -254,9 +252,7 @@ describe("OpenAPI contract: response bodies match the published spec", () => {
       expect(loginRes).toSatisfyApiSpec();
 
       const refreshCookie = getCookie(loginRes, "refreshToken");
-      const refreshRes = await request(app)
-        .post("/api/auth/refresh")
-        .set("Cookie", refreshCookie);
+      const refreshRes = await request(app).post("/api/auth/refresh").set("Cookie", refreshCookie);
       expect(refreshRes.status).toBe(200);
       expect(refreshRes).toSatisfyApiSpec();
 

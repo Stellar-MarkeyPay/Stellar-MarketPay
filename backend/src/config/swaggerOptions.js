@@ -28,7 +28,7 @@ const swaggerOptions = {
         "Every endpoint is rate-limited per client IP via `express-rate-limit`. Limits vary per endpoint " +
         "group (documented per-operation below as an `x-rate-limit` extension with `limit` and " +
         "`windowMinutes`). Exceeding the limit returns `429 Too Many Requests` with a `Retry-After` " +
-        "header and a `{ \"message\": string }` body — see the shared `TooManyRequests` response.",
+        'header and a `{ "message": string }` body — see the shared `TooManyRequests` response.',
       contact: {
         name: "Stellar MarketPay Team",
         email: "support@stellarmarketpay.com",
@@ -61,7 +61,8 @@ const swaggerOptions = {
           type: "apiKey",
           in: "cookie",
           name: "jwt",
-          description: "Same JWT as bearerAuth, sent as an httpOnly `jwt` cookie instead of a header.",
+          description:
+            "Same JWT as bearerAuth, sent as an httpOnly `jwt` cookie instead of a header.",
         },
       },
       schemas: {
