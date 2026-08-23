@@ -51,6 +51,7 @@ const createRateLimiter = (maxRequests, windowMinutes, options = {}) => {
     handler: (req, res) => {
       const retryAfter = getRetryAfterSeconds(req, requestPropertyName, windowMs / 1000);
       res.set("Retry-After", String(retryAfter));
+      res.set("Cache-Control", "no-store");
       return res.status(429).json({
         message: "Too many requests — please wait before trying again",
       });
@@ -72,13 +73,35 @@ function safePropertySuffix(namespace) {
 }
 
 /**
- * Builds two independent shared-state limiters for a sensitive endpoint:
- * one bucket by client IP and one bucket by principal.
+ * A principal supplied before authentication must not become a global lockout
+ * handle. Otherwise an attacker who merely knows a wallet/public key can burn
+ * that principal's quota from arbitrary clients.
  *
- * A single composite "principal+IP" key is deliberately avoided because it
- * can be bypassed by rotating either IPs or principals. If a trusted
- * principal cannot be derived, the per-IP limiter still protects the request
- * and the principal limiter is skipped rather than inventing a fake identity.
+ * Authenticated principals get a global principal bucket. Untrusted principals
+ * are bound to the effective client IP, while the independent IP bucket still
+ * limits clients that rotate principals.
+ */
+function getPrincipalBucketIdentity(req, principal) {
+  const normalized = normalizePrincipal(principal);
+  if (!normalized) return "";
+
+  const authenticated = normalizePrincipal(req?.user?.publicKey);
+  if (authenticated && authenticated === normalized) {
+    return `trusted:${normalized}`;
+  }
+
+  return `preauth:${normalized}:ip:${getClientIp(req)}`;
+}
+
+/**
+ * Builds two shared-state limiters for a sensitive endpoint:
+ *
+ * 1. an independent client-IP bucket; and
+ * 2. a principal bucket whose scope depends on principal provenance.
+ *
+ * Authenticated principals are limited across IPs. Caller-supplied pre-auth
+ * principals are IP-bound to avoid turning rate limiting into a targeted
+ * denial-of-service primitive.
  */
 function createSensitiveRateLimiters({
   namespace,
@@ -112,7 +135,8 @@ function createSensitiveRateLimiters({
   const principalLimiter = createRateLimiter(maxRequestsPerPrincipal, windowMinutes, {
     store: makeStore({ prefix: `${namespace}:principal:` }),
     skip: (req) => !getPrincipal(req),
-    keyGenerator: (req) => hashRateLimitIdentifier("principal", getPrincipal(req)),
+    keyGenerator: (req) =>
+      hashRateLimitIdentifier("principal", getPrincipalBucketIdentity(req, getPrincipal(req))),
     requestPropertyName: `rateLimit_${suffix}_principal`,
     legacyHeaders: false,
   });
@@ -123,6 +147,7 @@ function createSensitiveRateLimiters({
 module.exports = {
   createRateLimiter,
   createSensitiveRateLimiters,
+  getPrincipalBucketIdentity,
   getRetryAfterSeconds,
   hashRateLimitIdentifier,
   normalizePrincipal,
