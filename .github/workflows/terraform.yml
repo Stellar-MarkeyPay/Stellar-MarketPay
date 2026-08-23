@@ -1,4 +1,4 @@
-ame: Terraform
+name: Terraform
 
 on:
   pull_request:
