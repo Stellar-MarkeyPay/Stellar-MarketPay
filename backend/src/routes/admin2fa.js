@@ -8,6 +8,7 @@ const QRCode = require("qrcode");
 const speakeasy = require("speakeasy");
 const pool = require("../db/pool");
 const { verifyJWT, requireAdminRole } = require("../middleware/auth");
+const { createSensitiveRateLimiters } = require("../middleware/rateLimiter");
 const { signAccessToken } = require("../services/authTokens");
 const { encrypt } = require("../utils/encryption");
 const {
@@ -20,6 +21,14 @@ const {
 } = require("../services/twoFactorService");
 
 const router = express.Router();
+
+const [admin2faIpLimiter, admin2faPrincipalLimiter] = createSensitiveRateLimiters({
+  namespace: "admin-2fa",
+  windowMinutes: 5,
+  maxRequestsPerIp: 15,
+  maxRequestsPerPrincipal: 6,
+  principalKeyGenerator: (req) => req.user?.publicKey,
+});
 
 function issueAdminToken(publicKey, twoFaVerified) {
   return signAccessToken({ publicKey, role: "admin", "2fa_verified": twoFaVerified });
@@ -87,37 +96,44 @@ function issueAdminToken(publicKey, twoFaVerified) {
  *       403:
  *         $ref: '#/components/responses/Forbidden'
  */
-router.post("/setup", verifyJWT, requireAdminRole, async (req, res, next) => {
-  try {
-    const { publicKey } = req.user;
-    await ensureAdminProfile(publicKey);
+router.post(
+  "/setup",
+  admin2faIpLimiter,
+  verifyJWT,
+  requireAdminRole,
+  admin2faPrincipalLimiter,
+  async (req, res, next) => {
+    try {
+      const { publicKey } = req.user;
+      await ensureAdminProfile(publicKey);
 
-    const { rows } = await pool.query("SELECT totp_enabled FROM admin_profiles WHERE id = $1", [
-      publicKey,
-    ]);
-    if (rows[0]?.totp_enabled) {
-      return res.status(400).json({ success: false, error: "2FA is already enabled" });
+      const { rows } = await pool.query("SELECT totp_enabled FROM admin_profiles WHERE id = $1", [
+        publicKey,
+      ]);
+      if (rows[0]?.totp_enabled) {
+        return res.status(400).json({ success: false, error: "2FA is already enabled" });
+      }
+
+      const secret = generateSecret(publicKey);
+      const qrCode = await QRCode.toDataURL(secret.otpauth_url || secret.otpauthURL);
+
+      await pool.query(
+        "UPDATE admin_profiles SET totp_secret = $1, totp_enabled = false, updated_at = NOW() WHERE id = $2",
+        [encrypt(secret.base32), publicKey]
+      );
+
+      res.json({
+        success: true,
+        data: {
+          qrCode,
+          manualEntryKey: secret.base32,
+        },
+      });
+    } catch (e) {
+      next(e);
     }
-
-    const secret = generateSecret(publicKey);
-    const qrCode = await QRCode.toDataURL(secret.otpauth_url || secret.otpauthURL);
-
-    await pool.query(
-      "UPDATE admin_profiles SET totp_secret = $1, totp_enabled = false, updated_at = NOW() WHERE id = $2",
-      [encrypt(secret.base32), publicKey]
-    );
-
-    res.json({
-      success: true,
-      data: {
-        qrCode,
-        manualEntryKey: secret.base32,
-      },
-    });
-  } catch (e) {
-    next(e);
   }
-});
+);
 
 // POST /api/admin/2fa/verify — verify TOTP, enable 2FA (setup), upgrade JWT
 /**
@@ -218,65 +234,72 @@ router.post("/setup", verifyJWT, requireAdminRole, async (req, res, next) => {
  *       403:
  *         $ref: '#/components/responses/Forbidden'
  */
-router.post("/verify", verifyJWT, requireAdminRole, async (req, res, next) => {
-  try {
-    const { publicKey } = req.user;
-    const { token, setup } = req.body;
+router.post(
+  "/verify",
+  admin2faIpLimiter,
+  verifyJWT,
+  requireAdminRole,
+  admin2faPrincipalLimiter,
+  async (req, res, next) => {
+    try {
+      const { publicKey } = req.user;
+      const { token, setup } = req.body;
 
-    if (!token || String(token).length !== 6) {
-      return res.status(400).json({ success: false, error: "A 6-digit TOTP code is required" });
-    }
+      if (!token || String(token).length !== 6) {
+        return res.status(400).json({ success: false, error: "A 6-digit TOTP code is required" });
+      }
 
-    const status = await get2FAStatus(publicKey);
-    const secret = await getDecryptedSecret(publicKey);
+      const status = await get2FAStatus(publicKey);
+      const secret = await getDecryptedSecret(publicKey);
 
-    if (!secret) {
-      return res
-        .status(400)
-        .json({ success: false, error: "2FA setup not initiated. Call /setup first." });
-    }
+      if (!secret) {
+        return res
+          .status(400)
+          .json({ success: false, error: "2FA setup not initiated. Call /setup first." });
+      }
 
-    let backupCodes;
+      let backupCodes;
 
-    if (setup || !status.totp_enabled) {
-      const verified = speakeasy.totp.verify({
-        secret,
-        encoding: "base32",
-        token: String(token),
-        window: 1,
+      if (setup || !status.totp_enabled) {
+        const verified = speakeasy.totp.verify({
+          secret,
+          encoding: "base32",
+          token: String(token),
+          window: 1,
+        });
+
+        if (!verified) {
+          return res.status(400).json({ success: false, error: "Invalid verification code" });
+        }
+
+        backupCodes = Array.from({ length: 10 }, () =>
+          Math.random().toString(36).substring(2, 10).toUpperCase()
+        );
+        await enable2FA(publicKey, secret, backupCodes);
+      } else {
+        const result = await verify2FA(publicKey, String(token));
+        if (!result.success) {
+          return res.status(400).json({ success: false, error: result.error });
+        }
+      }
+
+      const upgradedToken = issueAdminToken(publicKey, true);
+
+      res.json({
+        success: true,
+        token: upgradedToken,
+        data: {
+          backupCodes,
+          message: backupCodes
+            ? "2FA enabled. Save your backup codes — they will not be shown again."
+            : "2FA verified",
+        },
       });
-
-      if (!verified) {
-        return res.status(400).json({ success: false, error: "Invalid verification code" });
-      }
-
-      backupCodes = Array.from({ length: 10 }, () =>
-        Math.random().toString(36).substring(2, 10).toUpperCase()
-      );
-      await enable2FA(publicKey, secret, backupCodes);
-    } else {
-      const result = await verify2FA(publicKey, String(token));
-      if (!result.success) {
-        return res.status(400).json({ success: false, error: result.error });
-      }
+    } catch (e) {
+      next(e);
     }
-
-    const upgradedToken = issueAdminToken(publicKey, true);
-
-    res.json({
-      success: true,
-      token: upgradedToken,
-      data: {
-        backupCodes,
-        message: backupCodes
-          ? "2FA enabled. Save your backup codes — they will not be shown again."
-          : "2FA verified",
-      },
-    });
-  } catch (e) {
-    next(e);
   }
-});
+);
 
 // GET /api/admin/2fa/status
 /**
@@ -324,19 +347,26 @@ router.post("/verify", verifyJWT, requireAdminRole, async (req, res, next) => {
  *       403:
  *         $ref: '#/components/responses/Forbidden'
  */
-router.get("/status", verifyJWT, requireAdminRole, async (req, res, next) => {
-  try {
-    const status = await get2FAStatus(req.user.publicKey);
-    res.json({
-      success: true,
-      data: {
-        ...status,
-        verified: Boolean(req.user["2fa_verified"]),
-      },
-    });
-  } catch (e) {
-    next(e);
+router.get(
+  "/status",
+  admin2faIpLimiter,
+  verifyJWT,
+  requireAdminRole,
+  admin2faPrincipalLimiter,
+  async (req, res, next) => {
+    try {
+      const status = await get2FAStatus(req.user.publicKey);
+      res.json({
+        success: true,
+        data: {
+          ...status,
+          verified: Boolean(req.user["2fa_verified"]),
+        },
+      });
+    } catch (e) {
+      next(e);
+    }
   }
-});
+);
 
 module.exports = router;

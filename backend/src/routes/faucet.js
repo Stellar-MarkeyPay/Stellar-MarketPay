@@ -5,7 +5,7 @@
 "use strict";
 const express = require("express");
 const router = express.Router();
-const { createRateLimiter } = require("../middleware/rateLimiter");
+const { createSensitiveRateLimiters } = require("../middleware/rateLimiter");
 const {
   fundTestnetWallet,
   checkAccountNeedsFunding,
@@ -16,7 +16,13 @@ const {
 // Development default: 20/min, Production default: 5/min
 const isDev = process.env.NODE_ENV !== "production";
 const faucetMaxRequests = parseInt(process.env.FAUCET_RATE_LIMIT, 10) || (isDev ? 20 : 5);
-const faucetRateLimiter = createRateLimiter(faucetMaxRequests, 60);
+const [faucetIpLimiter, faucetPrincipalLimiter] = createSensitiveRateLimiters({
+  namespace: "faucet",
+  windowMinutes: 60,
+  maxRequestsPerIp: faucetMaxRequests,
+  maxRequestsPerPrincipal: faucetMaxRequests,
+  principalKeyGenerator: (req) => req.body?.publicKey || req.params?.publicKey,
+});
 
 /**
  * @swagger
@@ -136,7 +142,7 @@ const faucetRateLimiter = createRateLimiter(faucetMaxRequests, 60);
  *             example:
  *               error: Unable to connect to Stellar testnet
  */
-router.post("/fund", faucetRateLimiter, async (req, res, next) => {
+router.post("/fund", faucetIpLimiter, faucetPrincipalLimiter, async (req, res, next) => {
   try {
     const { publicKey } = req.body;
 
@@ -175,8 +181,8 @@ router.post("/fund", faucetRateLimiter, async (req, res, next) => {
  *       Looks up the account's current native XLM balance on the configured
  *       Horizon server and reports whether it needs funding (balance is
  *       zero or the account does not exist yet). Enforced testnet-only, like
- *       POST /api/faucet/fund. This route has no rate limiter middleware
- *       applied.
+ *       POST /api/faucet/fund. The same shared IP + public-key limiter
+ *       is applied to this route.
  *     tags: [Faucet]
  *     parameters:
  *       - in: path
@@ -246,7 +252,7 @@ router.post("/fund", faucetRateLimiter, async (req, res, next) => {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.get("/check/:publicKey", async (req, res, next) => {
+router.get("/check/:publicKey", faucetIpLimiter, faucetPrincipalLimiter, async (req, res, next) => {
   try {
     const { publicKey } = req.params;
 

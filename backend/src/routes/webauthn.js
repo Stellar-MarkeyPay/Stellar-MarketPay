@@ -19,7 +19,8 @@
 const express = require("express");
 const router = express.Router();
 const pool = require("../db/pool");
-const { createRateLimiter } = require("../middleware/rateLimiter");
+const { createSensitiveRateLimiters } = require("../middleware/rateLimiter");
+const { createPrincipalBackoff } = require("../middleware/principalBackoff");
 const { verifyJWT } = require("../middleware/auth");
 const { issueTokenPair, setAuthCookies } = require("../services/authTokens");
 
@@ -43,7 +44,31 @@ setInterval(() => {
   }
 }, 60 * 1000).unref();
 
-const webauthnRateLimiter = createRateLimiter(10, 1);
+const [webauthnPublicIpLimiter, webauthnPublicPrincipalLimiter] = createSensitiveRateLimiters({
+  namespace: "webauthn-public",
+  windowMinutes: 5,
+  maxRequestsPerIp: 20,
+  maxRequestsPerPrincipal: 10,
+  principalKeyGenerator: (req) => req.body?.publicKey,
+});
+
+const [webauthnAccountIpLimiter, webauthnAccountPrincipalLimiter] = createSensitiveRateLimiters({
+  namespace: "webauthn-account",
+  windowMinutes: 5,
+  maxRequestsPerIp: 30,
+  maxRequestsPerPrincipal: 20,
+  principalKeyGenerator: (req) => req.user?.publicKey,
+});
+
+const webauthnFailureBackoff = createPrincipalBackoff({
+  namespace: "webauthn-login",
+  principalKeyGenerator: (req) => req.body?.publicKey,
+  threshold: 5,
+  historyWindowMinutes: 15,
+  baseDelaySeconds: 5,
+  maxDelaySeconds: 300,
+  failureStatusCodes: [400, 401, 404],
+});
 
 // ─── Registration ──────────────────────────────────────────────────────────────
 
@@ -145,38 +170,47 @@ const webauthnRateLimiter = createRateLimiter(10, 1);
  *       429:
  *         $ref: '#/components/responses/TooManyRequests'
  */
-router.post("/register-options", verifyJWT, webauthnRateLimiter, async (req, res, next) => {
-  try {
-    const publicKey = req.user.publicKey;
+router.post(
+  "/register-options",
+  webauthnAccountIpLimiter,
+  verifyJWT,
+  webauthnAccountPrincipalLimiter,
+  async (req, res, next) => {
+    try {
+      const publicKey = req.user.publicKey;
 
-    const { rows: existing } = await pool.query(
-      "SELECT credential_id, transports FROM webauthn_credentials WHERE public_key = $1",
-      [publicKey]
-    );
+      const { rows: existing } = await pool.query(
+        "SELECT credential_id, transports FROM webauthn_credentials WHERE public_key = $1",
+        [publicKey]
+      );
 
-    const options = await generateRegistrationOptions({
-      rpName: RP_NAME,
-      rpID: RP_ID,
-      userID: new TextEncoder().encode(publicKey),
-      userName: publicKey.slice(0, 8) + "…" + publicKey.slice(-4),
-      attestationType: "none",
-      excludeCredentials: existing.map((c) => ({
-        id: c.credential_id,
-        type: "public-key",
-        transports: c.transports || [],
-      })),
-      authenticatorSelection: {
-        residentKey: "preferred",
-        userVerification: "preferred",
-      },
-    });
+      const options = await generateRegistrationOptions({
+        rpName: RP_NAME,
+        rpID: RP_ID,
+        userID: new TextEncoder().encode(publicKey),
+        userName: publicKey.slice(0, 8) + "…" + publicKey.slice(-4),
+        attestationType: "none",
+        excludeCredentials: existing.map((c) => ({
+          id: c.credential_id,
+          type: "public-key",
+          transports: c.transports || [],
+        })),
+        authenticatorSelection: {
+          residentKey: "preferred",
+          userVerification: "preferred",
+        },
+      });
 
-    challengeStore.set(`reg:${publicKey}`, { challenge: options.challenge, createdAt: Date.now() });
-    res.json({ success: true, data: options });
-  } catch (e) {
-    next(e);
+      challengeStore.set(`reg:${publicKey}`, {
+        challenge: options.challenge,
+        createdAt: Date.now(),
+      });
+      res.json({ success: true, data: options });
+    } catch (e) {
+      next(e);
+    }
   }
-});
+);
 
 /**
  * @swagger
@@ -273,54 +307,60 @@ router.post("/register-options", verifyJWT, webauthnRateLimiter, async (req, res
  *       429:
  *         $ref: '#/components/responses/TooManyRequests'
  */
-router.post("/register-verify", verifyJWT, webauthnRateLimiter, async (req, res, next) => {
-  try {
-    const publicKey = req.user.publicKey;
-    const { credential, name } = req.body;
+router.post(
+  "/register-verify",
+  webauthnAccountIpLimiter,
+  verifyJWT,
+  webauthnAccountPrincipalLimiter,
+  async (req, res, next) => {
+    try {
+      const publicKey = req.user.publicKey;
+      const { credential, name } = req.body;
 
-    const stored = challengeStore.get(`reg:${publicKey}`);
-    if (!stored) {
-      const e = new Error("No pending registration challenge. Please try again.");
-      e.status = 400;
-      throw e;
-    }
+      const stored = challengeStore.get(`reg:${publicKey}`);
+      if (!stored) {
+        const e = new Error("No pending registration challenge. Please try again.");
+        e.status = 400;
+        throw e;
+      }
 
-    const verification = await verifyRegistrationResponse({
-      response: credential,
-      expectedChallenge: stored.challenge,
-      expectedOrigin: ORIGIN,
-      expectedRPID: RP_ID,
-    });
+      const verification = await verifyRegistrationResponse({
+        response: credential,
+        expectedChallenge: stored.challenge,
+        expectedOrigin: ORIGIN,
+        expectedRPID: RP_ID,
+      });
 
-    if (!verification.verified || !verification.registrationInfo) {
-      const e = new Error("Passkey registration verification failed");
-      e.status = 400;
-      throw e;
-    }
+      if (!verification.verified || !verification.registrationInfo) {
+        const e = new Error("Passkey registration verification failed");
+        e.status = 400;
+        throw e;
+      }
 
-    challengeStore.delete(`reg:${publicKey}`);
+      challengeStore.delete(`reg:${publicKey}`);
 
-    const { credential: cred } = verification.registrationInfo;
-    await pool.query(
-      `INSERT INTO webauthn_credentials
+      const { credential: cred } = verification.registrationInfo;
+      await pool.query(
+        `INSERT INTO webauthn_credentials
          (public_key, credential_id, credential_name, public_key_cose, counter, transports)
        VALUES ($1, $2, $3, $4, $5, $6)
        ON CONFLICT (credential_id) DO NOTHING`,
-      [
-        publicKey,
-        Buffer.from(cred.id).toString("base64url"),
-        (name || "Passkey").slice(0, 64),
-        Buffer.from(cred.publicKey).toString("base64"),
-        cred.counter,
-        credential.response?.transports || [],
-      ]
-    );
+        [
+          publicKey,
+          Buffer.from(cred.id).toString("base64url"),
+          (name || "Passkey").slice(0, 64),
+          Buffer.from(cred.publicKey).toString("base64"),
+          cred.counter,
+          credential.response?.transports || [],
+        ]
+      );
 
-    res.json({ success: true, message: "Passkey registered successfully" });
-  } catch (e) {
-    next(e);
+      res.json({ success: true, message: "Passkey registered successfully" });
+    } catch (e) {
+      next(e);
+    }
   }
-});
+);
 
 // ─── Authentication ─────────────────────────────────────────────────────────────
 
@@ -412,39 +452,44 @@ router.post("/register-verify", verifyJWT, webauthnRateLimiter, async (req, res,
  *       429:
  *         $ref: '#/components/responses/TooManyRequests'
  */
-router.post("/login-options", webauthnRateLimiter, async (req, res, next) => {
-  try {
-    const { publicKey } = req.body;
-    if (!publicKey || !/^G[A-Z0-9]{55}$/.test(publicKey)) {
-      const e = new Error("Invalid Stellar public key");
-      e.status = 400;
-      throw e;
+router.post(
+  "/login-options",
+  webauthnPublicIpLimiter,
+  webauthnPublicPrincipalLimiter,
+  async (req, res, next) => {
+    try {
+      const { publicKey } = req.body;
+      if (!publicKey || !/^G[A-Z0-9]{55}$/.test(publicKey)) {
+        const e = new Error("Invalid Stellar public key");
+        e.status = 400;
+        throw e;
+      }
+
+      const { rows: credentials } = await pool.query(
+        "SELECT credential_id, transports FROM webauthn_credentials WHERE public_key = $1",
+        [publicKey]
+      );
+
+      const options = await generateAuthenticationOptions({
+        rpID: RP_ID,
+        allowCredentials: credentials.map((c) => ({
+          id: c.credential_id,
+          type: "public-key",
+          transports: c.transports || [],
+        })),
+        userVerification: "preferred",
+      });
+
+      challengeStore.set(`auth:${publicKey}`, {
+        challenge: options.challenge,
+        createdAt: Date.now(),
+      });
+      res.json({ success: true, data: options });
+    } catch (e) {
+      next(e);
     }
-
-    const { rows: credentials } = await pool.query(
-      "SELECT credential_id, transports FROM webauthn_credentials WHERE public_key = $1",
-      [publicKey]
-    );
-
-    const options = await generateAuthenticationOptions({
-      rpID: RP_ID,
-      allowCredentials: credentials.map((c) => ({
-        id: c.credential_id,
-        type: "public-key",
-        transports: c.transports || [],
-      })),
-      userVerification: "preferred",
-    });
-
-    challengeStore.set(`auth:${publicKey}`, {
-      challenge: options.challenge,
-      createdAt: Date.now(),
-    });
-    res.json({ success: true, data: options });
-  } catch (e) {
-    next(e);
   }
-});
+);
 
 /**
  * @swagger
@@ -542,87 +587,85 @@ router.post("/login-options", webauthnRateLimiter, async (req, res, next) => {
  *                 value:
  *                   error: No pending authentication challenge. Please try again.
  *       401:
- *         description: Assertion signature verification failed
+ *         description: Passkey authentication failed or no matching credential exists
  *         content:
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/Error'
  *             example:
  *               error: Passkey authentication failed
- *       404:
- *         description: No credential matching the given ID is registered to this public key
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *             example:
- *               error: Passkey not found for this account
  *       429:
  *         $ref: '#/components/responses/TooManyRequests'
  */
-router.post("/login-verify", webauthnRateLimiter, async (req, res, next) => {
-  try {
-    const { credential, publicKey } = req.body;
-    if (!publicKey || !/^G[A-Z0-9]{55}$/.test(publicKey)) {
-      const e = new Error("Invalid Stellar public key");
-      e.status = 400;
-      throw e;
+router.post(
+  "/login-verify",
+  webauthnPublicIpLimiter,
+  webauthnPublicPrincipalLimiter,
+  webauthnFailureBackoff,
+  async (req, res, next) => {
+    try {
+      const { credential, publicKey } = req.body;
+      if (!publicKey || !/^G[A-Z0-9]{55}$/.test(publicKey)) {
+        const e = new Error("Invalid Stellar public key");
+        e.status = 400;
+        throw e;
+      }
+
+      const stored = challengeStore.get(`auth:${publicKey}`);
+      if (!stored) {
+        const e = new Error("No pending authentication challenge. Please try again.");
+        e.status = 400;
+        throw e;
+      }
+
+      const credentialId = credential.id;
+      const { rows } = await pool.query(
+        "SELECT * FROM webauthn_credentials WHERE credential_id = $1 AND public_key = $2",
+        [credentialId, publicKey]
+      );
+
+      if (!rows.length) {
+        const e = new Error("Passkey authentication failed");
+        e.status = 401;
+        throw e;
+      }
+
+      const storedCred = rows[0];
+      const verification = await verifyAuthenticationResponse({
+        response: credential,
+        expectedChallenge: stored.challenge,
+        expectedOrigin: ORIGIN,
+        expectedRPID: RP_ID,
+        credential: {
+          id: storedCred.credential_id,
+          publicKey: Buffer.from(storedCred.public_key_cose, "base64"),
+          counter: Number(storedCred.counter),
+          transports: storedCred.transports,
+        },
+      });
+
+      if (!verification.verified) {
+        const e = new Error("Passkey authentication failed");
+        e.status = 401;
+        throw e;
+      }
+
+      challengeStore.delete(`auth:${publicKey}`);
+
+      await pool.query("UPDATE webauthn_credentials SET counter = $1 WHERE credential_id = $2", [
+        verification.authenticationInfo.newCounter,
+        credentialId,
+      ]);
+
+      const { accessToken, refreshToken } = issueTokenPair({ publicKey });
+      setAuthCookies(res, accessToken, refreshToken);
+
+      res.json({ success: true, token: accessToken });
+    } catch (e) {
+      next(e);
     }
-
-    const stored = challengeStore.get(`auth:${publicKey}`);
-    if (!stored) {
-      const e = new Error("No pending authentication challenge. Please try again.");
-      e.status = 400;
-      throw e;
-    }
-
-    const credentialId = credential.id;
-    const { rows } = await pool.query(
-      "SELECT * FROM webauthn_credentials WHERE credential_id = $1 AND public_key = $2",
-      [credentialId, publicKey]
-    );
-
-    if (!rows.length) {
-      const e = new Error("Passkey not found for this account");
-      e.status = 404;
-      throw e;
-    }
-
-    const storedCred = rows[0];
-    const verification = await verifyAuthenticationResponse({
-      response: credential,
-      expectedChallenge: stored.challenge,
-      expectedOrigin: ORIGIN,
-      expectedRPID: RP_ID,
-      credential: {
-        id: storedCred.credential_id,
-        publicKey: Buffer.from(storedCred.public_key_cose, "base64"),
-        counter: Number(storedCred.counter),
-        transports: storedCred.transports,
-      },
-    });
-
-    if (!verification.verified) {
-      const e = new Error("Passkey authentication failed");
-      e.status = 401;
-      throw e;
-    }
-
-    challengeStore.delete(`auth:${publicKey}`);
-
-    await pool.query("UPDATE webauthn_credentials SET counter = $1 WHERE credential_id = $2", [
-      verification.authenticationInfo.newCounter,
-      credentialId,
-    ]);
-
-    const { accessToken, refreshToken } = issueTokenPair({ publicKey });
-    setAuthCookies(res, accessToken, refreshToken);
-
-    res.json({ success: true, token: accessToken });
-  } catch (e) {
-    next(e);
   }
-});
+);
 
 // ─── Credential management ─────────────────────────────────────────────────────
 
@@ -669,17 +712,23 @@ router.post("/login-verify", webauthnRateLimiter, async (req, res, next) => {
  *       401:
  *         $ref: '#/components/responses/Unauthorized'
  */
-router.get("/credentials", verifyJWT, async (req, res, next) => {
-  try {
-    const { rows } = await pool.query(
-      "SELECT id, credential_name, created_at FROM webauthn_credentials WHERE public_key = $1 ORDER BY created_at DESC",
-      [req.user.publicKey]
-    );
-    res.json({ success: true, data: rows });
-  } catch (e) {
-    next(e);
+router.get(
+  "/credentials",
+  webauthnAccountIpLimiter,
+  verifyJWT,
+  webauthnAccountPrincipalLimiter,
+  async (req, res, next) => {
+    try {
+      const { rows } = await pool.query(
+        "SELECT id, credential_name, created_at FROM webauthn_credentials WHERE public_key = $1 ORDER BY created_at DESC",
+        [req.user.publicKey]
+      );
+      res.json({ success: true, data: rows });
+    } catch (e) {
+      next(e);
+    }
   }
-});
+);
 
 /**
  * @swagger
@@ -721,21 +770,27 @@ router.get("/credentials", verifyJWT, async (req, res, next) => {
  *             example:
  *               error: Passkey not found
  */
-router.delete("/credentials/:id", verifyJWT, async (req, res, next) => {
-  try {
-    const { rowCount } = await pool.query(
-      "DELETE FROM webauthn_credentials WHERE id = $1 AND public_key = $2",
-      [req.params.id, req.user.publicKey]
-    );
-    if (!rowCount) {
-      const e = new Error("Passkey not found");
-      e.status = 404;
-      throw e;
+router.delete(
+  "/credentials/:id",
+  webauthnAccountIpLimiter,
+  verifyJWT,
+  webauthnAccountPrincipalLimiter,
+  async (req, res, next) => {
+    try {
+      const { rowCount } = await pool.query(
+        "DELETE FROM webauthn_credentials WHERE id = $1 AND public_key = $2",
+        [req.params.id, req.user.publicKey]
+      );
+      if (!rowCount) {
+        const e = new Error("Passkey not found");
+        e.status = 404;
+        throw e;
+      }
+      res.json({ success: true, message: "Passkey removed" });
+    } catch (e) {
+      next(e);
     }
-    res.json({ success: true, message: "Passkey removed" });
-  } catch (e) {
-    next(e);
   }
-});
+);
 
 module.exports = router;

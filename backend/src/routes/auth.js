@@ -14,6 +14,8 @@ const {
   rotateRefreshToken,
   setAuthCookies,
 } = require("../services/authTokens");
+const { createSensitiveRateLimiters } = require("../middleware/rateLimiter");
+const { createPrincipalBackoff } = require("../middleware/principalBackoff");
 
 const router = express.Router();
 
@@ -31,6 +33,45 @@ const NETWORK_PASSPHRASE =
   process.env.STELLAR_NETWORK === "mainnet"
     ? "Public Global Stellar Network ; September 2015"
     : "Test SDF Network ; September 2015";
+
+function getAuthPrincipal(req) {
+  const queryAccount = req.query?.account;
+  if (queryAccount) return queryAccount;
+
+  const challengeTx = req.body?.transaction;
+  if (!challengeTx) return null;
+
+  try {
+    const details = Utils.readChallengeTx(
+      challengeTx,
+      getServerKeypair().publicKey(),
+      NETWORK_PASSPHRASE,
+      HOME_DOMAIN,
+      ""
+    );
+    return details.clientAccountID || details.clientAccountId || null;
+  } catch {
+    return null;
+  }
+}
+
+const [authIpLimiter, authPrincipalLimiter] = createSensitiveRateLimiters({
+  namespace: "auth",
+  windowMinutes: 5,
+  maxRequestsPerIp: 20,
+  maxRequestsPerPrincipal: 8,
+  principalKeyGenerator: getAuthPrincipal,
+});
+
+const authFailureBackoff = createPrincipalBackoff({
+  namespace: "auth-login",
+  principalKeyGenerator: getAuthPrincipal,
+  threshold: 5,
+  historyWindowMinutes: 15,
+  baseDelaySeconds: 5,
+  maxDelaySeconds: 300,
+  failureStatusCodes: [400, 401],
+});
 
 /**
  * @swagger
@@ -64,7 +105,7 @@ const NETWORK_PASSPHRASE =
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.get("/", (req, res) => {
+router.get("/", authIpLimiter, authPrincipalLimiter, (req, res) => {
   try {
     const accountId = req.query.account;
     if (!accountId) {
@@ -132,7 +173,7 @@ router.get("/", (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.post("/", async (req, res) => {
+router.post("/", authIpLimiter, authPrincipalLimiter, authFailureBackoff, async (req, res) => {
   try {
     const { transaction } = req.body;
     if (!transaction) {

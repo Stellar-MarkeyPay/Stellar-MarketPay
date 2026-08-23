@@ -6,6 +6,7 @@
 const express = require("express");
 const router = express.Router();
 const { verifyJWT } = require("../middleware/auth");
+const { createSensitiveRateLimiters } = require("../middleware/rateLimiter");
 const {
   generateSecret,
   enable2FA,
@@ -18,6 +19,14 @@ const QRCode = require("qrcode");
 const speakeasy = require("speakeasy");
 
 const { pool } = require("../db/pool");
+
+const [twoFactorIpLimiter, twoFactorPrincipalLimiter] = createSensitiveRateLimiters({
+  namespace: "two-factor",
+  windowMinutes: 5,
+  maxRequestsPerIp: 15,
+  maxRequestsPerPrincipal: 6,
+  principalKeyGenerator: (req) => req.user?.publicKey,
+});
 
 // GET /api/2fa/status — check if 2FA is enabled
 /**
@@ -56,14 +65,20 @@ const { pool } = require("../db/pool");
  *       401:
  *         $ref: '#/components/responses/Unauthorized'
  */
-router.get("/status", verifyJWT, async (req, res, next) => {
-  try {
-    const status = await get2FAStatus(req.user.publicKey);
-    res.json({ success: true, data: status });
-  } catch (e) {
-    next(e);
+router.get(
+  "/status",
+  twoFactorIpLimiter,
+  verifyJWT,
+  twoFactorPrincipalLimiter,
+  async (req, res, next) => {
+    try {
+      const status = await get2FAStatus(req.user.publicKey);
+      res.json({ success: true, data: status });
+    } catch (e) {
+      next(e);
+    }
   }
-});
+);
 
 // POST /api/2fa/setup — generate secret and QR code
 /**
@@ -126,36 +141,42 @@ router.get("/status", verifyJWT, async (req, res, next) => {
  *               success: false
  *               error: Admin access required
  */
-router.post("/setup", verifyJWT, async (req, res, next) => {
-  try {
-    const { publicKey } = req.user;
+router.post(
+  "/setup",
+  twoFactorIpLimiter,
+  verifyJWT,
+  twoFactorPrincipalLimiter,
+  async (req, res, next) => {
+    try {
+      const { publicKey } = req.user;
 
-    // Check if admin
-    const { rows } = await pool.query("SELECT id, email FROM admin_profiles WHERE id = $1", [
-      publicKey,
-    ]);
-    if (!rows[0]) return res.status(403).json({ success: false, error: "Admin access required" });
+      // Check if admin
+      const { rows } = await pool.query("SELECT id, email FROM admin_profiles WHERE id = $1", [
+        publicKey,
+      ]);
+      if (!rows[0]) return res.status(403).json({ success: false, error: "Admin access required" });
 
-    const secret = generateSecret(rows[0].email || publicKey);
-    const qrCodeUrl = await QRCode.toDataURL(secret.otpauthURL());
+      const secret = generateSecret(rows[0].email || publicKey);
+      const qrCodeUrl = await QRCode.toDataURL(secret.otpauthURL());
 
-    // Store secret temporarily (not enabled until verified)
-    await pool.query(
-      "UPDATE admin_profiles SET totp_secret = $1, totp_enabled = false WHERE id = $2",
-      [secret.base32, publicKey]
-    );
+      // Store secret temporarily (not enabled until verified)
+      await pool.query(
+        "UPDATE admin_profiles SET totp_secret = $1, totp_enabled = false WHERE id = $2",
+        [secret.base32, publicKey]
+      );
 
-    res.json({
-      success: true,
-      data: {
-        secret: secret.base32,
-        qrCode: qrCodeUrl,
-      },
-    });
-  } catch (e) {
-    next(e);
+      res.json({
+        success: true,
+        data: {
+          secret: secret.base32,
+          qrCode: qrCodeUrl,
+        },
+      });
+    } catch (e) {
+      next(e);
+    }
   }
-});
+);
 
 // POST /api/2fa/verify — verify TOTP code and enable 2FA
 /**
@@ -251,49 +272,55 @@ router.post("/setup", verifyJWT, async (req, res, next) => {
  *       401:
  *         $ref: '#/components/responses/Unauthorized'
  */
-router.post("/verify", verifyJWT, async (req, res, next) => {
-  try {
-    const { publicKey } = req.user;
-    const { token } = req.body;
+router.post(
+  "/verify",
+  twoFactorIpLimiter,
+  verifyJWT,
+  twoFactorPrincipalLimiter,
+  async (req, res, next) => {
+    try {
+      const { publicKey } = req.user;
+      const { token } = req.body;
 
-    if (!token) return res.status(400).json({ success: false, error: "Token is required" });
+      if (!token) return res.status(400).json({ success: false, error: "Token is required" });
 
-    const { rows } = await pool.query("SELECT totp_secret FROM admin_profiles WHERE id = $1", [
-      publicKey,
-    ]);
-    if (!rows[0] || !rows[0].totp_secret) {
-      return res.status(400).json({ success: false, error: "2FA setup not initiated" });
+      const { rows } = await pool.query("SELECT totp_secret FROM admin_profiles WHERE id = $1", [
+        publicKey,
+      ]);
+      if (!rows[0] || !rows[0].totp_secret) {
+        return res.status(400).json({ success: false, error: "2FA setup not initiated" });
+      }
+
+      const verified = speakeasy.totp.verify({
+        secret: rows[0].totp_secret,
+        encoding: "base32",
+        token,
+        window: 1,
+      });
+
+      if (!verified) {
+        return res.status(400).json({ success: false, error: "Invalid verification code" });
+      }
+
+      // Generate backup codes
+      const backupCodes = Array.from({ length: 10 }, () =>
+        Math.random().toString(36).substring(2, 8).toUpperCase()
+      );
+
+      await enable2FA(publicKey, rows[0].totp_secret, backupCodes);
+
+      res.json({
+        success: true,
+        data: {
+          backupCodes,
+          message: "2FA enabled successfully. Save these backup codes!",
+        },
+      });
+    } catch (e) {
+      next(e);
     }
-
-    const verified = speakeasy.totp.verify({
-      secret: rows[0].totp_secret,
-      encoding: "base32",
-      token,
-      window: 1,
-    });
-
-    if (!verified) {
-      return res.status(400).json({ success: false, error: "Invalid verification code" });
-    }
-
-    // Generate backup codes
-    const backupCodes = Array.from({ length: 10 }, () =>
-      Math.random().toString(36).substring(2, 8).toUpperCase()
-    );
-
-    await enable2FA(publicKey, rows[0].totp_secret, backupCodes);
-
-    res.json({
-      success: true,
-      data: {
-        backupCodes,
-        message: "2FA enabled successfully. Save these backup codes!",
-      },
-    });
-  } catch (e) {
-    next(e);
   }
-});
+);
 
 // POST /api/2fa/disable — disable 2FA (requires wallet + TOTP or backup code)
 /**
@@ -360,34 +387,40 @@ router.post("/verify", verifyJWT, async (req, res, next) => {
  *       401:
  *         $ref: '#/components/responses/Unauthorized'
  */
-router.post("/disable", verifyJWT, async (req, res, next) => {
-  try {
-    const { publicKey } = req.user;
-    const { token, backupCode } = req.body;
+router.post(
+  "/disable",
+  twoFactorIpLimiter,
+  verifyJWT,
+  twoFactorPrincipalLimiter,
+  async (req, res, next) => {
+    try {
+      const { publicKey } = req.user;
+      const { token, backupCode } = req.body;
 
-    if (!token && !backupCode) {
-      return res.status(400).json({ success: false, error: "Token or backup code required" });
+      if (!token && !backupCode) {
+        return res.status(400).json({ success: false, error: "Token or backup code required" });
+      }
+
+      let verified = false;
+      if (token) {
+        const result = await verify2FA(publicKey, token);
+        verified = result.success;
+      } else if (backupCode) {
+        const result = await verifyBackupCode(publicKey, backupCode);
+        verified = result.success;
+      }
+
+      if (!verified) {
+        return res.status(400).json({ success: false, error: "Invalid token or backup code" });
+      }
+
+      await disable2FA(publicKey);
+      res.json({ success: true, message: "2FA disabled successfully" });
+    } catch (e) {
+      next(e);
     }
-
-    let verified = false;
-    if (token) {
-      const result = await verify2FA(publicKey, token);
-      verified = result.success;
-    } else if (backupCode) {
-      const result = await verifyBackupCode(publicKey, backupCode);
-      verified = result.success;
-    }
-
-    if (!verified) {
-      return res.status(400).json({ success: false, error: "Invalid token or backup code" });
-    }
-
-    await disable2FA(publicKey);
-    res.json({ success: true, message: "2FA disabled successfully" });
-  } catch (e) {
-    next(e);
   }
-});
+);
 
 // POST /api/2fa/validate — validate TOTP during login
 /**
@@ -468,18 +501,24 @@ router.post("/disable", verifyJWT, async (req, res, next) => {
  *       401:
  *         $ref: '#/components/responses/Unauthorized'
  */
-router.post("/validate", verifyJWT, async (req, res, next) => {
-  try {
-    const { publicKey } = req.user;
-    const { token } = req.body;
+router.post(
+  "/validate",
+  twoFactorIpLimiter,
+  verifyJWT,
+  twoFactorPrincipalLimiter,
+  async (req, res, next) => {
+    try {
+      const { publicKey } = req.user;
+      const { token } = req.body;
 
-    if (!token) return res.status(400).json({ success: false, error: "Token is required" });
+      if (!token) return res.status(400).json({ success: false, error: "Token is required" });
 
-    const result = await verify2FA(publicKey, token);
-    res.json({ success: result.success, error: result.error });
-  } catch (e) {
-    next(e);
+      const result = await verify2FA(publicKey, token);
+      res.json({ success: result.success, error: result.error });
+    } catch (e) {
+      next(e);
+    }
   }
-});
+);
 
 module.exports = router;

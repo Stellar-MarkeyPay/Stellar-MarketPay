@@ -81,6 +81,15 @@ jobs:
           --health-interval 5s
           --health-timeout 3s
           --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -93,6 +102,7 @@ jobs:
         env:
           DATABASE_URL: postgresql://test:test@localhost:5432/marketpay_test
           JWT_SECRET: ci-test-jwt-secret-with-sufficient-length
+          REDIS_URL: redis://localhost:6379
       - run: npm run lint
       - run: npm run build
       - uses: actions/upload-artifact@v4
