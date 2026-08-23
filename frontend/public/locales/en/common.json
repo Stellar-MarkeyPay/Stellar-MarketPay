@@ -1,4 +1,12 @@
 {
+  "home": {
+    "hero": {
+      "badge": "Open Source · Built on Stellar · Powered by Soroban",
+      "titlePart1": "Freelance without",
+      "titlePart2": "middlemen",
+      "subtitle": "Stellar MarketPay connects clients and freelancers globally. Payments are secured in Soroban smart contract escrow — released the moment work is approved."
+    }
+  },
   "nav": {
     "home": "Home",
     "browseJobs": "Browse Jobs",
