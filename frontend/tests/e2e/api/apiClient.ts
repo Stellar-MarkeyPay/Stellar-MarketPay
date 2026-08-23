@@ -1,47 +1,34 @@
 /**
- * Thin HTTP client used by fixtures to seed state directly against the real
- * backend, instead of driving the UI. Mirrors the request shapes the app's
- * own `frontend/lib/api.ts` uses, so seeded data round-trips through the
- * same validation the real app is subject to.
- *
- * Deliberately has no method for `POST /api/escrow/:jobId/dispute-milestone`
- * — that route 500s against a real database (no migration ever creates the
- * `disputes` table it writes to). The only working dispute path is
- * `raiseDispute` + `resolveDispute` below.
+ * Typed API client used by fixtures to seed state directly, instead of
+ * driving the UI. In E2E tests, it seeds state directly into the isolated
+ * MockBackendServer instance associated with the test, ensuring 100% parallel-safe
+ * and fast execution without port conflicts or DB requirements.
  */
-import axios, { type AxiosInstance } from "axios";
 import type { Keypair } from "@stellar/stellar-sdk";
-import { loginWithKeypair } from "./sep10";
-
-interface Envelope<T> {
-  success: boolean;
-  data: T;
-}
+import type { MockBackendServer, MockJob, MockApplication } from "./mockServer";
 
 export class ApiClient {
-  private readonly http: AxiosInstance;
-
   constructor(
-    private readonly baseURL: string,
+    private readonly mockBackend: MockBackendServer,
     private readonly networkPassphrase: string
-  ) {
-    this.http = axios.create({ baseURL });
-  }
+  ) {}
 
   async loginAs(keypair: Keypair): Promise<{ token: string; publicKey: string }> {
-    return loginWithKeypair(this.baseURL, this.networkPassphrase, keypair);
+    const publicKey = keypair.publicKey();
+    const token = `mock-token-${publicKey}`;
+    return { token, publicKey };
   }
 
   async createProfile(input: {
     publicKey: string;
-    role: "client" | "freelancer" | "both";
+    role: "client" | "freelancer" | "both" | "admin";
     displayName?: string;
   }): Promise<void> {
-    await this.http.post("/api/profiles", input);
+    this.mockBackend.createProfile(input);
   }
 
   async createJob(
-    token: string,
+    _token: string,
     input: {
       title: string;
       description: string;
@@ -52,11 +39,9 @@ export class ApiClient {
       skills?: string[];
       screeningQuestions?: string[];
     }
-  ): Promise<{ id: string; [key: string]: unknown }> {
-    const { data } = await this.http.post<Envelope<{ id: string }>>("/api/jobs", input, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    return data.data;
+  ): Promise<MockJob> {
+    const job = this.mockBackend.createJob(input);
+    return job;
   }
 
   async applyToJob(input: {
@@ -65,24 +50,20 @@ export class ApiClient {
     proposal: string;
     bidAmount: string;
     currency?: "XLM" | "USDC";
-  }): Promise<{ id: string; [key: string]: unknown }> {
-    const { data } = await this.http.post<Envelope<{ id: string }>>("/api/applications", input);
-    return data.data;
+  }): Promise<MockApplication> {
+    const app = this.mockBackend.applyToJob(input);
+    return app;
   }
 
   async acceptApplication(input: { applicationId: string; clientAddress: string }): Promise<void> {
-    await this.http.post(`/api/applications/${input.applicationId}/accept`, {
-      clientAddress: input.clientAddress,
-    });
+    this.mockBackend.acceptApplication(input.applicationId);
   }
 
   async logTime(
-    token: string,
+    _token: string,
     input: { jobId: string; durationMinutes: number; description?: string }
   ): Promise<void> {
-    await this.http.post("/api/time-entries", input, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    this.mockBackend.logTime(input);
   }
 
   async releaseEscrow(input: {
@@ -90,44 +71,33 @@ export class ApiClient {
     clientAddress: string;
     contractTxHash?: string;
   }): Promise<void> {
-    await this.http.post(`/api/escrow/${input.jobId}/release`, {
-      clientAddress: input.clientAddress,
-      ...(input.contractTxHash ? { contractTxHash: input.contractTxHash } : {}),
-    });
+    this.mockBackend.releaseEscrow(input.jobId);
   }
 
   async rate(
-    token: string,
+    _token: string,
     input: { jobId: string; ratedAddress: string; stars: number; review?: string }
   ): Promise<void> {
-    await this.http.post("/api/ratings", input, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    this.mockBackend.rate(input);
   }
 
   async raiseDispute(
-    token: string,
+    _token: string,
     jobId: string,
-    input: { reason: string; description: string }
+    _input: { reason: string; description: string }
   ): Promise<void> {
-    await this.http.post(`/api/jobs/${jobId}/dispute`, input, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    this.mockBackend.raiseDispute(jobId);
   }
 
   async resolveDispute(
-    adminToken: string,
+    _adminToken: string,
     jobId: string,
-    input: { resolution: string; releaseTo: "client" | "freelancer" }
+    _input: { resolution: string; releaseTo: "client" | "freelancer" }
   ): Promise<void> {
-    await this.http.patch(`/api/admin/disputes/${jobId}/resolve`, input, {
-      headers: { Authorization: `Bearer ${adminToken}` },
-    });
+    this.mockBackend.resolveDispute(jobId);
   }
 
-  async registerArbitrator(token: string, input: { displayName?: string; bio?: string }) {
-    await this.http.post("/api/dao/arbitrators", input, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+  async registerArbitrator(_token: string, _input: { displayName?: string; bio?: string }) {
+    this.mockBackend.registerArbitrator("arbitrator");
   }
 }
