@@ -13,24 +13,20 @@ A caller-supplied wallet/public key is **not** treated as a globally trusted acc
 
 ## Bucket scoping
 
-| Signal | Scope | Purpose |
-| --- | --- | --- |
-| Effective client IP | global/shared through Redis | limits clients that rotate principals |
-| Authenticated principal (`req.user.publicKey`) | global/shared through Redis | follows the authenticated account across IPs |
-| Pre-auth/caller-supplied principal | bound to effective client IP, then shared through Redis | adds local principal pressure without creating a victim-wide lockout primitive |
+- **Effective client IP** — shared globally through Redis; limits clients that rotate principals.
+- **Authenticated principal (`req.user.publicKey`)** — shared globally through Redis; follows the authenticated account across IPs.
+- **Pre-auth/caller-supplied principal** — bound to the effective client IP before entering shared Redis state; adds local principal pressure without creating a victim-wide lockout primitive.
 
 Raw IPs and principals are hashed before they are used in external rate-limit keys.
 
 ## Current limits
 
-| Surface | Window | IP max | Principal max | Principal source |
-| --- | ---: | ---: | ---: | --- |
-| SEP-10 auth | 5 min | 20 | 8 | challenge/account input before auth; IP-bound until authenticated |
-| WebAuthn public login | 5 min | 20 | 10 | request `publicKey`; IP-bound before authentication |
-| WebAuthn authenticated account routes | 5 min | 30 | 20 | verified JWT principal |
-| Admin 2FA | 5 min | 15 | 6 | verified JWT principal |
-| Legacy/dormant 2FA router | 5 min | 15 | 6 | verified JWT principal |
-| Faucet router | 60 min | configurable | configurable | request/path public key; IP-bound before authentication |
+- **SEP-10 auth** — 5-minute window; IP max 20; principal max 8; challenge/account input is IP-bound until authenticated.
+- **WebAuthn public login** — 5-minute window; IP max 20; principal max 10; request `publicKey` is IP-bound before authentication.
+- **WebAuthn authenticated account routes** — 5-minute window; IP max 30; principal max 20; principal comes from a verified JWT.
+- **Admin 2FA** — 5-minute window; IP max 15; principal max 6; principal comes from a verified JWT.
+- **Legacy/dormant 2FA router** — 5-minute window; IP max 15; principal max 6; principal comes from a verified JWT.
+- **Faucet router** — 60-minute window; IP and principal maxima are configurable; request/path public keys are IP-bound before authentication.
 
 The dormant 2FA and faucet routers are not mounted by this change. Their middleware is hardened without changing route availability.
 
