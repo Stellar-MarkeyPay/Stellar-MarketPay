@@ -49,6 +49,7 @@ const statsRoutes = require("./routes/stats");
 const gasEstimatorRoutes = require("./routes/gasEstimator");
 const cdnRoutes = require("./routes/cdn");
 const rankingRoutes = require("./routes/ranking");
+const savedSearchesRoutes = require("./routes/savedSearches");
 
 const pool = require("./db/pool");
 const { migrate } = require("./db/migrate");
@@ -339,6 +340,7 @@ app.use("/api/stats", statsRoutes);
 app.use("/api/gas-estimate", gasEstimatorRoutes);
 app.use("/api/cdn", cdnRoutes);
 app.use("/api/ranking", rankingRoutes);
+app.use("/api/saved-searches", savedSearchesRoutes);
 
 app.use((err, req, res, next) => {
   void next;
