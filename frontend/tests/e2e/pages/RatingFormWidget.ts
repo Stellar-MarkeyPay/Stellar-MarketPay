@@ -12,6 +12,6 @@ export class RatingFormWidget {
   }
 
   submittedText() {
-    return this.page.getByText("Rating submitted");
+    return this.page.getByText("Completed", { exact: true });
   }
 }

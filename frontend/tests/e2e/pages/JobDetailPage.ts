@@ -8,7 +8,7 @@ export class JobDetailPage {
   }
 
   heading(title: string) {
-    return this.page.getByRole("heading", { name: title });
+    return this.page.getByRole("heading", { level: 1, name: title });
   }
 
   applyButton() {
