@@ -123,7 +123,27 @@ function createSensitiveRateLimiters({
     });
 
   const suffix = safePropertySuffix(namespace);
-  const getPrincipal = (req) => normalizePrincipal(principalKeyGenerator(req));
+  const principalCacheKey = Symbol(`rateLimitPrincipal:${namespace}`);
+  const getPrincipal = (req) => {
+    if (Object.prototype.hasOwnProperty.call(req, principalCacheKey)) {
+      return req[principalCacheKey];
+    }
+
+    let value = "";
+    try {
+      value = normalizePrincipal(principalKeyGenerator(req));
+    } catch {
+      value = "";
+    }
+
+    Object.defineProperty(req, principalCacheKey, {
+      configurable: false,
+      enumerable: false,
+      writable: false,
+      value,
+    });
+    return value;
+  };
 
   const ipLimiter = createRateLimiter(maxRequestsPerIp, windowMinutes, {
     store: makeStore({ prefix: `${namespace}:ip:` }),
