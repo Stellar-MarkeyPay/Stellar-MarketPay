@@ -153,8 +153,8 @@ describe("POST /api/saved-searches", () => {
     expect(res.status).toBe(201);
     expect(res.body.success).toBe(true);
     expect(res.body.data.id).toBe(SEARCH_ID);
-    expect(res.body.data.notify_in_app).toBe(true);  // default
-    expect(res.body.data.notify_email).toBe(false);  // default
+    expect(res.body.data.notify_in_app).toBe(true); // default
+    expect(res.body.data.notify_email).toBe(false); // default
   });
 
   it("201 — honours explicit notify_email: true", async () => {
@@ -265,10 +265,12 @@ describe("PATCH /api/saved-searches/:id", () => {
     expect(res.body.success).toBe(false);
     expect(res.body.error).toMatch(/not found/i);
     // The DB must have been called with the other user's key, not the owner's
-    expect(mockQuery).toHaveBeenCalledWith(
-      expect.any(String),
-      [undefined, true, SEARCH_ID, OTHER_KEY]
-    );
+    expect(mockQuery).toHaveBeenCalledWith(expect.any(String), [
+      undefined,
+      true,
+      SEARCH_ID,
+      OTHER_KEY,
+    ]);
   });
 
   it("404 — returns 404 for a non-existent id", async () => {
