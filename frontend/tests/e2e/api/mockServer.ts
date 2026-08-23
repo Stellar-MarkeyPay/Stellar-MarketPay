@@ -1,5 +1,5 @@
-import type { Page, Route } from "@playwright/test";
-import { Keypair, Account, TransactionBuilder, Operation, Networks } from "@stellar/stellar-sdk";
+import type { Page } from "@playwright/test";
+import { Keypair } from "@stellar/stellar-sdk";
 
 export interface MockJob {
   id: string;
@@ -54,26 +54,25 @@ export interface MockProfile {
   bio?: string;
 }
 
-export class MockBackendServer {
-  private serverKeypair = Keypair.random();
-  public jobs = new Map<string, MockJob>();
-  public applications = new Map<string, MockApplication>();
-  public timeEntries: MockTimeEntry[] = [];
-  public ratings: MockRating[] = [];
-  public profiles = new Map<string, MockProfile>();
-  public arbitrators = new Set<string>();
+export interface MockState {
+  jobs: MockJob[];
+  applications: MockApplication[];
+  timeEntries: MockTimeEntry[];
+  ratings: MockRating[];
+  profiles: MockProfile[];
+}
 
-  private makeJwt(payload: { publicKey: string; role?: string }): string {
-    const header = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url");
-    const body = Buffer.from(
-      JSON.stringify({
-        ...payload,
-        iat: Math.floor(Date.now() / 1000),
-        exp: Math.floor(Date.now() / 1000) + 86400,
-      })
-    ).toString("base64url");
-    const signature = Buffer.from("mock-sig").toString("base64url");
-    return `${header}.${body}.${signature}`;
+export class MockBackendServer {
+  private state: MockState = {
+    jobs: [],
+    applications: [],
+    timeEntries: [],
+    ratings: [],
+    profiles: [],
+  };
+
+  getState(): MockState {
+    return this.state;
   }
 
   createProfile(input: {
@@ -88,7 +87,7 @@ export class MockBackendServer {
       displayName: input.displayName,
       bio: input.bio,
     };
-    this.profiles.set(profile.publicKey, profile);
+    this.state.profiles.push(profile);
     return profile;
   }
 
@@ -117,7 +116,7 @@ export class MockBackendServer {
       applicantCount: 0,
       createdAt: new Date().toISOString(),
     };
-    this.jobs.set(id, job);
+    this.state.jobs.push(job);
     return job;
   }
 
@@ -139,17 +138,17 @@ export class MockBackendServer {
       status: "pending",
       createdAt: new Date().toISOString(),
     };
-    this.applications.set(id, app);
-    const job = this.jobs.get(input.jobId);
+    this.state.applications.push(app);
+    const job = this.state.jobs.find((j) => j.id === input.jobId);
     if (job) job.applicantCount++;
     return app;
   }
 
   acceptApplication(applicationId: string): MockApplication | null {
-    const app = this.applications.get(applicationId);
+    const app = this.state.applications.find((a) => a.id === applicationId);
     if (app) {
       app.status = "accepted";
-      const job = this.jobs.get(app.jobId);
+      const job = this.state.jobs.find((j) => j.id === app.jobId);
       if (job) {
         job.status = "in_progress";
         job.freelancerAddress = app.freelancerAddress;
@@ -167,12 +166,12 @@ export class MockBackendServer {
       description: input.description || "",
       createdAt: new Date().toISOString(),
     };
-    this.timeEntries.push(entry);
+    this.state.timeEntries.push(entry);
     return entry;
   }
 
   releaseEscrow(jobId: string): void {
-    const job = this.jobs.get(jobId);
+    const job = this.state.jobs.find((j) => j.id === jobId);
     if (job) job.status = "completed";
   }
 
@@ -192,27 +191,246 @@ export class MockBackendServer {
       review: input.review,
       createdAt: new Date().toISOString(),
     };
-    this.ratings.push(rating);
+    this.state.ratings.push(rating);
     return rating;
   }
 
   raiseDispute(jobId: string): void {
-    const job = this.jobs.get(jobId);
+    const job = this.state.jobs.find((j) => j.id === jobId);
     if (job) job.status = "disputed";
   }
 
   resolveDispute(jobId: string): void {
-    const job = this.jobs.get(jobId);
+    const job = this.state.jobs.find((j) => j.id === jobId);
     if (job) job.status = "completed";
   }
 
-  registerArbitrator(address: string): void {
-    this.arbitrators.add(address);
-  }
+  registerArbitrator(_address: string): void {}
 
   async install(page: Page): Promise<void> {
-    // Intercept Coingecko
-    await page.route("**/api.coingecko.com/**", async (route: Route) => {
+    // 1. Install browser-level XHR/fetch persistent interceptor
+    await page.addInitScript((initialState: MockState) => {
+      const STORAGE_KEY = "__MARKETPLACE_MOCK_STATE__";
+
+      function getState(): MockState {
+        try {
+          const raw = sessionStorage.getItem(STORAGE_KEY);
+          if (raw) return JSON.parse(raw);
+        } catch {}
+        return initialState;
+      }
+
+      function persistState(state: MockState) {
+        try {
+          sessionStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        } catch {}
+      }
+
+      persistState(initialState);
+
+      const origOpen = XMLHttpRequest.prototype.open;
+      const origSend = XMLHttpRequest.prototype.send;
+
+      XMLHttpRequest.prototype.open = function (method, url) {
+        (this as any).__url = typeof url === "string" ? url : (url as any).href;
+        (this as any).__method = method;
+        return origOpen.apply(this, arguments as any);
+      };
+
+      XMLHttpRequest.prototype.send = function (body) {
+        const url = (this as any).__url || "";
+        const method = (this as any).__method || "GET";
+
+        if (url.includes("/api/") || url.includes(":4000")) {
+          const mockState = getState();
+          let pathname = url;
+          try {
+            pathname = new URL(url, window.location.origin).pathname;
+          } catch {}
+
+          let responseData: any = { success: true, data: [] };
+          let status = 200;
+
+          if (pathname.includes("/api/auth")) {
+            responseData = {
+              success: true,
+              transaction: "mock-sep10-tx",
+              token: "mock-jwt-token",
+            };
+          } else if (pathname === "/api/jobs" || pathname === "/api/jobs/") {
+            if (method === "GET") {
+              responseData = {
+                success: true,
+                data: mockState.jobs,
+                jobs: mockState.jobs,
+                nextCursor: null,
+              };
+            } else if (method === "POST") {
+              const b = typeof body === "string" ? JSON.parse(body) : body || {};
+              const job: MockJob = {
+                id: `job-${mockState.jobs.length + 1}`,
+                title: b.title || "Untitled Job",
+                description: b.description || "",
+                budget: b.budget || "100",
+                currency: b.currency || "XLM",
+                category: b.category || "General",
+                clientAddress: b.clientAddress || "",
+                skills: b.skills || [],
+                screeningQuestions: b.screeningQuestions || [],
+                status: "open",
+                applicantCount: 0,
+                createdAt: new Date().toISOString(),
+              };
+              mockState.jobs.unshift(job);
+              persistState(mockState);
+              responseData = { success: true, data: job };
+              status = 201;
+            }
+          } else if (pathname.startsWith("/api/jobs/") && !pathname.includes("/escrow")) {
+            const id = pathname.split("/").pop() || "";
+            const job = mockState.jobs.find((j) => j.id === id) || mockState.jobs[0];
+            if (job) {
+              responseData = { success: true, data: job };
+            } else {
+              responseData = { success: false, error: "Job not found" };
+              status = 404;
+            }
+          } else if (pathname.includes("/escrow") && method === "PATCH") {
+            const parts = pathname.split("/");
+            const jobId = parts[parts.indexOf("jobs") + 1];
+            const job = mockState.jobs.find((j) => j.id === jobId);
+            if (job) {
+              const b = typeof body === "string" ? JSON.parse(body) : body || {};
+              job.escrowContractId = b.escrowContractId || "mock-escrow-id";
+              persistState(mockState);
+              responseData = { success: true, data: job };
+            }
+          } else if (pathname === "/api/applications" && method === "POST") {
+            const b = typeof body === "string" ? JSON.parse(body) : body || {};
+            const app: MockApplication = {
+              id: `app-${mockState.applications.length + 1}`,
+              jobId: b.jobId,
+              freelancerAddress: b.freelancerAddress,
+              proposal: b.proposal,
+              bidAmount: b.bidAmount,
+              currency: b.currency || "XLM",
+              status: "pending",
+              createdAt: new Date().toISOString(),
+            };
+            mockState.applications.push(app);
+            const job = mockState.jobs.find((j) => j.id === b.jobId);
+            if (job) job.applicantCount++;
+            persistState(mockState);
+            responseData = { success: true, data: app };
+            status = 201;
+          } else if (pathname.includes("/api/applications/job/")) {
+            const jobId = pathname.split("/").pop();
+            responseData = {
+              success: true,
+              data: mockState.applications.filter((a) => a.jobId === jobId),
+            };
+          } else if (pathname.match(/\/api\/applications\/[^\/]+\/accept/)) {
+            const parts = pathname.split("/");
+            const appId = parts[parts.indexOf("applications") + 1];
+            const app = mockState.applications.find((a) => a.id === appId);
+            if (app) {
+              app.status = "accepted";
+              const job = mockState.jobs.find((j) => j.id === app.jobId);
+              if (job) {
+                job.status = "in_progress";
+                job.freelancerAddress = app.freelancerAddress;
+              }
+              persistState(mockState);
+              responseData = { success: true, data: app };
+            }
+          } else if (pathname.includes("/api/time-entries")) {
+            if (method === "GET") {
+              const urlObj = new URL(url, window.location.origin);
+              const jobId = urlObj.searchParams.get("jobId") || pathname.split("/").pop();
+              responseData = {
+                success: true,
+                data: mockState.timeEntries.filter((e) => e.jobId === jobId),
+              };
+            } else if (method === "POST") {
+              const b = typeof body === "string" ? JSON.parse(body) : body || {};
+              const entry: MockTimeEntry = {
+                id: `time-${mockState.timeEntries.length + 1}`,
+                jobId: b.jobId,
+                durationMinutes: b.durationMinutes || 60,
+                description: b.description || "",
+                createdAt: new Date().toISOString(),
+              };
+              mockState.timeEntries.push(entry);
+              persistState(mockState);
+              responseData = { success: true, data: entry };
+              status = 201;
+            }
+          } else if (pathname.includes("/api/escrow/") && pathname.endsWith("/release")) {
+            const parts = pathname.split("/");
+            const jobId = parts[parts.indexOf("escrow") + 1];
+            const job = mockState.jobs.find((j) => j.id === jobId);
+            if (job) {
+              job.status = "completed";
+              persistState(mockState);
+            }
+            responseData = { success: true, data: { success: true } };
+          } else if (pathname === "/api/ratings" && method === "POST") {
+            const b = typeof body === "string" ? JSON.parse(body) : body || {};
+            const rating: MockRating = {
+              id: `rating-${mockState.ratings.length + 1}`,
+              jobId: b.jobId,
+              raterAddress: b.raterAddress || "unknown",
+              ratedAddress: b.ratedAddress,
+              stars: b.stars || 5,
+              review: b.review,
+              createdAt: new Date().toISOString(),
+            };
+            mockState.ratings.push(rating);
+            persistState(mockState);
+            responseData = { success: true, data: rating };
+            status = 201;
+          } else if (pathname.includes("/api/profiles/")) {
+            if (pathname.includes("/client-reputation")) {
+              responseData = {
+                success: true,
+                data: {
+                  score: 4.5,
+                  paymentReleaseRate: 95,
+                  disputeRate: 2,
+                  completionRate: 90,
+                  avgTimeToReleaseHours: 24,
+                  responseTimeToApplicationsHours: 12,
+                },
+              };
+            } else {
+              const pk = pathname.split("/").pop();
+              responseData = { success: true, data: { publicKey: pk, role: "both" } };
+            }
+          } else if (pathname.includes("/faucet/status")) {
+            responseData = { success: true, data: { enabled: true } };
+          }
+
+          const xhr = this;
+          setTimeout(() => {
+            Object.defineProperty(xhr, "readyState", { value: 4, configurable: true });
+            Object.defineProperty(xhr, "status", { value: status, configurable: true });
+            Object.defineProperty(xhr, "responseText", {
+              value: JSON.stringify(responseData),
+              configurable: true,
+            });
+            xhr.dispatchEvent(new Event("readystatechange"));
+            xhr.dispatchEvent(new Event("load"));
+            xhr.dispatchEvent(new Event("loadend"));
+          }, 0);
+          return;
+        }
+
+        return origSend.apply(this, arguments as any);
+      };
+    }, this.state);
+
+    // 2. Install Playwright route interceptor as fallback/network-level layer
+    await page.route("**/api.coingecko.com/**", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -220,237 +438,30 @@ export class MockBackendServer {
       });
     });
 
-    // Intercept backend API calls made from the browser
     await page.route(
       (url) => url.pathname.startsWith("/api/") || url.host.includes(":4000"),
-      async (route: Route) => {
+      async (route) => {
         const req = route.request();
-        const method = req.method();
-        const url = new URL(req.url());
-        const pathname = url.pathname;
-
-        if (method === "OPTIONS") {
+        if (req.method() === "OPTIONS") {
           await route.fulfill({
             status: 204,
             headers: {
               "Access-Control-Allow-Origin": "*",
               "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
               "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With",
-              "Access-Control-Allow-Credentials": "true",
             },
           });
           return;
         }
 
-        let body: any = {};
-        const postData = req.postData();
-        if (postData) {
-          try {
-            body = JSON.parse(postData);
-          } catch {
-            body = {};
-          }
-        }
-
-        const fulfillJson = async (status: number, data: any) => {
-          await route.fulfill({
-            status,
-            contentType: "application/json",
-            headers: {
-              "Access-Control-Allow-Origin": "*",
-              "Access-Control-Allow-Credentials": "true",
-            },
-            body: JSON.stringify(data),
-          });
-        };
-
-        // ── /api/auth (SEP-10) ────────────────────────────────────────────────
-        if (pathname === "/api/auth") {
-          if (method === "GET") {
-            const account = url.searchParams.get("account") || "";
-            const serverAcc = new Account(this.serverKeypair.publicKey(), "0");
-            const tx = new TransactionBuilder(serverAcc, {
-              fee: "100",
-              networkPassphrase: Networks.TESTNET,
-              timebounds: { minTime: 0, maxTime: Math.floor(Date.now() / 1000) + 3600 },
-            })
-              .addOperation(
-                Operation.manageData({
-                  source: account,
-                  name: `${this.serverKeypair.publicKey()} auth`,
-                  value: "challenge",
-                })
-              )
-              .build();
-            tx.sign(this.serverKeypair);
-            return fulfillJson(200, { transaction: tx.toXDR() });
-          }
-
-          if (method === "POST") {
-            try {
-              const tx: any = TransactionBuilder.fromXDR(body.transaction, Networks.TESTNET);
-              const publicKey = tx.operations?.[0]?.source || tx.source || "MOCK_KEY";
-              const profile = this.profiles.get(publicKey);
-              const token = this.makeJwt({ publicKey, role: profile?.role || "both" });
-              return fulfillJson(200, { success: true, token });
-            } catch {
-              const token = this.makeJwt({ publicKey: "MOCK_KEY", role: "both" });
-              return fulfillJson(200, { success: true, token });
-            }
-          }
-        }
-
-        if (pathname === "/api/auth/refresh") {
-          const token = this.makeJwt({ publicKey: "MOCK_REFRESHED", role: "both" });
-          return fulfillJson(200, { success: true, token });
-        }
-
-        // ── /api/profiles ─────────────────────────────────────────────────────
-        if (pathname === "/api/profiles" || pathname.startsWith("/api/profiles/")) {
-          if (pathname.includes("/client-reputation")) {
-            return fulfillJson(200, {
-              success: true,
-              data: {
-                score: 4.5,
-                paymentReleaseRate: 95,
-                disputeRate: 2,
-                completionRate: 90,
-                avgTimeToReleaseHours: 24,
-                responseTimeToApplicationsHours: 12,
-              },
-            });
-          }
-
-          if (method === "POST") {
-            const profile = this.createProfile(body);
-            return fulfillJson(201, { success: true, data: profile });
-          }
-
-          if (method === "GET") {
-            const pk = pathname.split("/").pop() || "";
-            const profile = this.profiles.get(pk) || { publicKey: pk, role: "both" };
-            return fulfillJson(200, { success: true, data: profile });
-          }
-        }
-
-        // ── /api/jobs ─────────────────────────────────────────────────────────
-        if (pathname === "/api/jobs" && method === "GET") {
-          return fulfillJson(200, { success: true, data: Array.from(this.jobs.values()) });
-        }
-
-        if (pathname === "/api/jobs" && method === "POST") {
-          const job = this.createJob(body);
-          return fulfillJson(201, { success: true, data: job });
-        }
-
-        const jobMatch = pathname.match(/^\/api\/jobs\/([^\/]+)$/);
-        if (jobMatch && method === "GET") {
-          const job = this.jobs.get(jobMatch[1]);
-          if (!job) {
-            return fulfillJson(404, { success: false, error: "Job not found" });
-          }
-          return fulfillJson(200, { success: true, data: job });
-        }
-
-        const jobEscrowMatch = pathname.match(/^\/api\/jobs\/([^\/]+)\/escrow$/);
-        if (jobEscrowMatch && method === "PATCH") {
-          const job = this.jobs.get(jobEscrowMatch[1]);
-          if (!job) {
-            return fulfillJson(404, { success: false, error: "Job not found" });
-          }
-          job.escrowContractId = body.escrowContractId;
-          return fulfillJson(200, { success: true, data: job });
-        }
-
-        // ── /api/applications ─────────────────────────────────────────────────
-        if (pathname === "/api/applications" && method === "POST") {
-          const app = this.applyToJob(body);
-          return fulfillJson(201, { success: true, data: app });
-        }
-
-        if (pathname === "/api/applications" && method === "GET") {
-          const jobId = url.searchParams.get("jobId");
-          const apps = Array.from(this.applications.values()).filter(
-            (a) => !jobId || a.jobId === jobId
-          );
-          return fulfillJson(200, { success: true, data: apps });
-        }
-
-        const applicationsByJobMatch = pathname.match(/^\/api\/applications\/job\/([^\/]+)$/);
-        if (applicationsByJobMatch && method === "GET") {
-          const jobId = applicationsByJobMatch[1];
-          const apps = Array.from(this.applications.values()).filter((a) => a.jobId === jobId);
-          return fulfillJson(200, { success: true, data: apps });
-        }
-
-        const acceptMatch = pathname.match(/^\/api\/applications\/([^\/]+)\/accept$/);
-        if (acceptMatch && method === "POST") {
-          const app = this.acceptApplication(acceptMatch[1]);
-          if (app) {
-            return fulfillJson(200, { success: true, data: app });
-          }
-        }
-
-        // ── /api/time-entries ─────────────────────────────────────────────────
-        const timeEntriesByJobMatch = pathname.match(/^\/api\/time-entries\/job\/([^\/]+)$/);
-        if (timeEntriesByJobMatch && method === "GET") {
-          const jobId = timeEntriesByJobMatch[1];
-          const entries = this.timeEntries.filter((e) => e.jobId === jobId);
-          return fulfillJson(200, { success: true, data: entries });
-        }
-
-        if (pathname === "/api/time-entries") {
-          if (method === "GET") {
-            const jobId = url.searchParams.get("jobId");
-            const entries = this.timeEntries.filter((e) => !jobId || e.jobId === jobId);
-            return fulfillJson(200, { success: true, data: entries });
-          }
-          if (method === "POST") {
-            const entry = this.logTime(body);
-            return fulfillJson(201, { success: true, data: entry });
-          }
-        }
-
-        // ── /api/escrow/:jobId/release ─────────────────────────────────────────
-        const releaseMatch = pathname.match(/^\/api\/escrow\/([^\/]+)\/release$/);
-        if (releaseMatch && method === "POST") {
-          this.releaseEscrow(releaseMatch[1]);
-          return fulfillJson(200, { success: true, data: { success: true } });
-        }
-
-        // ── /api/ratings ───────────────────────────────────────────────────────
-        if (pathname === "/api/ratings" && method === "POST") {
-          const rating = this.rate(body);
-          return fulfillJson(201, { success: true, data: rating });
-        }
-
-        // ── /api/jobs/:jobId/dispute ──────────────────────────────────────────
-        const disputeMatch = pathname.match(/^\/api\/jobs\/([^\/]+)\/dispute$/);
-        if (disputeMatch && method === "POST") {
-          this.raiseDispute(disputeMatch[1]);
-          return fulfillJson(200, { success: true, data: { success: true } });
-        }
-
-        // ── /api/admin/disputes/:jobId/resolve ────────────────────────────────
-        const resolveMatch = pathname.match(/^\/api\/admin\/disputes\/([^\/]+)\/resolve$/);
-        if (resolveMatch && method === "PATCH") {
-          this.resolveDispute(resolveMatch[1]);
-          return fulfillJson(200, { success: true, data: { success: true } });
-        }
-
-        // ── /api/dao/arbitrators ──────────────────────────────────────────────
-        if (pathname === "/api/dao/arbitrators" && method === "POST") {
-          this.registerArbitrator("arbitrator");
-          return fulfillJson(201, { success: true, data: { success: true } });
-        }
-
-        // ── /api/faucet/status ────────────────────────────────────────────────
-        if (pathname.includes("/faucet/status")) {
-          return fulfillJson(200, { success: true, data: { enabled: true } });
-        }
-
-        // ── Fallback ──────────────────────────────────────────────────────────
-        return fulfillJson(200, { success: true, data: [] });
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          headers: {
+            "Access-Control-Allow-Origin": "*",
+          },
+          body: JSON.stringify({ success: true, data: [] }),
+        });
       }
     );
   }
