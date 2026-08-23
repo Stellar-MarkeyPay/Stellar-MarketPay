@@ -51,9 +51,17 @@ class FakeRedis {
   }
 }
 
-function buildApp(redis) {
+function buildApp(redis, { authenticatePrincipal = false } = {}) {
   const app = express();
+  app.set("trust proxy", 1);
   app.use(express.json());
+
+  if (authenticatePrincipal) {
+    app.use((req, _res, next) => {
+      if (req.body?.publicKey) req.user = { publicKey: req.body.publicKey };
+      next();
+    });
+  }
 
   const backoff = createPrincipalBackoff({
     namespace: "login",
@@ -81,33 +89,101 @@ function buildApp(redis) {
 }
 
 describe("principal exponential backoff", () => {
-  it("backs off repeated failures without coupling unrelated principals", async () => {
+  const previousTrustedProxies = process.env.TRUSTED_PROXY_IPS;
+
+  beforeEach(() => {
+    process.env.TRUSTED_PROXY_IPS = "127.0.0.1,::ffff:127.0.0.1";
+  });
+
+  afterAll(() => {
+    if (previousTrustedProxies === undefined) {
+      delete process.env.TRUSTED_PROXY_IPS;
+    } else {
+      process.env.TRUSTED_PROXY_IPS = previousTrustedProxies;
+    }
+  });
+
+  it("backs off repeated failures from the same pre-auth principal and client IP", async () => {
     let now = Date.now();
     const redis = new FakeRedis(() => now);
     const app = buildApp(redis);
 
-    await request(app).post("/login").send({ publicKey: "GVICTIM" }).expect(401);
-    await request(app).post("/login").send({ publicKey: "GVICTIM" }).expect(401);
+    await request(app)
+      .post("/login")
+      .set("X-Forwarded-For", "203.0.113.10")
+      .send({ publicKey: "GVICTIM" })
+      .expect(401);
+    await request(app)
+      .post("/login")
+      .set("X-Forwarded-For", "203.0.113.10")
+      .send({ publicKey: "GVICTIM" })
+      .expect(401);
 
-    const blocked = await request(app).post("/login").send({ publicKey: "GVICTIM" });
+    const blocked = await request(app)
+      .post("/login")
+      .set("X-Forwarded-For", "203.0.113.10")
+      .send({ publicKey: "GVICTIM" });
     expect(blocked.status).toBe(429);
     expect(blocked.headers["retry-after"]).toBe("1");
-    expect(blocked.body.message).toMatch(/too many requests/i);
-
-    await request(app).post("/login").send({ publicKey: "GOTHER" }).expect(401);
+    expect(blocked.headers["cache-control"]).toBe("no-store");
+    expect(blocked.body).toEqual({
+      message: "Too many requests — please wait before trying again",
+    });
 
     now += 1_001;
-    await request(app).post("/login").send({ publicKey: "GVICTIM" }).expect(401);
+    await request(app)
+      .post("/login")
+      .set("X-Forwarded-For", "203.0.113.10")
+      .send({ publicKey: "GVICTIM" })
+      .expect(401);
 
-    const blockedAgain = await request(app).post("/login").send({ publicKey: "GVICTIM" });
+    const blockedAgain = await request(app)
+      .post("/login")
+      .set("X-Forwarded-For", "203.0.113.10")
+      .send({ publicKey: "GVICTIM" });
     expect(blockedAgain.status).toBe(429);
     expect(Number(blockedAgain.headers["retry-after"])).toBe(2);
+  });
+
+  it("does not let rotated IPs globally back off an unverified victim principal", async () => {
+    const redis = new FakeRedis();
+    const app = buildApp(redis);
+
+    for (const ip of ["203.0.113.21", "203.0.113.22", "203.0.113.23"]) {
+      await request(app)
+        .post("/login")
+        .set("X-Forwarded-For", ip)
+        .send({ publicKey: "GVICTIM" })
+        .expect(401);
+    }
+  });
+
+  it("backs off an authenticated principal across rotating IPs", async () => {
+    const redis = new FakeRedis();
+    const app = buildApp(redis, { authenticatePrincipal: true });
+
+    await request(app)
+      .post("/login")
+      .set("X-Forwarded-For", "198.51.100.1")
+      .send({ publicKey: "GACCOUNT" })
+      .expect(401);
+    await request(app)
+      .post("/login")
+      .set("X-Forwarded-For", "198.51.100.2")
+      .send({ publicKey: "GACCOUNT" })
+      .expect(401);
+
+    await request(app)
+      .post("/login")
+      .set("X-Forwarded-For", "198.51.100.3")
+      .send({ publicKey: "GACCOUNT" })
+      .expect(429);
   });
 
   it("clears failure history after a successful authentication", async () => {
     let now = Date.now();
     const redis = new FakeRedis(() => now);
-    const app = buildApp(redis);
+    const app = buildApp(redis, { authenticatePrincipal: true });
 
     await request(app).post("/login").send({ publicKey: "GRESET" }).expect(401);
     await request(app).post("/login").send({ publicKey: "GRESET" }).expect(401);
