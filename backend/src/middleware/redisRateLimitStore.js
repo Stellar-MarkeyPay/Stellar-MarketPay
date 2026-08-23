@@ -39,13 +39,16 @@ function createSharedClient() {
     enableOfflineQueue: true,
     maxRetriesPerRequest: 1,
     connectTimeout: 2000,
+    commandTimeout: 2500,
     retryStrategy(times) {
       return times <= 1 ? 100 : null;
     },
   });
 
-  client.on("error", (err) => {
-    console.warn("[rate-limit] Redis error:", err.message);
+  client.on("error", () => {
+    // Keep connection details out of logs. Request handling receives a
+    // generic 503 through storeUnavailableError when the store cannot serve.
+    console.warn("[rate-limit] Redis connection unavailable");
   });
 
   return client;
