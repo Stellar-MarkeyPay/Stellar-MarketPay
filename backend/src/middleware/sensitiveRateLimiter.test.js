@@ -59,10 +59,18 @@ function buildApp({
   maxRequestsPerIp = 10,
   maxRequestsPerPrincipal = 2,
   windowMinutes = 1,
+  authenticatePrincipal = false,
 } = {}) {
   const app = express();
   app.set("trust proxy", 1);
   app.use(express.json());
+
+  if (authenticatePrincipal) {
+    app.use((req, _res, next) => {
+      if (req.body?.publicKey) req.user = { publicKey: req.body.publicKey };
+      next();
+    });
+  }
 
   const limiters = createSensitiveRateLimiters({
     namespace,
@@ -80,7 +88,7 @@ function buildApp({
   return app;
 }
 
-describe("sensitive dual-axis rate limiting", () => {
+describe("sensitive trust-aware dual-axis rate limiting", () => {
   const previousTrustedProxies = process.env.TRUSTED_PROXY_IPS;
 
   beforeEach(() => {
@@ -95,33 +103,53 @@ describe("sensitive dual-axis rate limiting", () => {
     }
   });
 
-  it("limits one principal even when the attacker rotates client IPs", async () => {
+  it("does not let an unverified principal become a global lockout key across rotating IPs", async () => {
     const app = buildApp({ maxRequestsPerIp: 10, maxRequestsPerPrincipal: 2 });
+
+    for (const ip of ["203.0.113.1", "203.0.113.2", "203.0.113.3"]) {
+      await request(app)
+        .post("/test")
+        .set("X-Forwarded-For", ip)
+        .send({ publicKey: "GVICTIM" })
+        .expect(200);
+    }
+  });
+
+  it("limits an authenticated principal across rotating client IPs", async () => {
+    const app = buildApp({
+      maxRequestsPerIp: 10,
+      maxRequestsPerPrincipal: 2,
+      authenticatePrincipal: true,
+    });
 
     await request(app)
       .post("/test")
       .set("X-Forwarded-For", "203.0.113.1")
-      .send({ publicKey: "GVICTIM" })
+      .send({ publicKey: "GACCOUNT" })
       .expect(200);
 
     await request(app)
       .post("/test")
       .set("X-Forwarded-For", "203.0.113.2")
-      .send({ publicKey: "GVICTIM" })
+      .send({ publicKey: "GACCOUNT" })
       .expect(200);
 
     const blocked = await request(app)
       .post("/test")
       .set("X-Forwarded-For", "203.0.113.3")
-      .send({ publicKey: "GVICTIM" });
+      .send({ publicKey: "GACCOUNT" });
 
     expect(blocked.status).toBe(429);
     expect(Number(blocked.headers["retry-after"])).toBeGreaterThan(0);
     expect(Number(blocked.headers["retry-after"])).toBeLessThanOrEqual(60);
-    expect(blocked.body.message).toMatch(/too many requests/i);
+    expect(blocked.headers["cache-control"]).toBe("no-store");
+    expect(blocked.body).toEqual({
+      message: "Too many requests — please wait before trying again",
+    });
+    expect(JSON.stringify(blocked.body)).not.toContain("GACCOUNT");
   });
 
-  it("limits one client IP even when the attacker rotates principals", async () => {
+  it("limits one client IP even when the caller rotates unverified principals", async () => {
     const app = buildApp({ maxRequestsPerIp: 2, maxRequestsPerPrincipal: 10 });
 
     await request(app)
@@ -143,10 +171,10 @@ describe("sensitive dual-axis rate limiting", () => {
       .expect(429);
   });
 
-  it("shares limiter state between independent app/limiter instances", async () => {
+  it("shares authenticated-principal limiter state between independent app instances", async () => {
     const backing = new Map();
-    const appA = buildApp({ backing, maxRequestsPerPrincipal: 2 });
-    const appB = buildApp({ backing, maxRequestsPerPrincipal: 2 });
+    const appA = buildApp({ backing, maxRequestsPerPrincipal: 2, authenticatePrincipal: true });
+    const appB = buildApp({ backing, maxRequestsPerPrincipal: 2, authenticatePrincipal: true });
 
     await request(appA)
       .post("/test")
@@ -167,7 +195,7 @@ describe("sensitive dual-axis rate limiting", () => {
       .expect(429);
   });
 
-  it("allows requests again after the shared window expires", async () => {
+  it("allows requests again after the shared authenticated-principal window expires", async () => {
     const backing = new Map();
     let now = Date.now();
     const app = buildApp({
@@ -175,6 +203,7 @@ describe("sensitive dual-axis rate limiting", () => {
       now: () => now,
       maxRequestsPerPrincipal: 1,
       windowMinutes: 1,
+      authenticatePrincipal: true,
     });
 
     await request(app)
