@@ -1,6 +1,7 @@
 "use strict";
 
 const crypto = require("crypto");
+const { getClientIp } = require("../utils/clientIp");
 const { getRateLimitRedisClient, storeUnavailableError } = require("./redisRateLimitStore");
 
 const FAILURE_SCRIPT = `
@@ -23,10 +24,27 @@ redis.call("SET", KEYS[2], "1", "PX", math.floor(delay))
 return { attempts, math.floor(delay) }
 `;
 
-function hashPrincipal(namespace, principal) {
+function normalizePrincipal(value) {
+  if (value === null || value === undefined) return "";
+  return String(value).trim().toUpperCase();
+}
+
+function principalBackoffIdentity(req, principal) {
+  const normalized = normalizePrincipal(principal);
+  if (!normalized) return "";
+
+  const authenticated = normalizePrincipal(req?.user?.publicKey);
+  if (authenticated && authenticated === normalized) {
+    return `trusted:${normalized}`;
+  }
+
+  return `preauth:${normalized}:ip:${getClientIp(req)}`;
+}
+
+function hashPrincipal(namespace, identity) {
   return crypto
     .createHash("sha256")
-    .update(`${namespace}:${String(principal).trim().toUpperCase()}`)
+    .update(`${namespace}:${String(identity)}`)
     .digest("hex");
 }
 
@@ -59,9 +77,10 @@ function createPrincipalBackoff({
       principal = null;
     }
 
-    if (!principal) return next();
+    const identity = principalBackoffIdentity(req, principal);
+    if (!identity) return next();
 
-    const hashed = hashPrincipal(namespace, principal);
+    const hashed = hashPrincipal(namespace, identity);
     const failureKey = `marketpay:auth-backoff:${namespace}:failures:${hashed}`;
     const blockKey = `marketpay:auth-backoff:${namespace}:blocked:${hashed}`;
 
@@ -74,6 +93,7 @@ function createPrincipalBackoff({
 
     if (blockedTtlMs > 0) {
       res.set("Retry-After", String(Math.max(1, Math.ceil(blockedTtlMs / 1000))));
+      res.set("Cache-Control", "no-store");
       return res.status(429).json({
         message: "Too many requests — please wait before trying again",
       });
@@ -111,4 +131,7 @@ function createPrincipalBackoff({
   };
 }
 
-module.exports = { createPrincipalBackoff };
+module.exports = {
+  createPrincipalBackoff,
+  principalBackoffIdentity,
+};
