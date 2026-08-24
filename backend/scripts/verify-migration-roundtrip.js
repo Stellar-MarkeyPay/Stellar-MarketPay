@@ -11,7 +11,9 @@ const destructiveMarker = /^\s*--\s*rollback:\s*destructive\b/im;
 function assertRollbackMetadata(migrations) {
   for (const migration of migrations) {
     if (destructiveRollback.test(migration.downSql) && !destructiveMarker.test(migration.downSql)) {
-      throw new Error(`${migration.name}.down.sql is destructive but is missing a rollback: destructive marker`);
+      throw new Error(
+        `${migration.name}.down.sql is destructive but is missing a rollback: destructive marker`
+      );
     }
   }
 }
@@ -35,7 +37,8 @@ async function verifyRoundTrip() {
     const rolledBack = await rollbackLastMigration();
     if (rolledBack == null) throw new Error("Rollback ended before every migration was reverted");
   }
-  if ((await appliedMigrationCount()) !== 0) throw new Error("Rollback left migrations in the ledger");
+  if ((await appliedMigrationCount()) !== 0)
+    throw new Error("Rollback left migrations in the ledger");
 
   await migrate();
   if ((await appliedMigrationCount()) !== migrations.length) {

@@ -15,25 +15,27 @@ function loadMigrationPairs() {
   const files = fs.readdirSync(migrationsDir);
   const upFiles = files.filter((f) => f.endsWith(".up.sql"));
 
-  return upFiles
-    .map((upFile) => {
-      const version = parseVersion(upFile);
-      const downFile = upFile.replace(/\.up\.sql$/, ".down.sql");
-      if (version == null) return null;
-      if (!files.includes(downFile)) {
-        throw new Error(`Rollback file missing for migration ${upFile}`);
-      }
-      return {
-        version,
-        name: upFile.replace(/\.up\.sql$/, ""),
-        upSql: fs.readFileSync(path.join(migrationsDir, upFile), "utf8"),
-        downSql: fs.readFileSync(path.join(migrationsDir, downFile), "utf8"),
-      };
-    })
-    .filter(Boolean)
-    // Some historical migrations share a numeric version. The filename is the
-    // migration identity; version is only used to provide the primary ordering.
-    .sort((a, b) => a.version - b.version || a.name.localeCompare(b.name));
+  return (
+    upFiles
+      .map((upFile) => {
+        const version = parseVersion(upFile);
+        const downFile = upFile.replace(/\.up\.sql$/, ".down.sql");
+        if (version == null) return null;
+        if (!files.includes(downFile)) {
+          throw new Error(`Rollback file missing for migration ${upFile}`);
+        }
+        return {
+          version,
+          name: upFile.replace(/\.up\.sql$/, ""),
+          upSql: fs.readFileSync(path.join(migrationsDir, upFile), "utf8"),
+          downSql: fs.readFileSync(path.join(migrationsDir, downFile), "utf8"),
+        };
+      })
+      .filter(Boolean)
+      // Some historical migrations share a numeric version. The filename is the
+      // migration identity; version is only used to provide the primary ordering.
+      .sort((a, b) => a.version - b.version || a.name.localeCompare(b.name))
+  );
 }
 
 async function ensureMigrationsTable(client) {
