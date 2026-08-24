@@ -73,8 +73,17 @@ class ChaosInjector {
   }
 
   createConnectionLossQuery(originalQuery, failureRate = 0.5) {
+    let requestCount = 0;
+
     return async (...args) => {
-      if (Math.random() < failureRate) {
+      requestCount++;
+
+      // Use a deterministic failure pattern so tests are not flaky.
+      // For example, a 20% failure rate means 2 failures in every 10 requests.
+      const failureInterval = Math.max(1, Math.round(1 / failureRate));
+      const shouldFail = requestCount % failureInterval === 0;
+
+      if (shouldFail) {
         this.metrics.failuresInjected++;
         const error = new Error("Connection lost");
         error.code = "ECONNLOST";
