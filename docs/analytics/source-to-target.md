@@ -112,3 +112,30 @@
 ### Target
 - Fact: fact_payment
 - Grain: One row per payment
+
+
+
+## Repository Data Source Findings
+
+The following source dependencies referenced by application code are not currently defined in the executable database schema:
+
+- `escrow_releases`
+- `contract_audit_log`
+- `payment_records`
+- `disputes`
+
+These sources must not be treated as warehouse inputs until their actual persistence mechanism is confirmed.
+
+Implemented sources currently confirmed include:
+
+- `escrows`
+- `jobs`
+- `applications`
+- `profiles`
+- `dispute_evidence`
+
+Dispute-related state is also stored on `jobs`.
+
+### Implication
+
+The warehouse design must be based on the actual transactional sources available in the repository rather than undocumented or missing tables.
