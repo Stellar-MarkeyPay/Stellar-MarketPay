@@ -35,7 +35,7 @@ export function useJobRealtime(jobId: string | null, currentJob: Job | null, cur
         // Compare with current
         const jobChanged = updatedJob.updatedAt !== currentJobRef.current?.updatedAt;
         const appsChanged = updatedApps.length !== currentAppsRef.current.length || 
-          updatedApps.some((app, i) => app.updatedAt !== currentAppsRef.current[i]?.updatedAt);
+          updatedApps.some((app, i) => app.id !== currentAppsRef.current[i]?.id);
           
         if (jobChanged || appsChanged) {
           setHasUpdates(true);
