@@ -137,7 +137,7 @@ def make_jobs(rng: random.Random, clients: list[dict], count: int) -> list[dict]
         client = rng.choice(clients)
         status = rng.choice(statuses)
         category = rng.choice(CATEGORIES)
-        skills = rng.sample(SKILLS_POOL, k=rng.randint(2, 5))
+        skills = rng.sample(SKILLS_POOL, k=rng.randint(2, 6))
         budget = round(rng.uniform(50, 5000), 7)
         jobs.append({
             "title": rng.choice(JOB_TITLES),
@@ -183,11 +183,7 @@ def make_applications(rng: random.Random, jobs: list[dict], freelancers: list[di
                 "status": status,
                 "screening_answers": {},
                 "referred_by": None,
-                "bid_commitment": None,
-                "bid_nonce": None,
-                "bid_revealed": False,
-                "revealed_bid_amount": None,
-                "revealed_at": None,
+                
             })
             job["applicant_count"] += 1
     return applications
@@ -342,32 +338,77 @@ def make_notifications(rng: random.Random, profiles: list[dict], jobs: list[dict
     return notifications
 
 
+def sql_quote(value: str) -> str:
+    """Safely quote a string for PostgreSQL SQL."""
+    return "'" + value.replace("'", "''") + "'"
+
+
+def sql_array(values: list) -> str:
+    """Serialize a Python list as a PostgreSQL array literal."""
+    escaped = []
+    for value in values:
+        if value is None:
+            escaped.append("NULL")
+        else:
+            text = str(value).replace("\\", "\\\\").replace('"', '\\"')
+            escaped.append(f'"{text}"')
+    return "'{" + ",".join(escaped) + "}'"
+
+
+def sql_json(value: dict) -> str:
+    """Serialize a Python dictionary as JSON."""
+    import json
+
+    return sql_quote(json.dumps(value, separators=(",", ":")))
+
+
 def insert_rows(table: str, rows: list[dict], env: dict[str, str]) -> None:
     if not rows:
         return
+
     columns = list(rows[0].keys())
     values_list = []
-    params = []
+
     for row in rows:
         row_values = []
+
         for col in columns:
             val = row[col]
+
             if val is None:
                 row_values.append("NULL")
+
             elif isinstance(val, bool):
                 row_values.append("TRUE" if val else "FALSE")
+
             elif isinstance(val, (int, float)):
                 row_values.append(str(val))
+
             elif isinstance(val, list):
-                row_values.append(f"'{str(val).replace(chr(39), chr(39)+chr(39))}'")
+                # Lists of dictionaries are JSON (e.g. escrow milestones).
+                if val and all(isinstance(item, dict) for item in val):
+                    row_values.append(sql_json(val))
+                else:
+                    row_values.append(sql_array(val))
+
             elif isinstance(val, dict):
-                row_values.append(f"'{str(val).replace(chr(39), chr(39)+chr(39))}'")
+                row_values.append(sql_json(val))
+
             else:
-                row_values.append(f"'{str(val).replace(chr(39), chr(39)+chr(39))}'")
+                row_values.append(sql_quote(str(val)))
+
         values_list.append("(" + ", ".join(row_values) + ")")
-    sql = f"INSERT INTO {table} ({', '.join(columns)}) VALUES\n\t" + ",\n\t".join(values_list) + ";"
+
+    sql = (
+        f"INSERT INTO {table} ({', '.join(columns)}) VALUES\n\t"
+        + ",\n\t".join(values_list)
+        + ";"
+    )
+
     subprocess.run(
-        ["psql", "-U", env["PGUSER"], "-d", env["PGDATABASE"], "-c", sql],
+        ["psql", "-U", env["PGUSER"], "-d", env["PGDATABASE"]],
+        input=sql,
+        text=True,
         env={**os.environ, **env},
         check=True,
     )
@@ -494,8 +535,8 @@ def main(args: argparse.Namespace | None = None) -> int:
     insert_rows("progress_updates", progress_updates, env)
     print("  Inserted progress updates")
 
-    insert_rows("job_invitations", job_invitations, env)
-    print("  Inserted job invitations")
+    # insert_rows("job_invitations", job_invitations, env)
+    # print("  Inserted job invitations")
 
     insert_rows("notifications", notifications, env)
     print("  Inserted notifications")
