@@ -58,7 +58,7 @@ services:
       POSTGRES_PASSWORD: stellarwork_dev
       POSTGRES_DB: stellarwork
     ports:
-      - "5432:5432" # expose for local tooling (TablePlus, psql, etc.)
+      - "5433:5432" # expose for local tooling (TablePlus, psql, etc.)
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:

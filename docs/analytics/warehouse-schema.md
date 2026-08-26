@@ -55,8 +55,6 @@ Stores user attributes used for marketplace analysis while preserving historical
 | public_key | TEXT | Source user identifier |
 | role | TEXT | User role |
 | rating | NUMERIC(3,2) | User rating |
-| completed_jobs | INTEGER | Completed jobs at this version |
-| total_earned_xlm | NUMERIC(20,7) | Total earnings at this version |
 | source_created_at | TIMESTAMPTZ | Source creation timestamp |
 | effective_from | TIMESTAMPTZ | Start of dimension version |
 | effective_to | TIMESTAMPTZ | End of dimension version |
@@ -73,7 +71,8 @@ When tracked user attributes change, the existing record is expired and a new ve
 ## dim_category
 
 ### Grain
-One row per marketplace job category.
+
+One row per distinct marketplace job category.
 
 ### Purpose
 Standardizes job categories for consistent reporting.
@@ -84,9 +83,16 @@ Standardizes job categories for consistent reporting.
 |---|---|---|
 | category_key | BIGINT | Warehouse surrogate key |
 | category_name | TEXT | Source category |
-| effective_from | TIMESTAMPTZ | Version start |
-| effective_to | TIMESTAMPTZ | Version end |
-| is_current | BOOLEAN | Current version |
+
+
+
+### Source Mapping
+
+`jobs.category` is a source TEXT attribute and is not backed by a transactional category reference table.
+
+The warehouse will populate `dim_category` from distinct source category values.
+
+New category values discovered during incremental loads must be inserted into the dimension rather than rejected as invalid source data.
 
 ---
 
@@ -106,6 +112,32 @@ Provides standardized status values for jobs, applications and escrows.
 | entity_type | TEXT | Entity owning the status |
 | status_code | TEXT | Source status |
 | status_description | TEXT | Human-readable definition |
+
+### Seeded Status Values
+
+#### Jobs
+- open
+- in_progress
+- completed
+- cancelled
+- disputed
+
+#### Applications
+- pending
+- accepted
+- rejected
+
+#### Escrows
+- funded
+- released
+- refunded
+- timeout_refunded
+- in_progress
+- disputed
+- resolved
+
+The source database does not enforce these values with CHECK constraints.
+The warehouse pipeline must validate unexpected status values and fail the load rather than silently accepting them.
 
 ---
 
@@ -131,15 +163,20 @@ Stores measurable job-level marketplace activity.
 | status_key | BIGINT | FK to dim_status |
 | created_date_key | INTEGER | FK to dim_date |
 | hired_date_key | INTEGER | FK to dim_date |
-| completed_date_key | INTEGER | FK to dim_date |
 | budget_amount | NUMERIC(20,7) | Job budget |
 | applicant_count | INTEGER | Applicants associated with job |
 | view_count | INTEGER | Job views |
 | time_to_hire_hours | NUMERIC | Calculated time to hire |
-| duration_days | NUMERIC | Job duration |
 | source_created_at | TIMESTAMPTZ | Source creation time |
 | source_updated_at | TIMESTAMPTZ | Source update time |
 | warehouse_loaded_at | TIMESTAMPTZ | Warehouse load timestamp |
+
+
+### Nullability
+
+`freelancer_key` is nullable because a job may exist before a freelancer is assigned.
+
+`hired_date_key` and `time_to_hire_hours` are also nullable for jobs that have not yet been hired.
 
 ---
 
@@ -163,11 +200,13 @@ Stores application-level marketplace activity and conversion measures.
 | accepted_date_key | INTEGER | FK to dim_date |
 | status_key | BIGINT | FK to dim_status |
 | bid_amount | NUMERIC(20,7) | Application bid |
-| currency | TEXT | Bid currency |
 | created_at | TIMESTAMPTZ | Application creation time |
 | accepted_at | TIMESTAMPTZ | Application acceptance time |
-| withdrawn_at | TIMESTAMPTZ | Application withdrawal time |
 | warehouse_loaded_at | TIMESTAMPTZ | Warehouse load timestamp |
+
+### Nullability
+
+`accepted_date_key` and `accepted_at` are nullable because applications may remain pending or be rejected without an acceptance timestamp.
 
 ---
 
@@ -197,9 +236,97 @@ Preserves application state transitions for funnel and historical analysis.
 - APPLICATION_SUBMITTED
 - APPLICATION_ACCEPTED
 - APPLICATION_REJECTED
-- APPLICATION_WITHDRAWN
+
 
 ---
+
+
+
+## fact_job_view
+
+### Metric Definition
+
+**Job Views** = count of rows in `fact_job_view`.
+
+`fact_job.view_count` is retained as the source-system current counter for reconciliation and data-quality checks. It is not the authoritative historical view metric.
+
+### Grain
+
+One row per job-view event.
+
+### Purpose
+
+Stores job-view activity for marketplace liquidity, engagement and funnel analysis.
+
+### Columns
+
+| Column | Type | Description |
+|---|---|---|
+| job_view_key | BIGINT | Warehouse surrogate key |
+| job_view_id | UUID | Source job-view identifier |
+| job_key | BIGINT | FK to fact_job |
+| viewed_date_key | INTEGER | FK to dim_date |
+| ip_hash | TEXT | Hashed viewer network identifier |
+| viewed_at | TIMESTAMPTZ | Source view timestamp |
+| warehouse_loaded_at | TIMESTAMPTZ | Warehouse load timestamp |
+
+### Nullability
+
+All source attributes are currently non-null in the transactional schema.
+
+`job_view_key` and `viewed_date_key` are warehouse-generated/derived values and must be populated during the warehouse load.
+
+### Source Mapping
+
+Source: `job_views`.
+
+The event grain is preserved rather than aggregating views into `fact_job`, allowing historical funnel and engagement analysis.
+
+---------
+
+## fact_dispute
+
+### Grain
+
+One row per job dispute event.
+
+### Purpose
+
+Stores dispute events for dispute-rate, resolution and marketplace-health analysis.
+
+### Columns
+
+| Column | Type | Description |
+|---|---|---|
+| dispute_key | BIGINT | Warehouse surrogate key |
+| job_key | BIGINT | FK to fact_job |
+| disputed_by_key | BIGINT | FK to dim_user |
+| disputed_date_key | INTEGER | FK to dim_date |
+| dispute_status_key | BIGINT | FK to dim_status |
+| dispute_reason | TEXT | Source dispute reason |
+| dispute_description | TEXT | Source dispute description |
+| disputed_at | TIMESTAMPTZ | Source dispute timestamp |
+| warehouse_loaded_at | TIMESTAMPTZ | Warehouse load timestamp |
+
+### Source Mapping
+
+Source: `jobs`.
+
+A dispute event is identified when `jobs.disputed_at` is populated.
+
+The dispute actor is resolved from `jobs.disputed_by`.
+
+The dispute status is derived from the job's status.
+
+### Nullability
+
+`disputed_by_key`, `dispute_reason`, and `dispute_description` are nullable because the corresponding source columns are nullable.
+
+`disputed_at` is required for a row in this fact because it defines the dispute event.
+
+-------
+
+
 
 ## fact_escrow
 
@@ -222,11 +349,17 @@ Stores escrow funding, release and refund-related financial measures.
 | released_date_key | INTEGER | FK to dim_date |
 | status_key | BIGINT | FK to dim_status |
 | amount_xlm | NUMERIC(20,7) | Escrow amount |
-| released_amount_xlm | NUMERIC(20,7) | Released amount when available |
 | created_at | TIMESTAMPTZ | Escrow creation time |
 | released_at | TIMESTAMPTZ | Escrow release time |
 | updated_at | TIMESTAMPTZ | Source update time |
 | warehouse_loaded_at | TIMESTAMPTZ | Warehouse load timestamp |
+
+
+### Nullability
+
+`freelancer_key`, `released_date_key`, and `released_at` are nullable where the escrow has not yet been released or the related freelancer is not available.
+
+
 
 ---
 
