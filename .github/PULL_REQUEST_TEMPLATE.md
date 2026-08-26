@@ -33,10 +33,16 @@ Describe any contract, schema, migration, deployment, or API compatibility impac
 ## Validation
 
 - [ ] Unit or integration tests run, or not applicable with an explanation
-- [ ] Frontend accessibility checked, or not applicable
 - [ ] Backend/API behavior checked, or not applicable
 - [ ] Soroban contract tests and clippy run, or not applicable
 - [ ] Documentation and examples checked
+
+## Accessibility (Frontend changes only)
+
+- [ ] Interactive elements are keyboard accessible (Tab, Enter, Space, Escape) and have visible focus.
+- [ ] Tested with a screen reader to verify labels, announcements, and structural semantics.
+- [ ] Color contrast meets WCAG 2.1 AA requirements.
+- [ ] No new accessibility violations caught by `axe` in CI.
 
 ## Compatibility and operations
 
