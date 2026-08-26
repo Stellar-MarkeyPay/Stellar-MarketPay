@@ -39,6 +39,7 @@ const config: Config = {
         "fade-in": "fadeIn 0.5s ease-out",
         "slide-up": "slideUp 0.4s ease-out",
         "slide-in": "slideIn 0.3s ease-out",
+        "slide-in-rtl": "slideInRtl 0.3s ease-out",
         shimmer: "shimmer 1.5s infinite",
       },
       keyframes: {
@@ -49,6 +50,10 @@ const config: Config = {
         },
         slideIn: {
           "0%": { opacity: "0", transform: "translateX(-10px)" },
+          "100%": { opacity: "1", transform: "translateX(0)" },
+        },
+        slideInRtl: {
+          "0%": { opacity: "0", transform: "translateX(10px)" },
           "100%": { opacity: "1", transform: "translateX(0)" },
         },
         shimmer: {
