@@ -1,6 +1,6 @@
 "use strict";
 
-const pool = require("../db/pool");
+const warehousePool = require("../db/warehouse/warehousePool");
 
 // Default/fallback parameters when there is no historical data to train on
 let modelWeights = {
@@ -17,13 +17,19 @@ let modelBias = 5.0; // Base duration of 5 days
  */
 async function trainRegressionModel() {
   try {
-    const { rows } = await pool.query(`
-      SELECT j.budget, j.skills, j.created_at, j.updated_at,
-             COALESCE(p.completed_jobs, 0) AS completed_jobs,
-             COALESCE(p.rating, 4.0) AS rating
-      FROM jobs j
-      JOIN profiles p ON j.freelancer_address = p.public_key
-      WHERE j.status = 'completed' AND j.freelancer_address IS NOT NULL
+    const { rows } = await warehousePool.query(`
+      SELECT
+        j.budget,
+        j.skills,
+        j.created_at,
+        j.updated_at,
+        COALESCE(p.completed_jobs, 0) AS completed_jobs,
+        COALESCE(p.rating, 4.0) AS rating
+      FROM silver_jobs j
+      JOIN silver_profiles p
+        ON j.freelancer_address = p.public_key
+      WHERE j.status = 'completed'
+        AND j.freelancer_address IS NOT NULL
     `);
 
     if (rows.length < 3) {
@@ -35,70 +41,39 @@ async function trainRegressionModel() {
     }
 
     const dataset = rows.map((r) => {
-      const budget = parseFloat(r.budget) || 0;
-      const skillsCount = Array.isArray(r.skills) ? r.skills.length : 0;
-      const completedJobs = parseInt(r.completed_jobs, 10) || 0;
-      const rating = parseFloat(r.rating) || 4.0;
+      const budget = Number(r.budget) || 0;
 
-      // Actual duration in days
-      const duration = (new Date(r.updated_at) - new Date(r.created_at)) / (1000 * 60 * 60 * 24);
-
-      return {
-        x: [budget, skillsCount, completedJobs, rating],
-        y: Math.max(0.5, duration), // ensure positive duration
-      };
-    });
-
-    // Simple multi-variable gradient descent training loop
-    let w = [0.005, 0.5, -0.2, -0.8];
-    let b = 5.0;
-    const lr = 0.00001; // small learning rate to avoid divergence
-    const epochs = 1000;
-
-    for (let epoch = 0; epoch < epochs; epoch++) {
-      let gradW = [0, 0, 0, 0];
-      let gradB = 0;
-
-      for (const item of dataset) {
-        const pred = w[0] * item.x[0] + w[1] * item.x[1] + w[2] * item.x[2] + w[3] * item.x[3] + b;
-        const error = pred - item.y;
-
-        gradW[0] += error * item.x[0];
-        gradW[1] += error * item.x[1];
-        gradW[2] += error * item.x[2];
-        gradW[3] += error * item.x[3];
-        gradB += error;
+      let skillsCount = 0;
+      if (Array.isArray(r.skills)) {
+        skillsCount = r.skills.length;
+      } else if (typeof r.skills === "string") {
+        skillsCount = r.skills
+          .replace(/[{}]/g, "")
+          .split(",")
+          .filter(Boolean).length;
       }
 
-      // Update weights and bias
-      const n = dataset.length;
-      w[0] -= (lr / n) * gradW[0];
-      w[1] -= (lr / n) * gradW[1];
-      // Completed jobs and rating should always help reduce duration (negative weights)
-      w[2] = Math.min(0, w[2] - (lr / n) * gradW[2]);
-      w[3] = Math.min(0, w[3] - (lr / n) * gradW[3]);
-      b -= (lr / n) * gradB;
-    }
+      const completedJobs = Number(r.completed_jobs) || 0;
+      const rating = Number(r.rating) || 4.0;
 
-    // Cache the trained weights
-    modelWeights = {
-      budget: w[0],
-      skillsCount: w[1],
-      completedJobs: w[2],
-      rating: w[3],
-    };
-    modelBias = Math.max(1.0, b); // base bias must be at least 1 day
+      const createdAt = new Date(r.created_at);
+      const updatedAt = new Date(r.updated_at);
 
-    return {
-      success: true,
-      message: `Regression model successfully trained on ${rows.length} completed jobs.`,
-      parameters: { modelWeights, modelBias },
-    };
-  } catch (err) {
-    console.error("Error training regression model:", err);
-    return { success: false, error: err.message };
+      const duration =
+        (updatedAt.getTime() - createdAt.getTime()) /
+        (1000 * 60 * 60 * 24);
+
+      if (!Number.isFinite(duration)) {
+        throw new Error(
+          `Invalid job duration for job: ${r.id || "unknown"}`
+        );
   }
-}
+
+  return {
+    x: [budget, skillsCount, completedJobs, rating],
+    y: Math.max(0.5, duration),
+  };
+});
 
 /**
  * Predicts job completion metrics for a freelancer and a job.
@@ -115,8 +90,10 @@ async function predictJobCompletion(job, freelancerAddress = null) {
 
   if (freelancerAddress) {
     // Query freelancer profile info
-    const { rows: profileRows } = await pool.query(
-      `SELECT completed_jobs, rating FROM profiles WHERE public_key = $1`,
+    const { rows: profileRows } = await warehousePool.query(
+      `SELECT completed_jobs, rating
+       FROM silver_profiles
+       WHERE public_key = $1`,
       [freelancerAddress]
     );
 
@@ -126,10 +103,11 @@ async function predictJobCompletion(job, freelancerAddress = null) {
     }
 
     // Query historical jobs for on-time completion rate
-    const { rows: historyRows } = await pool.query(
+    const { rows: historyRows } = await warehousePool.query(
       `SELECT deadline, created_at, updated_at
-       FROM jobs
-       WHERE freelancer_address = $1 AND status = 'completed'`,
+       FROM silver_jobs
+       WHERE freelancer_address = $1
+         AND status = 'completed'`,
       [freelancerAddress]
     );
 

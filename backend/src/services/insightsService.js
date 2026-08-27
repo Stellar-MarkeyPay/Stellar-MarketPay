@@ -1,6 +1,6 @@
 "use strict";
 
-const pool = require("../db/pool");
+const warehousePool = require("../db/warehouse/warehousePool");
 
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const cache = new Map();
@@ -29,39 +29,44 @@ async function withDailyCache(name, params, loader) {
 
 async function getCategoryInsights(limit = 20) {
   return withDailyCache("categories", { limit }, async () => {
-    const { rows } = await pool.query(
+    const { rows } = await warehousePool.query(
       `
-      WITH job_applications AS (
-        SELECT
-          j.id,
-          j.category,
-          j.client_address,
-          j.budget::numeric AS budget,
-          COALESCE(a.application_count, 0) AS application_count,
-          COALESCE(a.accepted_count, 0) AS accepted_count
-        FROM jobs j
-        LEFT JOIN LATERAL (
-          SELECT
-            COUNT(*)::int AS application_count,
-            COUNT(*) FILTER (WHERE status = 'accepted')::int AS accepted_count
-          FROM applications app
-          WHERE app.job_id = j.id
-        ) a ON TRUE
-      )
       SELECT
         category,
         COUNT(*)::int AS total_jobs,
-        ROUND(AVG(budget)::numeric, 7) AS avg_budget,
-        ROUND(AVG(application_count)::numeric, 2) AS avg_applications_per_job,
+
         ROUND(
-          COALESCE(SUM(accepted_count)::numeric / NULLIF(SUM(application_count)::numeric, 0) * 100, 0),
+          AVG(budget)::numeric,
+          7
+        ) AS avg_budget,
+
+        ROUND(
+          AVG(total_applications)::numeric,
+          2
+        ) AS avg_applications_per_job,
+
+        ROUND(
+          COALESCE(
+            SUM(accepted_applications)::numeric
+            / NULLIF(SUM(total_applications)::numeric, 0)
+            * 100,
+            0
+          ),
           2
         ) AS acceptance_rate,
-        COUNT(*) FILTER (WHERE application_count < 5)::int AS low_competition_jobs,
+
+        COUNT(*) FILTER (
+          WHERE total_applications < 5
+        )::int AS low_competition_jobs,
+
         COUNT(DISTINCT client_address)::int AS unique_clients
-      FROM job_applications
+
+      FROM gold_job_performance
+
       GROUP BY category
+
       ORDER BY total_jobs DESC, avg_budget DESC
+
       LIMIT $1
       `,
       [limit]
@@ -81,7 +86,7 @@ async function getCategoryInsights(limit = 20) {
 
 async function getSkillInsights(limit = 20) {
   return withDailyCache("skills", { limit }, async () => {
-    const { rows } = await pool.query(
+    const { rows } = await warehousePool.query(
       `
       WITH skill_rows AS (
         SELECT
@@ -120,7 +125,7 @@ async function getSkillInsights(limit = 20) {
 
 async function getCompetitiveJobs(limit = 20) {
   return withDailyCache("competitive", { limit }, async () => {
-    const { rows } = await pool.query(
+    const { rows } = await warehousePool.query(
       `
       WITH app_counts AS (
         SELECT job_id, COUNT(*)::int AS application_count
@@ -167,7 +172,7 @@ async function getCompetitiveJobs(limit = 20) {
 
 async function getPayTrends(days = 30) {
   return withDailyCache("pay-trends", { days }, async () => {
-    const { rows } = await pool.query(
+    const { rows } = await warehousePool.query(
       `
       SELECT
         DATE_TRUNC('day', created_at)::date AS date,
@@ -193,7 +198,7 @@ async function getPayTrends(days = 30) {
 
 async function getClientMix() {
   return withDailyCache("client-mix", {}, async () => {
-    const { rows } = await pool.query(
+    const { rows } = await warehousePool.query(
       `
       WITH first_posts AS (
         SELECT client_address, MIN(created_at) AS first_post_at
