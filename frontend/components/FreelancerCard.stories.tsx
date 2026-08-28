@@ -1,7 +1,7 @@
 import React from "react";
 import type { Meta, StoryObj } from "@storybook/react";
 import FreelancerCard from "./FreelancerCard";
-import type { UserProfile } from "@/utils/types";
+import type { UserProfile } from "@marketpay/shared-types";
 
 const mockProfile: UserProfile = {
   publicKey: "GFREELANCER1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ",

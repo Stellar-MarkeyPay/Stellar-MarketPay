@@ -215,7 +215,7 @@ function BulkResultToast({
   onDismiss: () => void;
 }) {
   const allOk = result.failed === 0;
-  const failures = result.results.filter((r) => !r.success);
+  const failures = result.results.filter((r: any) => !r.success);
 
   return (
     <div

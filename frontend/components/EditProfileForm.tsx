@@ -306,7 +306,7 @@ export default function EditProfileForm({ publicKey }: Props) {
         <div>
           <label className="block text-sm font-medium text-amber-100 mb-2">Role</label>
           <div className="flex flex-wrap gap-4">
-            {(["freelancer", "client", "both"] as UserRole[]).map((r) => (
+            {(["freelancer", "client", "both"] as UserRole[]).map((r: any) => (
               <label
                 key={r}
                 className={clsx(

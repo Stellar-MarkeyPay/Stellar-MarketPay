@@ -45,7 +45,7 @@ type Story = StoryObj<typeof ProfileChecklist>;
 export const PartialCompletion: Story = {
   args: {
     items: mockItems,
-    onItemClick: (r) => console.log("Clicked route:", r),
+    onItemClick: (r: any) => console.log("Clicked route:", r),
     onDismiss: () => console.log("Dismissed"),
   },
 };
@@ -53,7 +53,7 @@ export const PartialCompletion: Story = {
 export const FullyComplete: Story = {
   args: {
     items: mockItems.map((i) => ({ ...i, completed: true })),
-    onItemClick: (r) => console.log("Clicked route:", r),
+    onItemClick: (r: any) => console.log("Clicked route:", r),
     onDismiss: () => console.log("Dismissed"),
   },
 };

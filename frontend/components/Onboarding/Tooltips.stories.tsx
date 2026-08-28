@@ -31,7 +31,7 @@ export const Default: Story = {
             },
           },
         ]}
-        onDismiss={(id) => console.log("Dismissed:", id)}
+        onDismiss={(id: any) => console.log("Dismissed:", id)}
         onDismissAll={() => console.log("Dismissed all")}
       />
     </div>

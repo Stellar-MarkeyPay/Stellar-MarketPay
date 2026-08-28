@@ -102,7 +102,13 @@ describe("IndexerService -> CdnInvalidationService wiring", () => {
 
     async _recordAppliedEffect() {}
 
-    async _enqueueOutbox(_client: any, record: any, sideEffect: any, payload: any, suppressed: any) {
+    async _enqueueOutbox(
+      _client: any,
+      record: any,
+      sideEffect: any,
+      payload: any,
+      suppressed: any
+    ) {
       this.memory.outbox.set(`${record.eventUid}:${sideEffect}`, {
         outbox_uid: `${record.eventUid}:${sideEffect}`,
         event_uid: record.eventUid,

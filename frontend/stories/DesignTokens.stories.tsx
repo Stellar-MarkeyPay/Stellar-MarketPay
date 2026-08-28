@@ -147,7 +147,7 @@ export const AllTokens: Story = {
           Border Radii & Elevation
         </h2>
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
-          {(["sm", "md", "lg", "xl", "2xl"] as const).map((r) => (
+          {(["sm", "md", "lg", "xl", "2xl"] as const).map((r: keyof typeof tokens.radii) => (
             <div
               key={r}
               className={`p-4 bg-ink-800 border border-market-500/30 text-center rounded-${r}`}

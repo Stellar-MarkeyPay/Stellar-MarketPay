@@ -13,6 +13,6 @@ type Story = StoryObj<typeof WalletConnect>;
 
 export const Default: Story = {
   args: {
-    onConnect: (pk) => console.log("Connected with public key:", pk),
+    onConnect: (pk: any) => console.log("Connected with public key:", pk),
   },
 };

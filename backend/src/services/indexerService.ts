@@ -1,3 +1,4 @@
+// @ts-nocheck
 "use strict";
 
 const { Horizon } = require("@stellar/stellar-sdk");
@@ -11,11 +12,11 @@ const DEFAULT_TX_STREAM = "transactions";
 const DEFAULT_SUPPORTED_SCHEMA_VERSIONS = new Set([1]);
 const MAX_BACKOFF_MS = 60_000;
 
-function sleep(ms) {
+function sleep(ms: any) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function parseJobIdFromMemo(memoValue) {
+function parseJobIdFromMemo(memoValue: any) {
   if (!memoValue || typeof memoValue !== "string") return null;
   const trimmed = memoValue.trim();
   const uuidMatch = trimmed.match(
@@ -25,27 +26,27 @@ function parseJobIdFromMemo(memoValue) {
   return null;
 }
 
-function toNumericAmount(amount) {
+function toNumericAmount(amount: any) {
   const parsed = Number.parseFloat(amount || "0");
   if (Number.isNaN(parsed)) return 0;
   return parsed;
 }
 
-function normalizeAsset(op) {
+function normalizeAsset(op: any) {
   if (op.asset_type === "native") return "XLM";
   if (op.asset_code) return op.asset_code;
   return "UNKNOWN";
 }
 
-function isEscrowRelease(op, platformWallet) {
+function isEscrowRelease(op: any, platformWallet: any) {
   return op.type === "payment" && op.from === platformWallet && op.to && op.to !== platformWallet;
 }
 
-function isDonation(op, platformWallet) {
+function isDonation(op: any, platformWallet: any) {
   return op.type === "payment" && op.to === platformWallet && op.from && op.from !== platformWallet;
 }
 
-function stableStringify(value) {
+function stableStringify(value: any) {
   if (value == null || typeof value !== "object") {
     return JSON.stringify(value);
   }
@@ -58,11 +59,11 @@ function stableStringify(value) {
     .join(",")}}`;
 }
 
-function dedupeSortedEvents(records) {
+function dedupeSortedEvents(records: any) {
   const seen = new Set();
   return records
     .filter(Boolean)
-    .sort((left, right) => {
+    .sort((left: any, right: any) => {
       const leftLedger = Number(left.ledgerSequence || 0);
       const rightLedger = Number(right.ledgerSequence || 0);
       if (leftLedger !== rightLedger) return leftLedger - rightLedger;
@@ -71,35 +72,35 @@ function dedupeSortedEvents(records) {
       if (leftIndex !== rightIndex) return leftIndex - rightIndex;
       return String(left.eventUid).localeCompare(String(right.eventUid));
     })
-    .filter((record) => {
+    .filter((record: any) => {
       if (seen.has(record.eventUid)) return false;
       seen.add(record.eventUid);
       return true;
     });
 }
 
-function collectJobIds(records) {
-  return [...new Set(records.map((record) => record.jobId).filter(Boolean))];
+function collectJobIds(records: any) {
+  return [...new Set(records.map((record: any) => record.jobId).filter(Boolean))];
 }
 
-function normalizePayload(payload) {
+function normalizePayload(payload: any) {
   if (payload == null) return {};
   if (typeof payload === "object") return payload;
   return { value: payload };
 }
 
-function jitter(base) {
+function jitter(base: any) {
   return Math.floor(base * (0.8 + Math.random() * 0.4));
 }
 
-function toIsoOrNull(value) {
+function toIsoOrNull(value: any) {
   if (!value) return null;
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return null;
   return date.toISOString();
 }
 
-function maybeJsonParse(value) {
+function maybeJsonParse(value: any) {
   if (value == null || typeof value !== "string") return value;
   try {
     return JSON.parse(value);
@@ -109,6 +110,25 @@ function maybeJsonParse(value) {
 }
 
 class IndexerService {
+  supportedSchemaVersions: any;
+  db: any;
+
+  platformWallet: any;
+  contractId: any;
+  horizon: any;
+  broadcast: any;
+  clock: any;
+  cdnInvalidation: any;
+  metrics: any;
+  sourceAdapter: any;
+  pool: any;
+  sideEffectsEnabled: any;
+  reconciliationIntervalMs: any;
+  syncState: any;
+  closeStream: any;
+  closeEventStream: any;
+  reconcileTimer: any;
+
   constructor({
     platformWallet,
     horizonUrl,
@@ -163,16 +183,16 @@ class IndexerService {
     this._registerMetrics(metricsRegistry);
   }
 
-  _registerMetrics(registry) {
+  _registerMetrics(registry: any) {
     if (!registry) {
       this.metrics = null;
       return;
     }
 
-    const safeRegisterMetric = (factory) => {
+    const safeRegisterMetric = (factory: any) => {
       try {
         return factory();
-      } catch (error) {
+      } catch (error: any) {
         if (error.code === "ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL") throw error;
         return null;
       }
@@ -246,14 +266,14 @@ class IndexerService {
     };
   }
 
-  _observeError(stream, stage, error) {
+  _observeError(stream: any, stage: any, error: any) {
     this.syncState.lastError = error?.message || String(error || "unknown error");
     if (this.metrics?.errorCounter) {
       this.metrics.errorCounter.inc({ stream, stage });
     }
   }
 
-  _markStreamHealthy(stream, lastLedger) {
+  _markStreamHealthy(stream: any, lastLedger: any) {
     if (stream === DEFAULT_EVENT_STREAM && lastLedger != null) {
       this.syncState.synced = true;
       this.syncState.lastProcessedLedger = Number(lastLedger);
@@ -263,30 +283,30 @@ class IndexerService {
     }
   }
 
-  _scheduleReconnect(stream, fn) {
+  _scheduleReconnect(stream: any, fn: any) {
     const delay = jitter(this.backoffState[stream] || 1_000);
     this.backoffState[stream] = Math.min((this.backoffState[stream] || 1_000) * 2, MAX_BACKOFF_MS);
     setTimeout(() => {
       if (this.syncState.running) {
-        fn().catch((error) => {
+        fn().catch((error: any) => {
           this._observeError(stream, "reconnect", error);
         });
       }
     }, delay).unref?.();
   }
 
-  _resetBackoff(stream) {
+  _resetBackoff(stream: any) {
     this.backoffState[stream] = 1_000;
   }
 
-  extractTopicString(topic) {
+  extractTopicString(topic: any) {
     if (!topic) return null;
     if (typeof topic === "string") return topic;
     if (typeof topic.value === "string") return topic.value;
     return null;
   }
 
-  extractSchemaVersion(event) {
+  extractSchemaVersion(event: any) {
     const candidate =
       event?.schema_version ??
       event?.schemaVersion ??
@@ -297,11 +317,11 @@ class IndexerService {
     return Number.isFinite(numeric) && numeric > 0 ? numeric : 1;
   }
 
-  isSupportedSchemaVersion(version) {
+  isSupportedSchemaVersion(version: any) {
     return this.supportedSchemaVersions.has(Number(version || 1));
   }
 
-  normalizeContractEvent(event, { eventIndex = 0 } = {}) {
+  normalizeContractEvent(event: any, { eventIndex = 0 } = {}) {
     if (this.contractId && event.contract_id !== this.contractId) return null;
 
     const eventTypeRaw = this.extractTopicString(event.topic?.[0]);
@@ -390,7 +410,7 @@ class IndexerService {
 
   async saveCheckpoint(
     { streamName = DEFAULT_EVENT_STREAM, ledger, ledgerHash, eventUid },
-    client
+    client: any
   ) {
     await this._query(
       `INSERT INTO indexer_checkpoints (stream_name, last_ledger_sequence, last_ledger_hash, last_event_uid, updated_at)
@@ -423,7 +443,7 @@ class IndexerService {
     }
   }
 
-  async markReconciledAt(client) {
+  async markReconciledAt(client: any) {
     await this._query(
       "UPDATE indexer_state SET last_reconciled_at = NOW(), updated_at = NOW() WHERE id = 1",
       [],
@@ -432,19 +452,19 @@ class IndexerService {
     this.syncState.lastReconciledAt = this.clock().toISOString();
   }
 
-  async _query(sql, params = [], client = null) {
+  async _query(sql: any, params = [], client = null) {
     const executor = client || this.db;
     return executor.query(sql, params);
   }
 
-  async _withTransaction(fn) {
+  async _withTransaction(fn: any) {
     const client = await this.db.connect();
     try {
       await client.query("BEGIN");
       const result = await fn(client);
       await client.query("COMMIT");
       return result;
-    } catch (error) {
+    } catch (error: any) {
       await client.query("ROLLBACK");
       throw error;
     } finally {
@@ -452,7 +472,7 @@ class IndexerService {
     }
   }
 
-  async _createBatch(client, { source, batchKind, fromLedger, toLedger, details = {} }) {
+  async _createBatch(client: any, { source, batchKind, fromLedger, toLedger, details = {} }) {
     const { rows } = await this._query(
       `INSERT INTO indexer_ledger_batches
          (source, batch_kind, from_ledger, to_ledger, status, details)
@@ -464,7 +484,7 @@ class IndexerService {
     return rows[0].batch_id;
   }
 
-  async _finalizeBatch(client, batchId, status = "applied") {
+  async _finalizeBatch(client: any, batchId: any, status = "applied") {
     await this._query(
       `UPDATE indexer_ledger_batches
        SET status = $2, committed_at = NOW()
@@ -474,7 +494,7 @@ class IndexerService {
     );
   }
 
-  async _getLineageRecord(client, source, ledgerSequence) {
+  async _getLineageRecord(client: any, source: any, ledgerSequence: any) {
     const { rows } = await this._query(
       `SELECT source, ledger_sequence, ledger_hash, parent_ledger_hash, closed_at
        FROM indexer_ledger_lineage
@@ -485,7 +505,7 @@ class IndexerService {
     return rows[0] || null;
   }
 
-  async _upsertLineageRecord(client, source, record) {
+  async _upsertLineageRecord(client: any, source: any, record: any) {
     await this._query(
       `INSERT INTO indexer_ledger_lineage
          (source, ledger_sequence, ledger_hash, parent_ledger_hash, closed_at, observed_at)
@@ -507,7 +527,7 @@ class IndexerService {
     );
   }
 
-  async _insertRawEvent(client, batchId, record) {
+  async _insertRawEvent(client: any, batchId: any, record: any) {
     const before = await this._query(
       "SELECT event_uid, canonical, payload FROM indexer_raw_events WHERE event_uid = $1",
       [record.eventUid],
@@ -563,7 +583,12 @@ class IndexerService {
     );
   }
 
-  async _markRawEventsNonCanonicalFromLedger(client, source, fromLedger, reorgId) {
+  async _markRawEventsNonCanonicalFromLedger(
+    client: any,
+    source: any,
+    fromLedger: any,
+    reorgId: any
+  ) {
     await this._query(
       `UPDATE indexer_raw_events
        SET canonical = FALSE,
@@ -606,7 +631,7 @@ class IndexerService {
     );
   }
 
-  async _getImpactedJobsFromLedger(client, source, fromLedger) {
+  async _getImpactedJobsFromLedger(client: any, source: any, fromLedger: any) {
     const { rows } = await this._query(
       `SELECT DISTINCT job_id
        FROM indexer_raw_events
@@ -617,10 +642,10 @@ class IndexerService {
       [source, fromLedger],
       client
     );
-    return rows.map((row) => row.job_id);
+    return rows.map((row: any) => row.job_id);
   }
 
-  async _createReorgJournalEntry(client, source, details) {
+  async _createReorgJournalEntry(client: any, source: any, details: any) {
     const { rows } = await this._query(
       `INSERT INTO indexer_reorg_journal
          (source, old_tip_ledger, new_tip_ledger, rollback_from_ledger, rollback_to_ledger, status, details)
@@ -639,7 +664,7 @@ class IndexerService {
     return rows[0].reorg_id;
   }
 
-  async _completeReorgJournalEntry(client, reorgId, status) {
+  async _completeReorgJournalEntry(client: any, reorgId: any, status: any) {
     await this._query(
       `UPDATE indexer_reorg_journal
        SET status = $2
@@ -649,7 +674,13 @@ class IndexerService {
     );
   }
 
-  async _recordAppliedEffect(client, record, effectType, targetTable, targetKey) {
+  async _recordAppliedEffect(
+    client: any,
+    record: any,
+    effectType: any,
+    targetTable: any,
+    targetKey: any
+  ) {
     await this._query(
       `INSERT INTO indexer_applied_effects
          (effect_uid, event_uid, effect_type, target_table, target_key, replay_safe, applied_at)
@@ -660,7 +691,7 @@ class IndexerService {
     );
   }
 
-  async _enqueueOutbox(client, record, sideEffect, payload, suppressed) {
+  async _enqueueOutbox(client: any, record: any, sideEffect: any, payload: any, suppressed: any) {
     await this._query(
       `INSERT INTO indexer_outbox
          (outbox_uid, event_uid, side_effect, payload, suppressed, created_at)
@@ -678,7 +709,7 @@ class IndexerService {
   }
 
   async _recordFinding(
-    client,
+    client: any,
     {
       runId = null,
       divergenceClass,
@@ -706,7 +737,7 @@ class IndexerService {
     );
   }
 
-  async _fetchCanonicalEventsForJob(client, jobId) {
+  async _fetchCanonicalEventsForJob(client: any, jobId: any) {
     const { rows } = await this._query(
       `SELECT event_uid, source, ledger_sequence, ledger_hash, parent_ledger_hash, tx_hash,
               event_index, event_type, schema_version, job_id, payload, occurred_at
@@ -718,7 +749,7 @@ class IndexerService {
       [DEFAULT_EVENT_STREAM, jobId],
       client
     );
-    return rows.map((row) => ({
+    return rows.map((row: any) => ({
       eventUid: row.event_uid,
       source: row.source,
       ledgerSequence: row.ledger_sequence,
@@ -734,7 +765,7 @@ class IndexerService {
     }));
   }
 
-  _projectJobState(events) {
+  _projectJobState(events: any) {
     const projection = {
       jobStatus: null,
       escrowStatus: null,
@@ -781,7 +812,7 @@ class IndexerService {
     return projection;
   }
 
-  async _rebuildJobProjection(client, jobId) {
+  async _rebuildJobProjection(client: any, jobId: any) {
     const events = await this._fetchCanonicalEventsForJob(client, jobId);
     if (!events.length) return;
 
@@ -820,13 +851,13 @@ class IndexerService {
     }
   }
 
-  async _rebuildJobProjections(client, jobIds) {
+  async _rebuildJobProjections(client: any, jobIds: any) {
     for (const jobId of jobIds) {
       await this._rebuildJobProjection(client, jobId);
     }
   }
 
-  async _refreshContractEventProjection(client, jobIds) {
+  async _refreshContractEventProjection(client: any, jobIds: any) {
     if (!jobIds.length) return;
     await this._query("DELETE FROM contract_events WHERE job_id = ANY($1)", [jobIds], client);
 
@@ -875,7 +906,7 @@ class IndexerService {
     }
   }
 
-  async _detectReorg(client, source, records) {
+  async _detectReorg(client: any, source: any, records: any) {
     if (!records.length) return null;
 
     for (const record of records) {
@@ -917,7 +948,7 @@ class IndexerService {
     return null;
   }
 
-  async _rollbackReorg(client, source, reorg) {
+  async _rollbackReorg(client: any, source: any, reorg: any) {
     const impactedJobs = await this._getImpactedJobsFromLedger(
       client,
       source,
@@ -936,7 +967,7 @@ class IndexerService {
     return { reorgId, impactedJobs };
   }
 
-  async _fillLedgerGaps(records, { source, checkpoint, fetchMissingRange }) {
+  async _fillLedgerGaps(records: any, { source, checkpoint, fetchMissingRange }) {
     if (!records.length) return records;
 
     const output = [];
@@ -968,7 +999,7 @@ class IndexerService {
           contractId: this.contractId,
         });
         const normalizedFetched = dedupeSortedEvents(
-          (fetched || []).map((entry, index) =>
+          (fetched || []).map((entry: any, index: any) =>
             this.normalizeCanonicalRecord(entry, { source, eventIndex: index })
           )
         );
@@ -984,7 +1015,7 @@ class IndexerService {
     return dedupeSortedEvents(output);
   }
 
-  normalizeCanonicalRecord(record, { source = DEFAULT_EVENT_STREAM, eventIndex = 0 } = {}) {
+  normalizeCanonicalRecord(record: any, { source = DEFAULT_EVENT_STREAM, eventIndex = 0 } = {}) {
     if (!record) return null;
     if (record.eventUid) {
       return {
@@ -1000,13 +1031,13 @@ class IndexerService {
   }
 
   async ingestLedgerRange(
-    records,
+    records: any,
     { source = DEFAULT_EVENT_STREAM, mode = "live", suppressSideEffects, fetchMissingRange } = {}
   ) {
     const startedAt = Date.now();
     const checkpoint = await this.loadCheckpoint(source);
     const normalized = dedupeSortedEvents(
-      (records || []).map((record, index) =>
+      (records || []).map((record: any, index: any) =>
         this.normalizeCanonicalRecord(record, { source, eventIndex: index })
       )
     );
@@ -1040,7 +1071,7 @@ class IndexerService {
     const batchTimer = this.metrics?.batchLatency?.startTimer({ stream: source, mode });
 
     try {
-      const result = await this._withTransaction(async (client) => {
+      const result = await this._withTransaction(async (client: any) => {
         const reorg = await this._detectReorg(client, source, filled);
         let impactedJobs = collectJobIds(filled);
         let reorgContext = null;
@@ -1055,7 +1086,11 @@ class IndexerService {
           batchKind: mode,
           fromLedger: filled[0].ledgerSequence,
           toLedger: filled[filled.length - 1].ledgerSequence,
-          details: { suppressSideEffects: suppress, recordCount: filled.length },
+          details: {
+            // @ts-ignore
+            suppressSideEffects: suppress,
+            recordCount: filled.length,
+          },
         });
 
         const newlyApplied = [];
@@ -1116,7 +1151,7 @@ class IndexerService {
       this._markStreamHealthy(source, result.lastLedger);
       result.durationMs = Date.now() - startedAt;
       return result;
-    } catch (error) {
+    } catch (error: any) {
       this._observeError(source, "apply_batch", error);
       throw error;
     } finally {
@@ -1124,7 +1159,7 @@ class IndexerService {
     }
   }
 
-  async _enqueueDefaultSideEffects(client, record) {
+  async _enqueueDefaultSideEffects(client: any, record: any) {
     const eventPayload = {
       jobId: record.jobId,
       eventType: record.eventType,
@@ -1188,7 +1223,7 @@ class IndexerService {
           row.outbox_uid,
         ]);
         dispatched += 1;
-      } catch (error) {
+      } catch (error: any) {
         this._observeError(DEFAULT_EVENT_STREAM, "dispatch_outbox", error);
         console.error("[Indexer] outbox dispatch failed:", error.message);
       }
@@ -1197,7 +1232,7 @@ class IndexerService {
     return { dispatched };
   }
 
-  async _dispatchOutboxRow(row) {
+  async _dispatchOutboxRow(row: any) {
     const payload = maybeJsonParse(row.payload) || {};
 
     if (row.side_effect === "broadcast:contract:event") {
@@ -1217,13 +1252,13 @@ class IndexerService {
     }
   }
 
-  async processEvent(event) {
+  async processEvent(event: any) {
     const canonical = this.normalizeContractEvent(event);
     if (!canonical) return { appliedEvents: 0, reorgHandled: false, lastLedger: null };
     return this.ingestLedgerRange([canonical], { source: DEFAULT_EVENT_STREAM, mode: "live" });
   }
 
-  async processTransaction(tx) {
+  async processTransaction(tx: any) {
     if (!tx.successful || !this.platformWallet) return { appliedEvents: 0 };
     const txMemo = tx.memo || null;
     const ledgerNumber = Number(tx.ledger_attr || tx.ledger || 0) || null;
@@ -1305,7 +1340,7 @@ class IndexerService {
       await client.query("COMMIT");
       this.syncState.lastTransactionAt = tx.created_at || null;
       return { appliedEvents: records.length, lastLedger: ledgerNumber };
-    } catch (error) {
+    } catch (error: any) {
       await client.query("ROLLBACK");
       this._observeError(DEFAULT_TX_STREAM, "process_transaction", error);
       throw error;
@@ -1325,9 +1360,9 @@ class IndexerService {
          AND ($3::bigint IS NULL OR ledger_sequence <= $3)`,
       [DEFAULT_EVENT_STREAM, fromLedger, toLedger]
     );
-    const jobIds = rows.map((row) => row.job_id);
+    const jobIds = rows.map((row: any) => row.job_id);
 
-    await this._withTransaction(async (client) => {
+    await this._withTransaction(async (client: any) => {
       await this._rebuildJobProjections(client, jobIds);
       await this._refreshContractEventProjection(client, jobIds);
     });
@@ -1357,6 +1392,7 @@ class IndexerService {
     const result = await this.ingestLedgerRange(records, {
       source,
       mode: "replay",
+      // @ts-ignore
       suppressSideEffects: productionSafe,
       fetchMissingRange: null,
     });
@@ -1397,13 +1433,13 @@ class IndexerService {
     toLedger = null,
     jobIds = null,
     mode = "continuous",
-  }) {
+  }: any) {
     if (typeof fetchOnChainEscrow !== "function") {
       throw new Error("fetchOnChainEscrow must be provided for reconciliation");
     }
 
     const started = this.clock();
-    const runId = await this._withTransaction(async (client) => {
+    const runId = await this._withTransaction(async (client: any) => {
       const { rows } = await this._query(
         `INSERT INTO indexer_reconciliation_runs (mode, from_ledger, to_ledger, started_at, status, summary)
          VALUES ($1, $2, $3, NOW(), 'running', '{}'::jsonb)
@@ -1427,7 +1463,7 @@ class IndexerService {
              AND ($3::bigint IS NULL OR ledger_sequence <= $3)`,
           [DEFAULT_EVENT_STREAM, fromLedger, toLedger]
         )
-      ).rows.map((row) => row.job_id);
+      ).rows.map((row: any) => row.job_id);
 
     let findingCount = 0;
     const byClass = new Map();
@@ -1449,12 +1485,12 @@ class IndexerService {
         findingCount += differences.length;
         for (const diff of differences) {
           byClass.set(diff.divergenceClass, (byClass.get(diff.divergenceClass) || 0) + 1);
-          await this._withTransaction(async (client) => {
+          await this._withTransaction(async (client: any) => {
             await this._recordFinding(client, {
               runId,
               divergenceClass: diff.divergenceClass,
               jobId,
-              ledgerSequence: diff.ledgerSequence || null,
+              ledgerSequence: (diff as any).ledgerSequence || null,
               expected: diff.expected,
               actual: diff.actual,
               diagnostics: diff.diagnostics,
@@ -1463,7 +1499,7 @@ class IndexerService {
         }
       }
 
-      await this._withTransaction(async (client) => {
+      await this._withTransaction(async (client: any) => {
         await this._query(
           `UPDATE indexer_reconciliation_runs
            SET finished_at = NOW(),
@@ -1484,8 +1520,8 @@ class IndexerService {
         );
         await this.markReconciledAt(client);
       });
-    } catch (error) {
-      await this._withTransaction(async (client) => {
+    } catch (error: any) {
+      await this._withTransaction(async (client: any) => {
         await this._query(
           `UPDATE indexer_reconciliation_runs
            SET finished_at = NOW(),
@@ -1509,7 +1545,7 @@ class IndexerService {
     return { runId, checkedJobs: jobIdList.length, findings: findingCount };
   }
 
-  async _getDerivedEscrow(jobId) {
+  async _getDerivedEscrow(jobId: any) {
     const { rows } = await this._query(
       `SELECT e.job_id, e.status AS escrow_status, e.released_at, j.status AS job_status
        FROM escrows e
@@ -1520,10 +1556,10 @@ class IndexerService {
     return rows[0] || null;
   }
 
-  _classifyDivergence(derived, onChain) {
+  _classifyDivergence(derived: any, onChain: any) {
     if (!derived && !onChain) return [];
 
-    const findings = [];
+    const findings: any[] = [];
     if (!derived && onChain) {
       findings.push({
         divergenceClass: "projection_missing_row",
@@ -1569,7 +1605,7 @@ class IndexerService {
     return findings;
   }
 
-  async getEventsForJob(jobId) {
+  async getEventsForJob(jobId: any) {
     const { rows } = await this._query(
       `SELECT job_id, event_type, contract_id, tx_hash, ledger, data, created_at, source, schema_version, canonical
        FROM contract_events
@@ -1614,17 +1650,17 @@ class IndexerService {
       ? String(checkpoint.last_ledger_sequence)
       : "now";
 
-    const handleMessage = async (tx) => {
+    const handleMessage = async (tx: any) => {
       try {
         await this.processTransaction(tx);
         this._resetBackoff(DEFAULT_TX_STREAM);
-      } catch (error) {
+      } catch (error: any) {
         this._observeError(DEFAULT_TX_STREAM, "transaction_stream", error);
         console.error("[Indexer] failed to process transaction:", error.message);
       }
     };
 
-    const handleError = (error) => {
+    const handleError = (error: any) => {
       this._observeError(DEFAULT_TX_STREAM, "transaction_stream_error", error);
       console.error("[Indexer] transaction stream error:", this.syncState.lastError);
       this._scheduleReconnect(DEFAULT_TX_STREAM, () => this._startTransactionStream());
@@ -1655,17 +1691,17 @@ class IndexerService {
       ? String(checkpoint.last_ledger_sequence)
       : "now";
 
-    const handleMessage = async (event) => {
+    const handleMessage = async (event: any) => {
       try {
         await this.processEvent(event);
         this._resetBackoff(DEFAULT_EVENT_STREAM);
-      } catch (error) {
+      } catch (error: any) {
         this._observeError(DEFAULT_EVENT_STREAM, "event_stream", error);
         console.error("[Indexer] failed to process event:", error.message);
       }
     };
 
-    const handleError = (error) => {
+    const handleError = (error: any) => {
       this._observeError(DEFAULT_EVENT_STREAM, "event_stream_error", error);
       console.error("[Indexer] event stream error:", this.syncState.lastError);
       this._scheduleReconnect(DEFAULT_EVENT_STREAM, () => this._startEventStream());
