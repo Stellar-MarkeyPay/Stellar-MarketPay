@@ -38,6 +38,24 @@ export default function PostJob({ publicKey, onConnect }: PostJobProps) {
           suggestedFreelancer={suggestedFreelancer}
         />
       )}
+        <div className="mt-8">
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-200" />
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-2 bg-white text-gray-500">Or</span>
+            </div>
+          </div>
+          <div className="mt-6">
+            <Link
+              href={`/bridge/fund?jobId=${router.query.id || ""}`}
+              className="block w-full text-center bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700"
+            >
+              Fund from EVM via Bridge
+            </Link>
+          </div>
+        </div>
     </div>
   );
 }
