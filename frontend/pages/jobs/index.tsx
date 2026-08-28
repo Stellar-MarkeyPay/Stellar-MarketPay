@@ -13,7 +13,7 @@ import {
 } from "@/lib/api";
 import StateMessage from "@/components/StateMessage";
 import { JOB_CATEGORIES, CATEGORY_ICONS, categoryToSlug } from "@/utils/format";
-import type { Job } from "@/utils/types";
+import type { Job } from "@marketpay/shared-types";
 import clsx from "clsx";
 import Head from "next/head";
 import Link from "next/link";

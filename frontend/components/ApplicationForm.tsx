@@ -4,7 +4,7 @@
  */
 import { useState, useEffect, useRef } from "react";
 import { submitApplication, fetchProposalTemplates } from "@/lib/api";
-import type { Job } from "@/utils/types";
+import type { Job } from "@marketpay/shared-types";
 import { formatXLM } from "@/utils/format";
 import { useToast } from "./Toast";
 import clsx from "clsx";
@@ -28,7 +28,7 @@ function randomNonceHex(bytes = 16): string {
     for (let i = 0; i < arr.length; i += 1) arr[i] = Math.floor(Math.random() * 256);
   }
   return Array.from(arr)
-    .map((b) => b.toString(16).padStart(2, "0"))
+    .map((b: any) => b.toString(16).padStart(2, "0"))
     .join("");
 }
 
@@ -36,7 +36,7 @@ async function sha256Hex(value: string): Promise<string> {
   const data = new TextEncoder().encode(value);
   const digest = await window.crypto.subtle.digest("SHA-256", data);
   return Array.from(new Uint8Array(digest))
-    .map((b) => b.toString(16).padStart(2, "0"))
+    .map((b: any) => b.toString(16).padStart(2, "0"))
     .join("");
 }
 

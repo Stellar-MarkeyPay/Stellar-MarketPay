@@ -8,7 +8,7 @@ import { useRouter } from "next/router";
 import { fetchProfiles, fetchMlRankedFreelancers, type RankedFreelancer } from "@/lib/api";
 import FreelancerCard from "@/components/FreelancerCard";
 import { availabilityStatusLabel } from "@/utils/format";
-import type { AvailabilityStatus, UserProfile } from "@/utils/types";
+import type { AvailabilityStatus, UserProfile } from "@marketpay/shared-types";
 
 const availabilityOptions = [
   { value: "", label: "All statuses" },

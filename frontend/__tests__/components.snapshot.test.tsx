@@ -4,7 +4,7 @@ import RatingForm from "@/components/RatingForm";
 import { ToastSnapshot } from "@/components/Toast";
 import FreelancerTierBadge from "@/components/FreelancerTierBadge";
 import Navbar from "@/components/Navbar";
-import type { Job } from "@/utils/types";
+import type { Job } from "@marketpay/shared-types";
 
 jest.mock("@/hooks/useBookmarks", () => ({
   useBookmarks: () => ({

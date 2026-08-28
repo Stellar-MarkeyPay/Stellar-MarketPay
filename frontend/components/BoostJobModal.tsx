@@ -79,7 +79,7 @@ export default function BoostJobModal({
 
       if (isMockMode) {
         // Mock mode — skip on-chain tx
-        await new Promise((r) => setTimeout(r, 800));
+        await new Promise((r: any) => setTimeout(r, 800));
         hash = `mock-boost-${Date.now()}`;
         console.info("[CONTRACT MOCK] boost_job called", {
           jobId,

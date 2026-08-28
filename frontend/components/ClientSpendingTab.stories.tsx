@@ -1,7 +1,7 @@
 import React from "react";
 import type { Meta, StoryObj } from "@storybook/react";
 import ClientSpendingTab from "./ClientSpendingTab";
-import type { ClientSpendingAnalytics } from "@/utils/types";
+import type { ClientSpendingAnalytics } from "@marketpay/shared-types";
 
 const mockAnalytics: ClientSpendingAnalytics = {
   totalSpentXlm: "12500.0000000",

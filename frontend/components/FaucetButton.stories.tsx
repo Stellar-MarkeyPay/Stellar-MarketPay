@@ -15,6 +15,6 @@ export const Default: Story = {
   args: {
     publicKey: "GACCOUNT1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ",
     currentBalance: "0",
-    onBalanceUpdate: (b) => console.log("Balance updated:", b),
+    onBalanceUpdate: (b: any) => console.log("Balance updated:", b),
   },
 };

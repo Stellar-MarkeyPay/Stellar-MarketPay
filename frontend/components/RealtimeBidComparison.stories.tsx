@@ -1,7 +1,7 @@
 import React from "react";
 import type { Meta, StoryObj } from "@storybook/react";
 import RealtimeBidComparison from "./RealtimeBidComparison";
-import type { Application } from "@/utils/types";
+import type { Application } from "@marketpay/shared-types";
 
 const mockApplications: Application[] = [
   {
@@ -43,7 +43,7 @@ export const Default: Story = {
     initialApplications: mockApplications,
     isClient: true,
     biddingPhase: "commitment",
-    onAcceptApplication: (id) => console.log("Accepted application:", id),
+    onAcceptApplication: (id: any) => console.log("Accepted application:", id),
     onCloseBidding: () => console.log("Bidding closed"),
   },
 };

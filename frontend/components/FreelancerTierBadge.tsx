@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import type { FreelancerTier } from "@/utils/types";
+import type { FreelancerTier } from "@marketpay/shared-types";
 
 const tierClassNames: Record<FreelancerTier, string> = {
   Newcomer: "border-slate-400/20 bg-slate-400/10 text-slate-200",

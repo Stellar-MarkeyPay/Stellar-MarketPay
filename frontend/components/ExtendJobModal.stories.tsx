@@ -1,7 +1,7 @@
 import React from "react";
 import type { Meta, StoryObj } from "@storybook/react";
 import ExtendJobModal from "./ExtendJobModal";
-import type { Job } from "@/utils/types";
+import type { Job } from "@marketpay/shared-types";
 
 const mockJob: Job = {
   id: "job-101",
@@ -32,6 +32,6 @@ export const Default: Story = {
   args: {
     job: mockJob,
     onClose: () => console.log("Closed"),
-    onExtended: (updated) => console.log("Extended", updated),
+    onExtended: (updated: any) => console.log("Extended", updated),
   },
 };

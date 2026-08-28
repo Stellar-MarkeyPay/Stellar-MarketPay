@@ -14,7 +14,7 @@ type Story = StoryObj<typeof JobFiltersPanel>;
 export const Default: Story = {
   args: {
     query: {},
-    onQueryChange: (patch) => console.log("Query changed:", patch),
+    onQueryChange: (patch: any) => console.log("Query changed:", patch),
   },
 };
 
@@ -27,6 +27,6 @@ export const WithActiveFilters: Story = {
       minClientRating: "4",
       duration: "1_to_3_months",
     },
-    onQueryChange: (patch) => console.log("Query changed:", patch),
+    onQueryChange: (patch: any) => console.log("Query changed:", patch),
   },
 };

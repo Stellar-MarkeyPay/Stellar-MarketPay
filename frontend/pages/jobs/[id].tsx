@@ -32,7 +32,7 @@ import {
 } from "@/lib/stellar";
 import { signTransactionWithWallet } from "@/lib/wallet";
 import type { Transaction } from "@stellar/stellar-sdk";
-import type { Application, Job } from "@/utils/types";
+import type { Application, Job } from "@marketpay/shared-types";
 
 interface JobDetailProps {
   publicKey: string | null;

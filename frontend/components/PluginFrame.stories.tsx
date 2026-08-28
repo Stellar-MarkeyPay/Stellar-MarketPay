@@ -68,7 +68,7 @@ export const FetchingData: Story = {
     pluginName: "Data Plugin",
     uiSource: DATA_FETCHING_UI_SOURCE,
     heightPx: 140,
-    onDataRequest: async (method) => {
+    onDataRequest: async (method: any) => {
       if (method === "jobs.get") {
         return { id: "demo-job-1", title: "Build a Soroban dashboard", budget: "1500 XLM" };
       }
@@ -84,7 +84,7 @@ export const RequestingASignature: Story = {
     pluginName: "Signing Plugin",
     uiSource: SIGNING_UI_SOURCE,
     heightPx: 120,
-    onRequestSign: async (payload) => {
+    onRequestSign: async (payload: any) => {
       // In the real app this opens the host's own confirmation UI and
       // calls into lib/wallet.ts — the plugin never sees Freighter itself.
       // eslint-disable-next-line no-alert

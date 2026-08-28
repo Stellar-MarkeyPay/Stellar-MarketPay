@@ -14,7 +14,7 @@ import {
   formatUSDEquivalent,
   formatPrice,
 } from "@/utils/format";
-import type { Job } from "@/utils/types";
+import type { Job } from "@marketpay/shared-types";
 import { usePriceContext } from "@/contexts/PriceContext";
 import { useBookmarks } from "@/hooks/useBookmarks";
 import JobStatusTimeline from "@/components/JobStatusTimeline";

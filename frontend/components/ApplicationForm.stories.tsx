@@ -1,7 +1,7 @@
 import React from "react";
 import type { Meta, StoryObj } from "@storybook/react";
 import ApplicationForm from "./ApplicationForm";
-import type { Job } from "@/utils/types";
+import type { Job } from "@marketpay/shared-types";
 
 const mockJob: Job = {
   id: "job-101",

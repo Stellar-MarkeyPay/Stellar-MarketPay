@@ -3,7 +3,7 @@
  * Visual stepper/timeline for Job Status Progression.
  * Supports horizontal/vertical responsive layouts, dates, and branched paths for cancelled/disputed jobs.
  */
-import type { JobStatus, Application } from "@/utils/types";
+import type { JobStatus, Application } from "@marketpay/shared-types";
 import { formatDate } from "@/utils/format";
 
 interface JobTimelineProps {

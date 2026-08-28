@@ -4,7 +4,7 @@
  */
 import { useState, useEffect, useMemo } from "react";
 import { fetchProfile } from "@/lib/api";
-import type { UserProfile } from "@/utils/types";
+import type { UserProfile } from "@marketpay/shared-types";
 import type { ChecklistItem } from "@/components/Onboarding/ProfileChecklist";
 
 const ONBOARDING_STORAGE_KEY = "marketpay_onboarding_completed";

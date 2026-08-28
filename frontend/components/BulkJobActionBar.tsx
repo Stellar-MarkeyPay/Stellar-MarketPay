@@ -7,7 +7,7 @@
  */
 import { useState } from "react";
 import clsx from "clsx";
-import type { BulkActionResponse } from "@/utils/types";
+import type { BulkActionResponse } from "@marketpay/shared-types";
 
 interface BulkJobActionBarProps {
   selectedCount: number;
@@ -215,7 +215,7 @@ function BulkResultToast({
   onDismiss: () => void;
 }) {
   const allOk = result.failed === 0;
-  const failures = result.results.filter((r) => !r.success);
+  const failures = result.results.filter((r: any) => !r.success);
 
   return (
     <div

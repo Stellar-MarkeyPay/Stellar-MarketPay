@@ -9,7 +9,7 @@ import { useRouter } from "next/router";
 import { useEffect, useRef, useState } from "react";
 import { fetchAssessment, submitAssessment } from "@/lib/api";
 import WalletConnect from "@/components/WalletConnect";
-import type { AssessmentQuestion } from "@/utils/types";
+import type { AssessmentQuestion } from "@marketpay/shared-types";
 
 interface Props {
   publicKey: string | null;

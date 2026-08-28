@@ -10,7 +10,7 @@ import {
   formatXLM,
   shortenAddress,
 } from "@/utils/format";
-import type { UserProfile } from "@/utils/types";
+import type { UserProfile } from "@marketpay/shared-types";
 
 interface FreelancerCardProps {
   profile: UserProfile;

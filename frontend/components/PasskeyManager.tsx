@@ -109,7 +109,7 @@ export default function PasskeyManager({ publicKey }: Props) {
           </div>
         ) : (
           <div className="space-y-2">
-            {passkeys.map((pk) => (
+            {passkeys.map((pk: any) => (
               <div key={pk.id} className="card flex items-center justify-between gap-4">
                 <div>
                   <p className="text-amber-100 font-medium text-sm">{pk.credential_name}</p>

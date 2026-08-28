@@ -1,7 +1,7 @@
 import React from "react";
 import type { Meta, StoryObj } from "@storybook/react";
 import JobCard, { JobCardSkeleton } from "./JobCard";
-import type { Job } from "@/utils/types";
+import type { Job } from "@marketpay/shared-types";
 
 const mockJob: Job = {
   id: "job-101",
