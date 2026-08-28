@@ -1,0 +1,152 @@
+name: Database Restore Drill
+
+on:
+  schedule:
+    - cron: "0 3 * * 0" # Weekly on Sundays at 03:00 UTC
+  workflow_dispatch: # Allow manual runs
+
+jobs:
+  restore-drill:
+    name: Database Backup → Restore → Verify
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: stellarwork
+          POSTGRES_PASSWORD: stellarwork_dev
+          POSTGRES_DB: stellarwork
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Wait for PostgreSQL
+        shell: bash
+        run: |
+          for i in {1..60}; do
+            if timeout 2 bash -c "echo > /dev/tcp/localhost/5432" 2>/dev/null; then
+              echo "PostgreSQL is ready"
+              exit 0
+            fi
+            echo "Attempt $i/60..."
+            sleep 1
+          done
+          echo "PostgreSQL failed to start"
+          exit 1
+
+      - name: Install Python dependencies
+        run: pip install pytest
+
+      - name: Seed database
+        env:
+          DATABASE_URL: postgresql://stellarwork:stellarwork_dev@localhost:5432/stellarwork
+          JWT_SECRET: drill-test-jwt-secret-with-sufficient-length
+        run: |
+          cd backend
+          npm ci
+          npm run migrate
+
+      - name: Insert seed data
+        env:
+          DATABASE_URL: postgresql://stellarwork:stellarwork_dev@localhost:5432/stellarwork
+        run: |
+          node -e "
+          const { Pool } = require('pg');
+          const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+          (async () => {
+            await pool.query('INSERT INTO profiles (public_key, display_name, role) VALUES (\\$1, \\$2, \\$3) ON CONFLICT DO NOTHING', ['GDRIBLABRIBLABRIBLABRIBLABRIBLABRIBLABRI', 'Drill User', 'both']);
+            await pool.query('INSERT INTO profiles (public_key, display_name, role) VALUES (\\$1, \\$2, \\$3) ON CONFLICT DO NOTHING', ['GDRIBLABRIBLABRIBLABRIBLABRIBLABRIBLABRII', 'Drill Client', 'client']);
+            await pool.query('INSERT INTO jobs (title, description, budget, currency, category, client_address, status) VALUES (\\$1, \\$2, \\$3, \\$4, \\$5, \\$6, \\$7) ON CONFLICT DO NOTHING', ['Drill Job', 'Restore drill seed', 100, 'XLM', 'dev', 'GDRIBLABRIBLABRIBLABRIBLABRIBLABRIBLABRII', 'open']);
+            await pool.end();
+            console.log('Seed data inserted');
+          })();
+          "
+
+      - name: Run database backup
+        env:
+          DATABASE_URL: postgresql://stellarwork:stellarwork_dev@localhost:5432/stellarwork
+          BACKUP_DIR: ./backups
+          OFF_SITE_COPY: ""
+        run: |
+          chmod +x scripts/db/backup.sh
+          ./scripts/db/backup.sh
+
+      - name: Drop and recreate scratch database
+        env:
+          PGHOST: localhost
+          PGPORT: "5432"
+          PGUSER: stellarwork
+          PGPASSWORD: stellarwork_dev
+          PGDATABASE: stellarwork_restore_scratch
+        run: |
+          PGPASSWORD=$PGPASSWORD psql -U postgres -c "DROP DATABASE IF EXISTS \"$PGDATABASE\";"
+          PGPASSWORD=$PGPASSWORD psql -U postgres -c "CREATE DATABASE \"$PGDATABASE\" OWNER \"$PGUSER\";"
+
+      - name: Run database restore
+        env:
+          PGHOST: localhost
+          PGPORT: "5432"
+          PGUSER: stellarwork
+          PGPASSWORD: stellarwork_dev
+          PGDATABASE: stellarwork_restore_scratch
+          DROP_IF_EXISTS: "0"
+          RESTORE_REPORT: ./artifacts/restore-report.json
+        run: |
+          mkdir -p ./artifacts
+          BACKUP_FILE=$(ls ./backups/daily/stellarwork_*.sql.gz | sort | tail -n 1)
+          chmod +x scripts/db/restore.sh
+          ./scripts/db/restore.sh "$BACKUP_FILE" stellarwork_restore_scratch
+
+      - name: Run database verification
+        env:
+          PGHOST: localhost
+          PGPORT: "5432"
+          PGUSER: stellarwork
+          PGPASSWORD: stellarwork_dev
+          PGDATABASE: stellarwork_restore_scratch
+          VERIFY_REPORT: ./artifacts/verify-report.json
+        run: |
+          BACKUP_FILE=$(ls ./backups/daily/stellarwork_*.sql.gz | sort | tail -n 1)
+          chmod +x scripts/db/verify.sh
+          ./scripts/db/verify.sh "$BACKUP_FILE"
+
+      - name: Run backend tests against restored database
+        env:
+          DATABASE_URL: postgresql://stellarwork:stellarwork_dev@localhost:5432/stellarwork_restore_scratch
+          JWT_SECRET: drill-test-jwt-secret-with-sufficient-length
+          NODE_ENV: test
+        run: |
+          cd backend
+          npm run test -- --testPathPattern="services/(escrowService|jobService|applicationService)" --verbose
+
+      - name: Upload restore drill artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: restore-drill-artifacts
+          path: |
+            backups/**/*
+            artifacts/**/*
+          retention-days: 30
+
+      - name: Report restore metrics
+        if: always()
+        run: |
+          if [ -f ./artifacts/restore-report.json ]; then
+            echo "### Restore Report" >> $GITHUB_STEP_SUMMARY
+            cat ./artifacts/restore-report.json >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ -f ./artifacts/verify-report.json ]; then
+            echo "### Verification Report" >> $GITHUB_STEP_SUMMARY
+            cat ./artifacts/verify-report.json >> $GITHUB_STEP_SUMMARY
+          fi
