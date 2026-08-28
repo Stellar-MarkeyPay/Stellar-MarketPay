@@ -34,6 +34,8 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+    env_file:
+      - ./backend/.env
     ports:
       - "4000:4000"
     environment:
@@ -43,11 +45,19 @@ services:
       - HORIZON_URL=https://horizon-testnet.stellar.org
       - ALLOWED_ORIGINS=http://localhost:3000
       - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=stellar_marketpay_dev_jwt_secret_change_me
+      - DATABASE_URL=postgresql://stellarwork:stellarwork_dev@postgres:5432/stellarwork
+      - WAREHOUSE_DB_HOST=warehouse-postgres
+      - WAREHOUSE_DB_PORT=5432
+      - WAREHOUSE_DB_NAME=marketplace_warehouse
+      - WAREHOUSE_DB_USER=warehouse
+      - WAREHOUSE_DB_PASSWORD=warehouse_dev
     volumes:
       - ./backend:/app
       - /app/node_modules
     depends_on:
       - redis
+      - warehouse-postgres
     command: npm run dev
 
   postgres:
@@ -67,5 +77,23 @@ services:
       timeout: 5s
       retries: 10
 
+  warehouse-postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    ports:
+      - "5434:5432"
+    environment:
+      POSTGRES_USER: warehouse
+      POSTGRES_PASSWORD: warehouse_dev
+      POSTGRES_DB: marketplace_warehouse
+    volumes:
+      - warehouse_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U warehouse -d marketplace_warehouse"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
 volumes:
-  postgres_data: # named volume — survives container restarts
+  postgres_data:
+  warehouse_postgres_data:

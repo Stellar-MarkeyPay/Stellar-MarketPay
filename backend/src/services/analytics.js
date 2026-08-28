@@ -33,10 +33,13 @@ async function trainRegressionModel() {
     `);
 
     if (rows.length < 3) {
-      // Too few completed jobs to train a regression model. Using sensible heuristic defaults.
       return {
         success: true,
         message: "Using default heuristic model (insufficient historical data)",
+        parameters: {
+          modelWeights,
+          modelBias,
+        },
       };
     }
 
@@ -44,12 +47,14 @@ async function trainRegressionModel() {
       const budget = Number(r.budget) || 0;
 
       let skillsCount = 0;
+
       if (Array.isArray(r.skills)) {
         skillsCount = r.skills.length;
       } else if (typeof r.skills === "string") {
         skillsCount = r.skills
           .replace(/[{}]/g, "")
           .split(",")
+          .map((s) => s.trim())
           .filter(Boolean).length;
       }
 
@@ -63,17 +68,172 @@ async function trainRegressionModel() {
         (updatedAt.getTime() - createdAt.getTime()) /
         (1000 * 60 * 60 * 24);
 
-      if (!Number.isFinite(duration)) {
+      if (!Number.isFinite(duration) || duration <= 0) {
         throw new Error(
           `Invalid job duration for job: ${r.id || "unknown"}`
         );
-  }
+      }
 
-  return {
-    x: [budget, skillsCount, completedJobs, rating],
-    y: Math.max(0.5, duration),
-  };
-});
+      return {
+        x: [budget, skillsCount, completedJobs, rating],
+        y: Math.max(0.5, duration),
+      };
+    });
+
+    /*
+     * Normalize features before gradient descent.
+     *
+     * Budget has a much larger numerical scale than the other
+     * features. Without normalization, gradient descent can
+     * diverge and produce NaN values.
+     */
+    const featureCount = 4;
+    const means = new Array(featureCount).fill(0);
+    const stds = new Array(featureCount).fill(1);
+
+    for (const item of dataset) {
+      for (let i = 0; i < featureCount; i++) {
+        means[i] += item.x[i];
+      }
+    }
+
+    for (let i = 0; i < featureCount; i++) {
+      means[i] /= dataset.length;
+    }
+
+    for (const item of dataset) {
+      for (let i = 0; i < featureCount; i++) {
+        const diff = item.x[i] - means[i];
+        stds[i] += diff * diff;
+      }
+    }
+
+    for (let i = 0; i < featureCount; i++) {
+      stds[i] = Math.sqrt(stds[i] / dataset.length);
+
+      // Prevent division by zero for constant features.
+      if (!Number.isFinite(stds[i]) || stds[i] === 0) {
+        stds[i] = 1;
+      }
+    }
+
+    const normalizedDataset = dataset.map((item) => ({
+      x: item.x.map(
+        (value, i) => (value - means[i]) / stds[i]
+      ),
+      y: item.y,
+    }));
+
+    /*
+     * Gradient descent on normalized features.
+     */
+    let w = [0, 0, 0, 0];
+    let b =
+      normalizedDataset.reduce((sum, item) => sum + item.y, 0) /
+      normalizedDataset.length;
+
+    const lr = 0.01;
+    const epochs = 5000;
+
+    for (let epoch = 0; epoch < epochs; epoch++) {
+      const gradW = [0, 0, 0, 0];
+      let gradB = 0;
+
+      for (const item of normalizedDataset) {
+        const prediction =
+          w[0] * item.x[0] +
+          w[1] * item.x[1] +
+          w[2] * item.x[2] +
+          w[3] * item.x[3] +
+          b;
+
+        const error = prediction - item.y;
+
+        for (let i = 0; i < featureCount; i++) {
+          gradW[i] += error * item.x[i];
+        }
+
+        gradB += error;
+      }
+
+      const n = normalizedDataset.length;
+
+      for (let i = 0; i < featureCount; i++) {
+        w[i] -= (lr / n) * gradW[i];
+      }
+
+      b -= (lr / n) * gradB;
+
+      // Fail loudly if numerical instability occurs.
+      if (
+        !w.every(Number.isFinite) ||
+        !Number.isFinite(b)
+      ) {
+        throw new Error(
+          `Gradient descent produced non-finite values at epoch ${epoch}`
+        );
+      }
+    }
+
+    /*
+     * Convert normalized coefficients back to raw feature units
+     * so predictJobCompletion() can continue using raw job values.
+     */
+    const rawWeights = w.map(
+      (weight, i) => weight / stds[i]
+    );
+
+    let rawBias =
+      b -
+      rawWeights.reduce(
+        (sum, weight, i) => sum + weight * means[i],
+        0
+      );
+
+    /*
+     * Keep completed jobs and rating as factors that cannot
+     * increase predicted duration.
+     */
+    rawWeights[2] = Math.min(0, rawWeights[2]);
+    rawWeights[3] = Math.min(0, rawWeights[3]);
+
+    if (
+      !rawWeights.every(Number.isFinite) ||
+      !Number.isFinite(rawBias)
+    ) {
+      throw new Error(
+        "Model training produced non-finite weights or bias"
+      );
+    }
+
+    modelWeights = {
+      budget: rawWeights[0],
+      skillsCount: rawWeights[1],
+      completedJobs: rawWeights[2],
+      rating: rawWeights[3],
+    };
+
+    modelBias = Math.max(1.0, rawBias);
+
+    return {
+      success: true,
+      message:
+        `Regression model successfully trained on ${rows.length} completed jobs.`,
+      parameters: {
+        modelWeights,
+        modelBias,
+      },
+    };
+  } catch (err) {
+    console.error("Error training regression model:", err);
+
+    return {
+      success: false,
+      error: err.message,
+    };
+  }
+}
+
 
 /**
  * Predicts job completion metrics for a freelancer and a job.

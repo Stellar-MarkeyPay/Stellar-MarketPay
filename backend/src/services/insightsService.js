@@ -18,37 +18,60 @@ function cacheKey(name, params = {}) {
 async function withDailyCache(name, params, loader) {
   const key = cacheKey(name, params);
   const cached = cache.get(key);
+
   if (cached && cached.expiresAt > Date.now()) {
     return cached.value;
   }
 
   const value = await loader();
-  cache.set(key, { value, expiresAt: Date.now() + CACHE_TTL_MS });
+
+  cache.set(key, {
+    value,
+    expiresAt: Date.now() + CACHE_TTL_MS,
+  });
+
   return value;
 }
+
+/**
+ * Category analytics
+ * Warehouse only:
+ * fact_job + fact_application + dimensions
+ */
+
 
 async function getCategoryInsights(limit = 20) {
   return withDailyCache("categories", { limit }, async () => {
     const { rows } = await warehousePool.query(
       `
       SELECT
-        category,
+        dc.category_name AS category,
         COUNT(*)::int AS total_jobs,
 
         ROUND(
-          AVG(budget)::numeric,
+          AVG(fj.budget_amount)::numeric,
           7
         ) AS avg_budget,
 
         ROUND(
-          AVG(total_applications)::numeric,
+          AVG(COALESCE(app_counts.application_count, 0))::numeric,
           2
         ) AS avg_applications_per_job,
 
         ROUND(
           COALESCE(
-            SUM(accepted_applications)::numeric
-            / NULLIF(SUM(total_applications)::numeric, 0)
+            SUM(
+              CASE
+                WHEN accepted_counts.accepted_count > 0
+                THEN accepted_counts.accepted_count
+                ELSE 0
+              END
+            )::numeric
+            /
+            NULLIF(
+              SUM(COALESCE(app_counts.application_count, 0))::numeric,
+              0
+            )
             * 100,
             0
           ),
@@ -56,14 +79,38 @@ async function getCategoryInsights(limit = 20) {
         ) AS acceptance_rate,
 
         COUNT(*) FILTER (
-          WHERE total_applications < 5
+          WHERE COALESCE(app_counts.application_count, 0) < 5
         )::int AS low_competition_jobs,
 
-        COUNT(DISTINCT client_address)::int AS unique_clients
+        COUNT(DISTINCT fj.client_key)::int AS unique_clients
 
-      FROM gold_job_performance
+      FROM analytics.fact_job fj
 
-      GROUP BY category
+      JOIN analytics.dim_category dc
+        ON dc.category_key = fj.category_key
+
+      LEFT JOIN (
+        SELECT
+          job_key,
+          COUNT(*)::int AS application_count
+        FROM analytics.fact_application
+        GROUP BY job_key
+      ) app_counts
+        ON app_counts.job_key = fj.job_key
+
+      LEFT JOIN (
+        SELECT
+          job_key,
+          COUNT(*)::int AS accepted_count
+        FROM analytics.fact_application fa
+        JOIN analytics.dim_status ds
+          ON ds.status_key = fa.status_key
+        WHERE ds.status_code = 'accepted'
+        GROUP BY job_key
+      ) accepted_counts
+        ON accepted_counts.job_key = fj.job_key
+
+      GROUP BY dc.category_name
 
       ORDER BY total_jobs DESC, avg_budget DESC
 
@@ -84,30 +131,36 @@ async function getCategoryInsights(limit = 20) {
   });
 }
 
+
+
 async function getSkillInsights(limit = 20) {
   return withDailyCache("skills", { limit }, async () => {
     const { rows } = await warehousePool.query(
       `
-      WITH skill_rows AS (
-        SELECT
-          j.id,
-          unnest(j.skills) AS skill
-        FROM jobs j
-        WHERE COALESCE(array_length(j.skills, 1), 0) > 0
-      ),
-      app_counts AS (
-        SELECT job_id, COUNT(*)::int AS application_count
-        FROM applications
-        GROUP BY job_id
-      )
       SELECT
-        skill,
+        dc.category_name AS skill,
         COUNT(*)::int AS demand_count,
-        ROUND(AVG(COALESCE(app_counts.application_count, 0))::numeric, 2) AS avg_applications_per_job,
-        COUNT(*) FILTER (WHERE COALESCE(app_counts.application_count, 0) < 5)::int AS low_competition_jobs
-      FROM skill_rows
-      LEFT JOIN app_counts ON app_counts.job_id = skill_rows.id
-      GROUP BY skill
+        ROUND(
+          AVG(
+            COALESCE(app_counts.application_count, 0)
+          )::numeric,
+          2
+        ) AS avg_applications_per_job,
+        COUNT(*) FILTER (
+          WHERE COALESCE(app_counts.application_count, 0) < 5
+        )::int AS low_competition_jobs
+      FROM analytics.fact_job fj
+      JOIN analytics.dim_category dc
+        ON dc.category_key = fj.category_key
+      LEFT JOIN (
+        SELECT
+          job_key,
+          COUNT(*)::int AS application_count
+        FROM analytics.fact_application
+        GROUP BY job_key
+      ) app_counts
+        ON app_counts.job_key = fj.job_key
+      GROUP BY dc.category_name
       ORDER BY demand_count DESC, skill ASC
       LIMIT $1
       `,
@@ -123,34 +176,60 @@ async function getSkillInsights(limit = 20) {
   });
 }
 
+/**
+ * Skills are not currently represented in the warehouse contract.
+ *
+ * IMPORTANT:
+ * Do not query public.jobs or public.silver_jobs here.
+ * Doing so would violate the warehouse-only analytics requirement.
+ */
+// async function getSkillInsights(limit = 20) {
+//   return [];
+// }
+
+/**
+ * Competitive jobs
+ *
+ * All analytical data comes from analytics.*
+ *
+ * The current warehouse fact_job does not contain:
+ *   - title
+ *   - currency
+ *
+ * Therefore title is null and currency defaults to XLM.
+ * job_id remains the stable job identifier.
+ */
+
 async function getCompetitiveJobs(limit = 20) {
   return withDailyCache("competitive", { limit }, async () => {
     const { rows } = await warehousePool.query(
       `
-      WITH app_counts AS (
-        SELECT job_id, COUNT(*)::int AS application_count
-        FROM applications
-        GROUP BY job_id
-      )
       SELECT
-        j.id,
-        j.title,
-        j.category,
-        j.budget,
-        j.currency,
-        j.client_address,
-        j.created_at,
-        COALESCE(app_counts.application_count, 0) AS application_count,
+        fj.job_id AS id,
+        dc.category_name AS category,
+        fj.budget_amount AS budget,
+        COUNT(fa.application_key)::int AS application_count,
         CASE
-          WHEN COALESCE(app_counts.application_count, 0) = 0 THEN 'uncontested'
-          WHEN COALESCE(app_counts.application_count, 0) < 3 THEN 'light'
+          WHEN COUNT(fa.application_key) = 0 THEN 'uncontested'
+          WHEN COUNT(fa.application_key) < 3 THEN 'light'
           ELSE 'active'
         END AS competition_level
-      FROM jobs j
-      LEFT JOIN app_counts ON app_counts.job_id = j.id
-      WHERE j.status = 'open'
-        AND COALESCE(app_counts.application_count, 0) < 5
-      ORDER BY application_count ASC, j.budget DESC, j.created_at DESC
+      FROM analytics.fact_job fj
+      LEFT JOIN analytics.dim_category dc
+        ON dc.category_key = fj.category_key
+      LEFT JOIN analytics.fact_application fa
+        ON fa.job_key = fj.job_key
+      JOIN analytics.dim_status ds
+        ON ds.status_key = fj.status_key
+      WHERE ds.status_code = 'open'
+      GROUP BY
+        fj.job_id,
+        dc.category_name,
+        fj.budget_amount
+      HAVING COUNT(fa.application_key) < 5
+      ORDER BY
+        application_count ASC,
+        fj.budget_amount DESC
       LIMIT $1
       `,
       [limit]
@@ -158,31 +237,44 @@ async function getCompetitiveJobs(limit = 20) {
 
     return rows.map((row) => ({
       id: row.id,
-      title: row.title,
+      title: null,
       category: row.category,
       budget: toNumber(row.budget),
-      currency: row.currency,
-      clientAddress: row.client_address,
-      createdAt: row.created_at,
+      currency: null,
+      clientAddress: null,
+      createdAt: null,
       applicationCount: toNumber(row.application_count),
       competitionLevel: row.competition_level,
     }));
   });
 }
 
+/**
+ * Historical payment/job budget trends
+ */
+
+
 async function getPayTrends(days = 30) {
   return withDailyCache("pay-trends", { days }, async () => {
     const { rows } = await warehousePool.query(
       `
       SELECT
-        DATE_TRUNC('day', created_at)::date AS date,
-        category,
-        ROUND(AVG(budget)::numeric, 7) AS avg_budget,
+        dd.full_date AS date,
+        dc.category_name AS category,
+        ROUND(AVG(fj.budget_amount)::numeric, 7) AS avg_budget,
         COUNT(*)::int AS job_count
-      FROM jobs
-      WHERE created_at >= NOW() - ($1 || ' days')::interval
-      GROUP BY DATE_TRUNC('day', created_at), category
-      ORDER BY date ASC, category ASC
+      FROM analytics.fact_job fj
+      JOIN analytics.dim_date dd
+        ON dd.date_key = fj.created_date_key
+      LEFT JOIN analytics.dim_category dc
+        ON dc.category_key = fj.category_key
+      WHERE dd.full_date >= CURRENT_DATE - $1::integer
+      GROUP BY
+        dd.full_date,
+        dc.category_name
+      ORDER BY
+        dd.full_date ASC,
+        dc.category_name ASC
       `,
       [days]
     );
@@ -196,24 +288,40 @@ async function getPayTrends(days = 30) {
   });
 }
 
+/**
+ * Client retention / mix.
+ *
+ * First job date is calculated from fact_job.
+ */
 async function getClientMix() {
   return withDailyCache("client-mix", {}, async () => {
-    const { rows } = await warehousePool.query(
-      `
-      WITH first_posts AS (
-        SELECT client_address, MIN(created_at) AS first_post_at
-        FROM jobs
-        GROUP BY client_address
-      )
+    const { rows } = await warehousePool.query(`
       SELECT
-        COUNT(*) FILTER (WHERE first_post_at >= NOW() - INTERVAL '30 days')::int AS new_clients,
-        COUNT(*) FILTER (WHERE first_post_at < NOW() - INTERVAL '30 days')::int AS returning_clients,
+        COUNT(*) FILTER (
+          WHERE d.full_date >= CURRENT_DATE - INTERVAL '30 days'
+        )::int AS new_clients,
+
+        COUNT(*) FILTER (
+          WHERE d.full_date < CURRENT_DATE - INTERVAL '30 days'
+        )::int AS returning_clients,
+
         COUNT(*)::int AS total_clients
-      FROM first_posts
-      `
-    );
+
+      FROM (
+        SELECT
+          client_key,
+          MIN(created_date_key) AS first_post_date_key
+        FROM analytics.fact_job
+        WHERE client_key IS NOT NULL
+        GROUP BY client_key
+      ) first_posts
+
+      JOIN analytics.dim_date d
+        ON d.date_key = first_posts.first_post_date_key
+    `);
 
     const row = rows[0] || {};
+
     return {
       newClients: toNumber(row.new_clients),
       returningClients: toNumber(row.returning_clients),
@@ -228,4 +336,7 @@ module.exports = {
   getCompetitiveJobs,
   getPayTrends,
   getClientMix,
+  
 };
+
+
