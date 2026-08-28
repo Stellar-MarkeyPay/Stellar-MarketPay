@@ -7,7 +7,7 @@ import Head from "next/head";
 import JobCard from "@/components/JobCard";
 import { fetchJobs } from "@/lib/api";
 import { JOB_CATEGORIES, categoryToSlug, slugToCategory, CATEGORY_ICONS } from "@/utils/format";
-import type { Job } from "@/utils/types";
+import type { Job } from "@marketpay/shared-types";
 import Link from "next/link";
 
 interface CategoryPageProps {

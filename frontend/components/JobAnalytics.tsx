@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { fetchJobAnalytics, extendJobExpiry } from "@/lib/api";
-import { Job, JobAnalytics } from "@/utils/types";
+import { Job, JobAnalytics } from "@marketpay/shared-types";
 import JobCompletionPredictionPanel from "@/components/JobCompletionPrediction";
 import clsx from "clsx";
 

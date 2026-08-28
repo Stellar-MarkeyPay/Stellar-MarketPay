@@ -7,17 +7,25 @@
   "extends": ["eslint:recommended"],
   "parserOptions": {
     "ecmaVersion": "latest",
-    "sourceType": "script"
+    "sourceType": "module"
   },
   "overrides": [
     {
-      "files": ["src/services/store.js", "src/middleware/rateLimiter.js"],
+      "files": ["**/*.ts", "**/*.tsx"],
+      "parser": "@babel/eslint-parser",
       "parserOptions": {
-        "sourceType": "module"
+        "requireConfigFile": false,
+        "babelOptions": {
+          "presets": ["@babel/preset-typescript"]
+        }
+      },
+      "rules": {
+        "no-undef": "off",
+        "no-unused-vars": "off"
       }
     },
     {
-      "files": ["**/*.test.js", "**/*.test.*.js"],
+      "files": ["**/*.test.ts", "**/*.test.js", "**/*.test.*.js"],
       "env": {
         "jest": true
       }

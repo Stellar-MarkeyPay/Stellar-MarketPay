@@ -16,7 +16,7 @@ import type {
   ReferralReferee,
   ReferralPayout,
   ReferralTreeNode,
-} from "@/utils/types";
+} from "@marketpay/shared-types";
 import { shortenAddress, copyToClipboard } from "@/utils/format";
 import clsx from "clsx";
 

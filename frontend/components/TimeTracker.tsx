@@ -13,7 +13,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import type { TimeEntry, TimeInvoice } from "@/utils/types";
+import type { TimeEntry, TimeInvoice } from "@marketpay/shared-types";
 import {
   logTimeEntry,
   fetchTimeEntries,

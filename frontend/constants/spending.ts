@@ -1,4 +1,4 @@
-import type { ClientSpendingAnalytics } from "@/utils/types";
+import type { ClientSpendingAnalytics } from "@marketpay/shared-types";
 
 export const SPENDING_STATUS_ORDER: Array<keyof ClientSpendingAnalytics["jobsBreakdown"]> = [
   "completed",

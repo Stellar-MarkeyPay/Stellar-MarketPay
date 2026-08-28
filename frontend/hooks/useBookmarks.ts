@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { fetchJob } from "@/lib/api";
-import type { Job } from "@/utils/types";
+import type { Job } from "@marketpay/shared-types";
 
 const BOOKMARKS_KEY = "bookmarkedJobs";
 
