@@ -48,12 +48,12 @@ chore(ci): upgrade workflow actions
 To use an interactive commit prompt:
 
 ```bash
-npm run commit
+pnpm commit
 ```
 
 Local Git hooks validate staged-index snapshots on `pre-commit`, run `commitlint` on ordinary
 messages, and execute only affected project suites on `pre-push`. Diagnose setup with
-`npm run hooks:doctor`.
+`pnpm hooks:doctor`.
 
 > For complete hook guidelines, escape hatch documentation (`--no-verify`), and benchmark details, see [docs/GIT_HOOKS_AND_COMMITS.md](./docs/GIT_HOOKS_AND_COMMITS.md).
 
@@ -75,8 +75,8 @@ locally and an error in CI, but it is never _detected_ differently — so
 is enforced.
 
 ```bash
-npm run policy:check      # what the hooks will say about this branch
-npm run policy:ci         # what CI will say about it
+pnpm policy:check      # what the hooks will say about this branch
+pnpm policy:ci         # what CI will say about it
 ```
 
 Findings name the file, the rule and the fix. If one does not, that is a
@@ -90,7 +90,7 @@ in general, argue with the **Why** paragraph in the catalogue and change it.
 ### Signing your commits
 
 ```bash
-npm run policy:signing-setup
+pnpm policy:signing-setup
 ```
 
 One-time enrolment; see [docs/COMMIT_SIGNING.md](./docs/COMMIT_SIGNING.md).
@@ -112,11 +112,11 @@ contributors have enrolled.
 - [ ] Tested locally on Testnet
 - [ ] No TypeScript / Rust errors
 - [ ] New/updated components include Storybook stories (`*.stories.tsx`) covering default, loading, error, and overflow states
-- [ ] Storybook builds cleanly (`npm run build-storybook`) and passes a11y tests (`npm run test:a11y`)
+- [ ] Storybook builds cleanly (`pnpm --filter frontend build-storybook`) and passes a11y tests (`pnpm --filter frontend test:a11y`)
 - [ ] Uses documented design tokens ([docs/design-tokens.md](./docs/design-tokens.md)) rather than ad-hoc arbitrary values
 - [ ] Documentation updated if needed
 - [ ] No breaking changes (or clearly documented)
-- [ ] `npm run policy:ci` is clean — or every remaining finding is explained in the PR body
+- [ ] `pnpm policy:ci` is clean — or every remaining finding is explained in the PR body
 - [ ] A change to `Escrow`, `DataKey` or another stored type carries a `Storage-Compat:` commit trailer
 
 ---
@@ -140,16 +140,16 @@ All frontend UI components live under `frontend/components/` and are developed i
 
 ```bash
 # Start local Storybook environment
-npm run storybook
+pnpm --filter frontend storybook
 
 # Build static Storybook bundle for review
-npm run build-storybook
+pnpm --filter frontend build-storybook
 
 # Run automated accessibility checks
-npm run test:a11y
+pnpm --filter frontend test:a11y
 
 # Run visual regression tests
-npm run test:visual
+pnpm --filter frontend test:visual
 ```
 
 ## 📁 Project Structure
@@ -215,23 +215,21 @@ unconfirmed — rather than inventing a plausible-sounding rationale.
 Component snapshots live under `frontend/__tests__/` and cover `JobCard`, `JobCardSkeleton`, `RatingForm`, `Toast`, `FreelancerTierBadge`, and `Navbar`.
 
 ```bash
-cd frontend
-npm test
+pnpm --filter frontend test
 ```
 
 When you intentionally change UI markup, regenerate snapshots:
 
 ```bash
-npm run test:update-snapshots
+pnpm --filter frontend test:update-snapshots
 ```
 
-CI runs `npm test` without `-u`, so outdated snapshots fail the build.
+CI runs `pnpm --filter frontend test` without `-u`, so outdated snapshots fail the build.
 
 ### Backend coverage
 
 ```bash
-cd backend
-npm test
+pnpm --filter backend test
 ```
 
 Coverage HTML is written to `backend/coverage/`. Thresholds are enforced in `backend/package.json` (minimum 60% lines, 50% branches on covered middleware and service modules). The full suite in `src/services/*.test.js` still runs on every `npm test`.
@@ -239,8 +237,7 @@ Coverage HTML is written to `backend/coverage/`. Thresholds are enforced in `bac
 ### End-to-end tests
 
 ```bash
-cd frontend
-npm run test:e2e
+pnpm --filter frontend test:e2e
 ```
 
 `tests/e2e/full-marketplace-flow.spec.ts` exercises the full client and freelancer journey with two mock Freighter accounts and `NEXT_PUBLIC_USE_CONTRACT_MOCK=true` (no testnet required).

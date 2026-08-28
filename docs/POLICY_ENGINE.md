@@ -85,7 +85,7 @@ Four things are enforced, each by a test in `policy/tests/parity.test.js`:
 Run them:
 
 ```bash
-npm run policy:test
+pnpm policy:test
 ```
 
 ## Stages
@@ -150,8 +150,8 @@ _silent_: editing one means regenerating the manifest, which puts the new
 digest in the diff a reviewer reads.
 
 ```bash
-npm run policy:integrity              # verify
-npm run policy:integrity -- --write   # record, after an intended change
+pnpm policy:integrity              # verify
+pnpm policy:integrity -- --write   # record, after an intended change
 ```
 
 ## Introducing a rule without a wall of failures
@@ -160,7 +160,7 @@ A policy system that arrives as a hundred red builds gets reverted. Every rule
 here was measured against real history before its severity was chosen:
 
 ```bash
-npm run policy:measure          # last 150 non-merge commits, per-rule hit rate
+pnpm policy:measure          # last 150 non-merge commits, per-rule hit rate
 ```
 
 The output is a table of "would have fired on N of 150 commits", and it is
@@ -194,8 +194,8 @@ node policy/cli.js check --stage ci --source range --base auto --dry-run
 5. Regenerate the derived files:
 
    ```bash
-   npm run policy:catalogue -- --write
-   npm run policy:integrity -- --write
+   pnpm policy:catalogue -- --write
+   pnpm policy:integrity -- --write
    ```
 
 ## Trade-offs worth knowing about

@@ -16,7 +16,11 @@
     "types": ["node", "react", "react-dom"],
     "plugins": [{ "name": "next" }],
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./*"],
+      "@marketpay/types": ["../../packages/types/src"],
+      "@marketpay/validation": ["../../packages/validation/src"],
+      "@marketpay/api-client": ["../../packages/api-client/src"],
+      "@marketpay/utils": ["../../packages/utils/src"]
     }
   },
   "include": [

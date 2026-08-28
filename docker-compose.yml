@@ -17,7 +17,7 @@ services:
       - /app/.next
     depends_on:
       - backend
-    command: npm run dev
+    command: pnpm run dev
 
   redis:
     image: redis:7-alpine
@@ -48,7 +48,7 @@ services:
       - /app/node_modules
     depends_on:
       - redis
-    command: npm run dev
+    command: pnpm run dev
 
   postgres:
     image: postgres:16-alpine

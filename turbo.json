@@ -1,0 +1,88 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "globalDependencies": ["**/.env.*local", "pnpm-lock.yaml"],
+  "globalEnv": [
+    "NODE_ENV",
+    "NEXT_PUBLIC_STELLAR_NETWORK",
+    "NEXT_PUBLIC_HORIZON_URL",
+    "NEXT_PUBLIC_API_URL",
+    "NEXT_PUBLIC_USE_CONTRACT_MOCK",
+    "NEXT_PUBLIC_CONTRACT_ID",
+    "STELLAR_NETWORK",
+    "HORIZON_URL",
+    "CONTRACT_ID",
+    "ESCROW_CONTRACT_ID",
+    "DATABASE_URL",
+    "REDIS_URL",
+    "JWT_SECRET",
+    "SKIP_API_CALLS",
+    "TURBO_TOKEN",
+    "TURBO_TEAM"
+  ],
+  "pipeline": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": [
+        "dist/**",
+        ".next/**",
+        "storybook-static/**",
+        "target/**",
+        "coverage/**"
+      ],
+      "cache": true
+    },
+    "test": {
+      "dependsOn": ["^build"],
+      "outputs": [
+        "coverage/**",
+        "test-results/**",
+        "playwright-report/**"
+      ],
+      "cache": true
+    },
+    "test:fast": {
+      "dependsOn": ["^build"],
+      "cache": true
+    },
+    "test:frontend": {
+      "dependsOn": ["^build"],
+      "cache": true
+    },
+    "test:backend": {
+      "dependsOn": ["^build"],
+      "cache": true
+    },
+    "test:contracts": {
+      "dependsOn": [],
+      "cache": true
+    },
+    "lint": {
+      "dependsOn": ["^build"],
+      "outputs": [],
+      "cache": true
+    },
+    "lint:fix": {
+      "dependsOn": ["^build"],
+      "outputs": [],
+      "cache": true
+    },
+    "type-check": {
+      "dependsOn": ["^build"],
+      "outputs": [],
+      "cache": true
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "clean": {
+      "cache": false
+    },
+    "migrate": {
+      "cache": false
+    }
+  },
+  "remoteCache": {
+    "signature": true
+  }
+}

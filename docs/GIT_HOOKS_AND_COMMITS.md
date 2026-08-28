@@ -9,14 +9,14 @@ isolation, project routing, caching, lifecycle handling, and timing. It delibera
 Install the root tools and the dependency trees you plan to edit:
 
 ```bash
-npm ci
-npm --prefix frontend ci
-npm --prefix backend ci
-npm run hooks:doctor
+pnpm install
+pnpm --filter frontend install
+pnpm --filter backend install
+pnpm hooks:doctor
 ```
 
-`npm ci --ignore-scripts` skips Husky's `prepare` lifecycle. The checkout then looks healthy but
-has no active hooks. `npm run hooks:doctor` reports this case, a missing generated Husky runtime,
+`pnpm install --ignore-scripts` skips Husky's `prepare` lifecycle. The checkout then looks healthy but
+has no active hooks. `pnpm hooks:doctor` reports this case, a missing generated Husky runtime,
 CRLF or non-executable hook files, missing per-project tools, and a `core.hooksPath` claimed by
 another hook manager. It prints a command for each repair.
 
@@ -190,7 +190,7 @@ Ordinary commit messages use:
 ```
 
 Supported types are `build`, `ci`, `chore`, `docs`, `feat`, `fix`, `perf`, `refactor`, `revert`,
-`style`, and `test`. Run `npm run commit` for the interactive prompt.
+`style`, and `test`. Run `pnpm commit` for the interactive prompt.
 
 ## Portability and direct commands
 
@@ -200,10 +200,10 @@ cache invalidation, generated messages, the two-second budget, and SIGINT work p
 POSIX signals are available.
 
 ```bash
-npm run hooks:pre-commit
-npm run hooks:pre-push
-npm run hooks:doctor
-npm run test:hooks
+pnpm hooks:pre-commit
+pnpm hooks:pre-push
+pnpm hooks:doctor
+pnpm test:hooks
 ```
 
 Git's `--no-verify` remains available for exceptional operational use. Server-side CI independently

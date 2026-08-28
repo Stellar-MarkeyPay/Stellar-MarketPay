@@ -5,30 +5,24 @@ on:
     branches: [main, develop]
   pull_request:
     branches: [main]
-  # Required checks must also report inside the merge queue, or a queued
-  # entry never satisfies branch protection and the queue stalls.
   merge_group:
 
 jobs:
   frontend:
     name: Frontend (Next.js)
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: frontend
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.0
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
-          cache: "npm"
-          cache-dependency-path: frontend/package-lock.json
-      - run: npm ci
-      - run: npm test
-      - run: npm run test:a11y
-      - run: npm run type-check
-      - run: npm run lint
-      - run: npm run build
+          cache: "pnpm"
+          cache-dependency-path: pnpm-lock.yaml
+      - run: corepack enable && pnpm install --frozen-lockfile
+      - run: pnpm turbo run test:frontend build --continue --filter=frontend...
         env:
           NEXT_PUBLIC_STELLAR_NETWORK: testnet
           NEXT_PUBLIC_HORIZON_URL: https://horizon-testnet.stellar.org
@@ -36,21 +30,21 @@ jobs:
           NEXT_PUBLIC_USE_CONTRACT_MOCK: "true"
           NEXT_PUBLIC_CONTRACT_ID: "CMOCKCONTRACTID"
           SKIP_API_CALLS: "true"
-      - run: npm run build-storybook
+      - run: pnpm --filter frontend run build-storybook
       - uses: actions/upload-artifact@v4
         with:
           name: storybook-static
           path: frontend/storybook-static/
           retention-days: 7
       - run: npx playwright install --with-deps chromium
-      - run: npm run test:e2e
+      - run: pnpm --filter frontend run test:e2e
         env:
           NEXT_PUBLIC_STELLAR_NETWORK: testnet
           NEXT_PUBLIC_HORIZON_URL: https://horizon-testnet.stellar.org
           NEXT_PUBLIC_API_URL: http://localhost:4000
           NEXT_PUBLIC_USE_CONTRACT_MOCK: "true"
           NEXT_PUBLIC_CONTRACT_ID: CMOCKCONTRACTID
-      - run: npm run test:visual
+      - run: pnpm --filter frontend run test:visual
         env:
           NEXT_PUBLIC_STELLAR_NETWORK: testnet
           NEXT_PUBLIC_HORIZON_URL: https://horizon-testnet.stellar.org
@@ -67,9 +61,6 @@ jobs:
   backend:
     name: Backend (Node.js)
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: backend
     services:
       postgres:
         image: postgres:16-alpine
@@ -96,28 +87,28 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          # Schema compatibility is checked against the pull request base.
           fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.0
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
-          cache: "npm"
-          cache-dependency-path: backend/package-lock.json
-      - run: npm ci
+          cache: "pnpm"
+          cache-dependency-path: pnpm-lock.yaml
+      - run: corepack enable && pnpm install --frozen-lockfile
       - name: Check GraphQL schema registry snapshot
-        run: npm run graphql:schema:check
+        run: pnpm --filter backend run graphql:schema:check
       - name: Reject breaking GraphQL schema changes
         if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
         env:
           GRAPHQL_SCHEMA_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
-        run: npm run graphql:schema:breaking -- --base "$GRAPHQL_SCHEMA_BASE_SHA"
-      - run: npm test
+        run: pnpm --filter backend run graphql:schema:breaking -- --base "$GRAPHQL_SCHEMA_BASE_SHA"
+      - run: pnpm turbo run test:backend build --continue --filter=backend...
         env:
           DATABASE_URL: postgresql://test:test@localhost:5432/marketpay_test
           JWT_SECRET: ci-test-jwt-secret-with-sufficient-length
           REDIS_URL: redis://localhost:6379
-      - run: npm run lint
-      - run: npm run build
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -149,13 +140,7 @@ jobs:
             target
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
       - run: cargo check --target wasm32-unknown-unknown
-      # Runs the unit tests in `src/lib.rs` and the verification suites in
-      # `tests/` — differential, regressions and invariant fuzzing. See
-      # docs/VERIFICATION.md.
       - run: cargo test --features std
-      # `--all-targets --features std` rather than the bare invocation: without
-      # it clippy only sees the library, and the eleven lints living in the
-      # test code never failed the build.
       - run: cargo clippy --all-targets --features std -- -D warnings
       - run: cargo install cargo-audit --locked
       - run: cargo audit --ignore RUSTSEC-2020-0071
