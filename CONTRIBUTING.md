@@ -108,6 +108,23 @@ npm run test:a11y
 npm run test:visual
 ```
 
+### Accessibility Testing Guide
+
+When developing new frontend components or changing existing ones, you are expected to test them for accessibility.
+
+**1. Keyboard Testing:**
+- Use the `Tab` key to navigate through all interactive elements. Ensure the focus indicator is always visible.
+- Ensure that the navigation order is logical and follows the visual layout (typically left-to-right, top-to-bottom).
+- Use `Enter` or `Space` to activate buttons, links, and form controls.
+- Use `Escape` to close modals, popovers, and dropdown menus.
+- Verify that there are no "keyboard traps" where a user gets stuck and cannot focus out of an element.
+
+**2. Screen Reader Testing:**
+- Use a screen reader like **VoiceOver** (macOS), **NVDA** (Windows), or **JAWS** (Windows) to navigate the component.
+- Ensure that dynamic changes in the UI (like loading states, form validations, or toast notifications) are announced via `aria-live` regions.
+- Check that interactive elements have meaningful labels. If a button only has an icon, it must have an `aria-label`.
+- Verify that structural elements (like headings and landmarks) are correctly interpreted by the screen reader.
+
 ## 📁 Project Structure
 
 ```
