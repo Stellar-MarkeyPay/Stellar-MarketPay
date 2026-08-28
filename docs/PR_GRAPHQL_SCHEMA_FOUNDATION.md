@@ -31,14 +31,14 @@ required by the issue's migration plan. Existing REST behaviour is unchanged.
 
 ## Validation
 
-- `npm run graphql:schema:check`
-- `npm run graphql:schema:breaking -- --base upstream/main`
+- `pnpm --filter backend run graphql:schema:check`
+- `pnpm --filter backend run graphql:schema:breaking -- --base upstream/main`
 - `npx jest src/graphql --runInBand --coverage=false`
-- `npm run lint`
-- `npm run build`
-- root `npm run format:check`
-- root `npm run policy:test`
-- root `npm run policy:integrity`
+- `pnpm lint`
+- `pnpm build`
+- root `pnpm format:check`
+- root `pnpm policy:test`
+- root `pnpm policy:integrity`
 - full backend test suite with PostgreSQL 16 and Redis 7
 
 ## Issue

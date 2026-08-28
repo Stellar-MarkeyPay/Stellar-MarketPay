@@ -25,9 +25,9 @@ The design and migration plan are recorded in
 Run these commands from `backend/`:
 
 ```bash
-npm run graphql:schema:write
-npm run graphql:schema:check
-npm run graphql:schema:breaking -- --base upstream/main
+pnpm --filter backend run graphql:schema:write
+pnpm --filter backend run graphql:schema:check
+pnpm --filter backend run graphql:schema:breaking -- --base upstream/main
 ```
 
 The first command regenerates the committed snapshot. The second fails when

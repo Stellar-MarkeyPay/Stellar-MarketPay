@@ -147,14 +147,14 @@ Closes #<!-- add issue number -->
 Validation completed locally against the latest upstream `main` on August 28,
 2026:
 
-- `npm run format:check`
-- `npm run lint`
-- `npm run type-check`
-- `cd backend && npm run build`
+- `pnpm format:check`
+- `pnpm lint`
+- `pnpm type-check`
+- `pnpm --filter backend build`
   - 257 unique API paths
   - 286 HTTP methods
   - all routes documented
-- `cd backend && npm test`
+- `pnpm --filter backend test`
   - 62 suites passed
   - 560 tests passed
 - Complete frontend CI sequence:

@@ -1,7 +1,7 @@
 FROM node:20-alpine AS deps
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci
+RUN corepack enable && pnpm install --frozen-lockfile
 
 FROM node:20-alpine AS builder
 WORKDIR /app
@@ -25,8 +25,7 @@ ENV NEXT_PUBLIC_USE_CONTRACT_MOCK=${NEXT_PUBLIC_USE_CONTRACT_MOCK}
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN npm run build
-RUN npm prune --omit=dev
+RUN pnpm run build
 
 FROM node:20-alpine AS runner
 WORKDIR /app
@@ -41,4 +40,4 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/next.config.mjs ./next.config.mjs
 
 EXPOSE 3000
-CMD ["npm", "run", "start"]
+CMD ["pnpm", "run", "start"]

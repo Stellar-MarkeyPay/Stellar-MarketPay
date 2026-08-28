@@ -1122,4 +1122,108 @@ router.get("/:jobId", escrowActionRateLimiter, async (req, res, next) => {
   }
 });
 
+router.post("/:jobId/bridge-deposit", async (req, res, next) => {
+  try {
+    const { jobId } = req.params;
+    const {
+      clientAddress,
+      amount,
+      sourceChainId,
+      evmTxHash,
+      logIndex,
+      proof,
+      recipient,
+    } = req.body;
+
+    if (!jobId) {
+      const e = new Error("Missing jobId");
+      e.status = 400;
+      throw e;
+    }
+
+    if (!amount || Number(amount) <= 0) {
+      const e = new Error("Invalid deposit amount");
+      e.status = 400;
+      throw e;
+    }
+
+    if (!evmTxHash) {
+      const e = new Error("Missing EVM transaction hash");
+      e.status = 400;
+      throw e;
+    }
+
+    if (!recipient) {
+      const e = new Error("Missing recipient address");
+      e.status = 400;
+      throw e;
+    }
+
+    const job = await getJob(jobId);
+    if (job.clientAddress !== clientAddress) {
+      const e = new Error("Only the job client can create a bridge deposit escrow");
+      e.status = 403;
+      throw e;
+    }
+
+    const { rows: existing } = await pool.query(
+      `SELECT id FROM bridge_transfers WHERE nonce = $1`,
+      [`${evmTxHash}:${logIndex ?? 0}`]
+    );
+    if (existing.length > 0) {
+      return res.json({
+        success: true,
+        message: "Bridge deposit already recorded",
+        transferId: existing[0].id,
+      });
+    }
+
+    const client = getEscrowContractClient();
+    const tx = await client.invoke("register_bridge_deposit", {
+      user: recipient,
+      amount: String(amount),
+      nonce: `${evmTxHash}:${logIndex ?? 0}`,
+      evm_tx_hash: evmTxHash,
+      proof: proof ?? "",
+    });
+
+    const simulation = await tx.simulate();
+    const result = simulation.result?.decoded ?? simulation.result;
+
+    const { rows: insertRows } = await pool.query(
+      `INSERT INTO bridge_transfers
+         (source_chain, target_chain, transfer_type, nonce, amount, sender, recipient, status, tx_hash, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
+       RETURNING id`,
+      [
+        sourceChainId ?? "evm",
+        "stellar",
+        "evm_to_soroban",
+        `${evmTxHash}:${logIndex ?? 0}`,
+        String(amount),
+        clientAddress,
+        recipient,
+        "completed",
+        result?.txHash ?? evmTxHash,
+      ]
+    );
+
+    await logContractInteraction({
+      functionName: "bridge_deposit",
+      callerAddress: clientAddress,
+      jobId,
+      txHash: evmTxHash,
+    });
+
+    res.json({
+      success: true,
+      message: "Bridge deposit escrow created",
+      transferId: insertRows[0].id,
+      result,
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
 module.exports = router;

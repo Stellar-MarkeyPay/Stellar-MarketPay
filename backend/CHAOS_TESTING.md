@@ -20,9 +20,8 @@ This document describes the comprehensive chaos engineering test suite implement
 ### Run Chaos Tests Locally
 
 ```bash
-cd backend
-npm install
-npm run test:chaos
+pnpm install
+pnpm --filter backend run test:chaos
 ```
 
 ### Run in CI/CD
@@ -169,16 +168,16 @@ These are the baseline metrics defining acceptable system behavior:
 
 ```bash
 # Run all chaos tests
-npm run test:chaos
+pnpm --filter backend run test:chaos
 
 # Run with verbose output
-npm test -- tests/chaos.test.js --verbose
+pnpm --filter backend run test -- tests/chaos.test.js --verbose
 
 # Run specific test suite
-npm test -- tests/chaos.test.js --testNamePattern="Database Resilience"
+pnpm --filter backend run test -- tests/chaos.test.js --testNamePattern="Database Resilience"
 
 # Run with coverage report
-npm test -- tests/chaos.test.js --coverage
+pnpm --filter backend run test -- tests/chaos.test.js --coverage
 ```
 
 ### CI/CD Pipeline
@@ -418,13 +417,13 @@ function logFailure(context, error, metrics) {
 
 ```bash
 # Test complete database failure
-npm run test:chaos -- --scenario database_complete_failure
+pnpm --filter backend run test:chaos -- --scenario database_complete_failure
 
 # Test cascading failure
-npm run test:chaos -- --scenario cascading_failure
+pnpm --filter backend run test:chaos -- --scenario cascading_failure
 
 # Test slow database response
-npm run test:chaos -- --scenario database_degradation
+pnpm --filter backend run test:chaos -- --scenario database_degradation
 ```
 
 ## Implementation Guide

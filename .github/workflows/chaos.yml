@@ -12,9 +12,6 @@ jobs:
   chaos-tests:
     name: Backend Chaos Tests
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: backend
     services:
       postgres:
         image: postgres:16-alpine
@@ -33,13 +30,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.0
+
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
-          cache: "npm"
-          cache-dependency-path: backend/package-lock.json
+          cache: "pnpm"
+          cache-dependency-path: pnpm-lock.yaml
 
-      - run: npm ci
+      - run: corepack enable && pnpm install --frozen-lockfile
 
       - name: Wait for PostgreSQL to be ready
         shell: bash
@@ -58,6 +59,8 @@ jobs:
           exit 1
 
       - name: Reset database
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/postgres
         run: |
           node -e "
           const { Pool } = require('pg');
@@ -90,17 +93,17 @@ jobs:
         env:
           DATABASE_URL: postgresql://test:test@localhost:5432/marketpay_test
           JWT_SECRET: chaos-test-jwt-secret-with-sufficient-length
-        run: npm run migrate
+        run: pnpm --filter backend run migrate
 
       - name: Run chaos engineering tests
         env:
           DATABASE_URL: postgresql://test:test@localhost:5432/marketpay_test
           JWT_SECRET: chaos-test-jwt-secret-with-sufficient-length
           NODE_ENV: test
-        run: npm run test:chaos
+        run: pnpm --filter backend run test:chaos
 
       - name: Run lint checks
-        run: npm run lint
+        run: pnpm --filter backend run lint
 
       - name: Log chaos test completion
         if: always()

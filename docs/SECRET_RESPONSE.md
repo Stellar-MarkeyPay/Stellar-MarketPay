@@ -104,7 +104,7 @@ pattern.
 ```bash
 node policy/cli.js scan-history              # every commit, every branch
 node policy/cli.js scan-history --depth 200  # recent history only
-npm run policy:check                         # the current branch
+pnpm policy:check                         # the current branch
 ```
 
 The scheduled scan runs Mondays at 03:00 UTC and can be triggered from the

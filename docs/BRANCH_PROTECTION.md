@@ -106,7 +106,7 @@ an escrow incident, it is too long.
 Monthly, or after any incident:
 
 ```bash
-npm run policy:overrides          # expired and never-matched exceptions
+pnpm policy:overrides          # expired and never-matched exceptions
 gh api /orgs/<org>/audit-log --method GET -f phrase='action:protected_branch'
 ```
 

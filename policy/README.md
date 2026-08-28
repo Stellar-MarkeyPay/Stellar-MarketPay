@@ -14,13 +14,13 @@ required CI check.
 | `tests/`                 | Both outcomes for every rule, plus the parity suite.                                      |
 
 ```bash
-npm run policy:check          # this branch, pre-push severities
-npm run policy:ci             # this branch, CI severities
-npm run policy:test           # rule tests + parity suite
-npm run policy:measure        # how often each rule would fire, over history
-npm run policy:overrides      # audit the exception list
-npm run policy:integrity      # verify hook and engine digests
-npm run policy:catalogue -- --write   # regenerate docs/POLICY_CATALOGUE.md
+pnpm policy:check          # this branch, pre-push severities
+pnpm policy:ci             # this branch, CI severities
+pnpm policy:test           # rule tests + parity suite
+pnpm policy:measure        # how often each rule would fire, over history
+pnpm policy:overrides      # audit the exception list
+pnpm policy:integrity      # verify hook and engine digests
+pnpm policy:catalogue -- --write   # regenerate docs/POLICY_CATALOGUE.md
 ```
 
 Documentation:
