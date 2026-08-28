@@ -8,7 +8,7 @@
 import { useState, useEffect, useRef, useCallback, type FormEvent } from "react";
 import { fetchMessages, sendMessage, attachMessageTxHash } from "@/lib/api";
 import { publishMessageOnChain } from "@/lib/stellar";
-import type { Message } from "@/utils/types";
+import type { Message } from "@marketpay/shared-types";
 import { shortenAddress, timeAgo } from "@/utils/format";
 import clsx from "clsx";
 

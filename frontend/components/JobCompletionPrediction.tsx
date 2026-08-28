@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import type { JobCompletionPrediction } from "@/utils/types";
+import type { JobCompletionPrediction } from "@marketpay/shared-types";
 
 interface JobCompletionPredictionProps {
   prediction: JobCompletionPrediction;

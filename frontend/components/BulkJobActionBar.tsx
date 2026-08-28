@@ -7,7 +7,7 @@
  */
 import { useState } from "react";
 import clsx from "clsx";
-import type { BulkActionResponse } from "@/utils/types";
+import type { BulkActionResponse } from "@marketpay/shared-types";
 
 interface BulkJobActionBarProps {
   selectedCount: number;

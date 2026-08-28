@@ -4,7 +4,7 @@
  * Helpers for persisting last-viewed jobs to localStorage so the offline
  * fallback page can display them without a network connection.
  */
-import type { Job } from "@/utils/types";
+import type { Job } from "@marketpay/shared-types";
 
 export const LAST_VIEWED_KEY = "marketpay_last_viewed_jobs";
 const MAX_STORED = 10;

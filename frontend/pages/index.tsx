@@ -8,7 +8,7 @@ import type { GetStaticProps } from "next";
 import WalletConnect from "@/components/WalletConnect";
 import { fetchRecentlyCompletedJobs } from "@/lib/api";
 import { formatXLM } from "@/utils/format";
-import type { Job } from "@/utils/types";
+import type { Job } from "@marketpay/shared-types";
 import useCountUp from "@/hooks/useCountUp";
 
 // Category → emoji icon mapping for compact cards

@@ -37,7 +37,7 @@ import type {
   SkillBadge,
   SkillEndorsement,
   UserProfile,
-} from "@/utils/types";
+} from "@marketpay/shared-types";
 
 type LoadState =
   | { status: "loading" }

@@ -25,7 +25,7 @@ import type {
   NotificationItem,
   ProfileStats,
   ResponseTime,
-} from "@/utils/types";
+} from "@marketpay/shared-types";
 
 const api = axios.create({
   baseURL: optionalClientEnv("NEXT_PUBLIC_API_URL", "http://localhost:4000"),
@@ -1723,10 +1723,10 @@ export async function registerReferral(
  */
 export async function fetchReferralTree(
   publicKey: string
-): Promise<import("@/utils/types").ReferralTreeNode> {
+): Promise<import("@marketpay/shared-types").ReferralTreeNode> {
   const { data } = await api.get<{
     success: boolean;
-    data: import("@/utils/types").ReferralTreeNode;
+    data: import("@marketpay/shared-types").ReferralTreeNode;
   }>(`/api/referrals/${encodeURIComponent(publicKey)}/tree`);
   return data.data;
 }

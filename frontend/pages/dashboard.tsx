@@ -39,7 +39,7 @@ import {
   exportJobsToCSV,
   exportApplicationsToCSV,
 } from "@/utils/format";
-import type { Job, Application, ClientSpendingAnalytics, JobInvitation } from "@/utils/types";
+import type { Job, Application, ClientSpendingAnalytics, JobInvitation } from "@marketpay/shared-types";
 import EditProfileForm from "@/components/EditProfileForm";
 import SendPaymentForm from "@/components/SendPaymentForm";
 import BuyXLMModal from "@/components/BuyXLMModal";

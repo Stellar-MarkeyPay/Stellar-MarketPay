@@ -5,7 +5,7 @@
 import { useState } from "react";
 import { extendJobExpiry } from "@/lib/api";
 import { formatXLM } from "@/utils/format";
-import type { Job } from "@/utils/types";
+import type { Job } from "@marketpay/shared-types";
 
 const EXTENSION_OPTIONS = [
   { days: 7, feeXlm: 0.5, label: "7 days — 0.5 XLM" },

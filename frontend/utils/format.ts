@@ -6,7 +6,7 @@
 import { format, formatDistanceToNow } from "date-fns";
 import { enUS, es, fr, pt } from "date-fns/locale";
 import i18next from "../lib/i18n";
-import type { Application, Availability, AvailabilityStatus, Job, JobStatus } from "./types";
+import type { Application, Availability, AvailabilityStatus, Job, JobStatus } from "@marketpay/shared-types";
 
 function getDateLocale() {
   const lng = i18next?.language?.split("-")[0] || "en";

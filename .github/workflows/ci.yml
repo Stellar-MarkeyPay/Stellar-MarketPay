@@ -116,6 +116,7 @@ jobs:
           DATABASE_URL: postgresql://test:test@localhost:5432/marketpay_test
           JWT_SECRET: ci-test-jwt-secret-with-sufficient-length
           REDIS_URL: redis://localhost:6379
+      - run: npm run type-check
       - run: npm run lint
       - run: npm run build
       - uses: actions/upload-artifact@v4

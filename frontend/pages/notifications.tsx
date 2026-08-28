@@ -4,7 +4,7 @@ import { useRouter } from "next/router";
 import clsx from "clsx";
 import { fetchNotifications, markAllNotificationsRead, markNotificationRead } from "@/lib/api";
 import { timeAgo } from "@/utils/format";
-import type { NotificationItem } from "@/utils/types";
+import type { NotificationItem } from "@marketpay/shared-types";
 
 interface NotificationsPageProps {
   publicKey: string | null;

@@ -7,7 +7,7 @@ import { formatXLM, shortenAddress, timeAgo } from "@/utils/format";
 import { accountUrl } from "@/lib/stellar";
 import FreelancerTierBadge from "@/components/FreelancerTierBadge";
 import JobCompletionPredictionPanel from "@/components/JobCompletionPrediction";
-import type { Application, FreelancerTier } from "@/utils/types";
+import type { Application, FreelancerTier } from "@marketpay/shared-types";
 
 interface RealtimeBidComparisonProps {
   jobId: string;

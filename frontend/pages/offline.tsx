@@ -9,7 +9,7 @@
 import Head from "next/head";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import type { Job } from "@/utils/types";
+import type { Job } from "@marketpay/shared-types";
 import { formatXLM, timeAgo } from "@/utils/format";
 import { getLastViewedJobs } from "@/lib/offlineJobs";
 
