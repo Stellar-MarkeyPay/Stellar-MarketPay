@@ -188,21 +188,48 @@ the change.
 "Fund-moving" means any code path that calls `token::Client::transfer(...)`.
 The current paths are:
 
-| Function                                     | Direction                                               |
-| -------------------------------------------- | ------------------------------------------------------- |
-| `create_escrow_internal`                     | client → contract                                       |
-| `release_escrow_core`                        | contract → freelancer (and optionally referrer / admin) |
-| `refund_escrow_core`                         | contract → client                                       |
-| `timeout_refund`                             | contract → client                                       |
-| `release_with_conversion`                    | contract → freelancer                                   |
-| `finalize_dispute`                           | contract → client and/or freelancer                     |
-| `emergency_admin_resolve`                    | contract → recipient                                    |
-| `verify_milestone_oracle` (in `oracle.rs`)   | contract → freelancer                                   |
-| `distribute_tree_rewards` (in `referral.rs`) | contract → referral tree ancestors                      |
+| Function                                     | Direction                                           |
+| -------------------------------------------- | --------------------------------------------------- |
+| `create_escrow_internal`                     | client → contract                                   |
+| `release_escrow_core`                        | contract → freelancer (and referrer / admin / tree) |
+| `refund_escrow_core`                         | contract → client                                   |
+| `timeout_refund`                             | contract → client                                   |
+| `partial_release`                            | contract → freelancer                               |
+| `verify_milestone_oracle`                    | contract → freelancer                               |
+| `settle_arbitrated_escrow`                   | contract → client and/or freelancer                 |
+| `boost_job`                                  | client → treasury                                   |
+| `distribute_tree_rewards` (in `referral.rs`) | contract → referral tree ancestors                  |
+
+`release_with_conversion` is not in this table: it delegates to
+`release_escrow_core` rather than transferring itself. That is the fix for
+[SPECIFICATION.md](./SPECIFICATION.md) §6 F1 and F3 — when it moved funds on its
+own it also skipped the multisig guard and the platform fee.
 
 Any PR that adds a new call to `token_client.transfer(...)`, or that changes the
 arguments to an existing one, must satisfy **all** of the following before it
 can be merged.
+
+### 3.0 Update the specification
+
+**This comes first, and it is not optional.**
+
+A change to any function in the table above must also update
+[`contracts/marketpay-spec/src/model.rs`](../contracts/marketpay-spec/src/model.rs),
+and — if it changes who may call the entrypoint or which statuses it spans —
+[`transitions.rs`](../contracts/marketpay-spec/src/transitions.rs).
+
+This is enforced rather than requested. The differential tests in
+`contracts/marketpay-contract/tests/differential.rs` drive the contract and the
+reference model through identical call sequences and compare status, contract
+balance and every party's balance. An implementation that moves while the
+specification stays put fails CI, and the failure names the divergence.
+
+If the change alters a guarantee rather than just an implementation detail,
+update [`docs/SPECIFICATION.md`](./SPECIFICATION.md) too — it is published for
+external audit, and a stale guarantee is worse than no published guarantee.
+
+Read [`docs/VERIFICATION.md`](./VERIFICATION.md) §5 before assuming a property
+is covered. Several are not, and the list is explicit.
 
 ### 3.1 Required test coverage
 
@@ -220,8 +247,16 @@ Every fund-moving path must have:
    through directly, test the boundary: zero amount, maximum `i128`, and any
    intermediate calculation that could overflow.
 
-Existing test modules in `lib.rs` follow this pattern — see
-`comprehensive_escrow_tests` and `regression_tests` for examples.
+5. **Regression test for any counterexample** — if a checker, a fuzzer or a
+   reviewer found a concrete sequence the code got wrong, that sequence lands in
+   [`tests/regressions.rs`](../contracts/marketpay-contract/tests/regressions.rs)
+   in the same PR as the fix. Nothing is closed on the strength of "the checker
+   passes now".
+
+Existing test modules in `lib.rs` follow this pattern — see `regression_tests`
+for examples — and the property-based suites in
+[`contracts/marketpay-contract/tests/`](../contracts/marketpay-contract/tests/)
+cover the same paths exhaustively rather than by example.
 
 ### 3.2 Authorization checks
 

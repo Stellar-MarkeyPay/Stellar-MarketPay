@@ -1,0 +1,5 @@
+{
+  "$comment": "Time-limited, audited exceptions to the policy set. Every entry must name who holds it, who approved it, why, and the day it dies. An override downgrades an error to a warning that still prints with the approver's name attached — it never silences a rule, because an invisible exception becomes a permanent one. Expired and never-matched overrides are reported by `npm run policy:overrides` for the periodic review. See docs/POLICY_CATALOGUE.md#overrides.",
+  "version": 1,
+  "overrides": []
+}

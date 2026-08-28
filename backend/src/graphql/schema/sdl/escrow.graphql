@@ -1,0 +1,92 @@
+# escrow.graphql — the on-chain contract holding a job's funds.
+#
+# Every field here is `PRIVATE` and every entry point requires a participant.
+# The underlying ledger is public; the mapping from a contract id to the job,
+# client and freelancer it belongs to is not, and that mapping is precisely
+# what this type provides.
+
+type Escrow implements Node @cacheControl(maxAge: 0, scope: PRIVATE) @auth(requires: PARTICIPANT) {
+  id: ID!
+
+  "The Soroban contract identifier."
+  contractId: String!
+
+  jobId: ID!
+  clientAddress: PublicKey!
+  freelancerAddress: PublicKey
+  amount: Decimal!
+  currency: Currency!
+  status: EscrowStatus!
+
+  "Amount released so far, for partially-released escrows."
+  releasedAmount: Decimal!
+
+  "Storage schema version of the on-chain entry. v1 entries read through a shim."
+  schemaVersion: Int!
+
+  createdAt: DateTime!
+  fundedAt: DateTime
+  releasedAt: DateTime
+  refundedAt: DateTime
+
+  """
+  When the escrow becomes eligible for a unilateral timeout refund.
+
+  Derived from `fundedAt` plus the contract's timeout constant rather than
+  stored, so it cannot drift from what the contract will actually enforce.
+  """
+  timeoutAt: DateTime
+
+  "Whether the timeout has elapsed and a refund may be claimed now."
+  timeoutElapsed: Boolean!
+
+  "Per-milestone release state, for milestone escrows."
+  milestones: [EscrowMilestone!]!
+
+  "The job this escrow funds."
+  job: Job @cost(complexity: 2)
+
+  "Ledger events affecting this escrow, newest first."
+  events(first: Int = 20, after: Cursor): EscrowEventConnection!
+    @cost(complexity: 3, multipliers: ["first"])
+}
+
+enum EscrowStatus {
+  PENDING
+  FUNDED
+  PARTIALLY_RELEASED
+  RELEASED
+  REFUNDED
+  DISPUTED
+}
+
+type EscrowMilestone {
+  index: Int!
+  amount: Decimal!
+  status: MilestoneStatus!
+  releasedAt: DateTime
+  "Transaction hash of the release, when released."
+  releaseTxHash: String
+}
+
+type EscrowEvent implements Node {
+  id: ID!
+  type: String!
+  ledger: Int
+  txHash: String
+  amount: Decimal
+  occurredAt: DateTime!
+}
+
+type EscrowEventEdge {
+  node: EscrowEvent!
+  cursor: Cursor!
+}
+
+type EscrowEventConnection {
+  edges: [EscrowEventEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+union EscrowResult = Escrow | NotFoundError | ForbiddenError | UnauthorizedError

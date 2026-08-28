@@ -15,66 +15,55 @@ function loadMigrationPairs() {
   const files = fs.readdirSync(migrationsDir);
   const upFiles = files.filter((f) => f.endsWith(".up.sql"));
 
-  return (
-    upFiles
-      .map((upFile) => {
-        const version = parseVersion(upFile);
-        const downFile = upFile.replace(/\.up\.sql$/, ".down.sql");
-        if (version == null) return null;
-        if (!files.includes(downFile)) {
-          throw new Error(`Rollback file missing for migration ${upFile}`);
-        }
-        return {
-          version,
-          name: upFile.replace(/\.up\.sql$/, ""),
-          upSql: fs.readFileSync(path.join(migrationsDir, upFile), "utf8"),
-          downSql: fs.readFileSync(path.join(migrationsDir, downFile), "utf8"),
-        };
-      })
-      .filter(Boolean)
-      // Some historical migrations share a numeric version. The filename is the
-      // migration identity; version is only used to provide the primary ordering.
-      .sort((a, b) => a.version - b.version || a.name.localeCompare(b.name))
-  );
+  return upFiles
+    .map((upFile) => {
+      const version = parseVersion(upFile);
+      const downFile = upFile.replace(/\.up\.sql$/, ".down.sql");
+      if (version == null || !files.includes(downFile)) return null;
+      return {
+        version,
+        name: upFile.replace(/\.up\.sql$/, ""),
+        upSql: fs.readFileSync(path.join(migrationsDir, upFile), "utf8"),
+        downSql: fs.readFileSync(path.join(migrationsDir, downFile), "utf8"),
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.version - b.version);
 }
 
 async function ensureMigrationsTable(client) {
   await client.query(`
     CREATE TABLE IF NOT EXISTS schema_migrations (
-      name TEXT PRIMARY KEY,
       version INTEGER NOT NULL,
-      applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      name TEXT NOT NULL,
+      applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (version, name)
     )
   `);
 
-  // Upgrade the original version-keyed ledger in place. Version numbers are
-  // not unique in this repository, whereas a migration filename always is.
+  // Multiple independently landed features already share a numeric migration
+  // version. Upgrade legacy journals in place so each named file is applied
+  // exactly once instead of silently skipping the second file at a version.
   await client.query(`
     DO $$
-    DECLARE
-      primary_key_name TEXT;
     BEGIN
-      SELECT con.conname INTO primary_key_name
-      FROM pg_constraint con
-      JOIN pg_class rel ON rel.oid = con.conrelid
-      JOIN pg_namespace ns ON ns.oid = rel.relnamespace
-      WHERE con.contype = 'p'
-        AND rel.relname = 'schema_migrations'
-        AND ns.nspname = current_schema();
-
-      IF primary_key_name IS NOT NULL THEN
-        EXECUTE format('ALTER TABLE schema_migrations DROP CONSTRAINT %I', primary_key_name);
+      IF EXISTS (
+        SELECT 1
+          FROM pg_constraint
+         WHERE conrelid = 'schema_migrations'::regclass
+           AND conname = 'schema_migrations_pkey'
+           AND pg_get_constraintdef(oid) = 'PRIMARY KEY (version)'
+      ) THEN
+        ALTER TABLE schema_migrations DROP CONSTRAINT schema_migrations_pkey;
+        ALTER TABLE schema_migrations
+          ADD CONSTRAINT schema_migrations_pkey PRIMARY KEY (version, name);
       END IF;
-
-      ALTER TABLE schema_migrations
-        ADD CONSTRAINT schema_migrations_pkey PRIMARY KEY (name);
-    EXCEPTION
-      WHEN duplicate_object THEN NULL;
-    END $$;
+    END
+    $$
   `);
 }
 
-async function getAppliedMigrationNames(client) {
+async function getAppliedMigrations(client) {
   const { rows } = await client.query("SELECT name FROM schema_migrations");
   return new Set(rows.map((r) => r.name));
 }
@@ -84,28 +73,29 @@ async function migrate() {
   try {
     await ensureMigrationsTable(client);
     const migrations = loadMigrationPairs();
-    const applied = await getAppliedMigrationNames(client);
+    const applied = await getAppliedMigrations(client);
 
     for (const migration of migrations) {
       if (applied.has(migration.name)) {
-        console.log(`⏭️  Skipping V${migration.version} (already applied)`);
+        console.log(`⏭️  Skipping ${migration.name} (already applied)`);
         continue;
       }
 
       await client.query("BEGIN");
       try {
         await client.query(migration.upSql);
-        await client.query("INSERT INTO schema_migrations (name, version) VALUES ($1, $2)", [
-          migration.name,
+        await client.query("INSERT INTO schema_migrations (version, name) VALUES ($1, $2)", [
           migration.version,
+          migration.name,
         ]);
         await client.query("COMMIT");
-        console.log(`✅ Applied V${migration.version}`);
+        applied.add(migration.name);
+        console.log(`✅ Applied ${migration.name}`);
       } catch (err) {
         await client.query("ROLLBACK");
         // Handle duplicate key error gracefully
         if (err.code === "23505" && err.constraint === "schema_migrations_pkey") {
-          console.log(`⏭️  Skipping V${migration.version} (already applied, duplicate key)`);
+          console.log(`⏭️  Skipping ${migration.name} (already applied, duplicate key)`);
           applied.add(migration.name);
           continue;
         }
@@ -123,7 +113,10 @@ async function rollbackLastMigration() {
   try {
     await ensureMigrationsTable(client);
     const { rows } = await client.query(
-      "SELECT version, name FROM schema_migrations ORDER BY version DESC, applied_at DESC, name DESC LIMIT 1"
+      `SELECT version, name
+         FROM schema_migrations
+        ORDER BY version DESC, applied_at DESC, name DESC
+        LIMIT 1`
     );
 
     if (!rows.length) return null;
@@ -139,17 +132,17 @@ async function rollbackLastMigration() {
     await client.query("BEGIN");
     try {
       await client.query(downSql);
-      // Versions are not unique in the historical migration set. Deleting by
-      // version removed every migration sharing that version and caused the
-      // round-trip verifier to stop early. The filename is the ledger key.
-      await client.query("DELETE FROM schema_migrations WHERE name = $1", [last.name]);
+      await client.query("DELETE FROM schema_migrations WHERE version = $1 AND name = $2", [
+        last.version,
+        last.name,
+      ]);
       await client.query("COMMIT");
     } catch (err) {
       await client.query("ROLLBACK");
       throw err;
     }
 
-    return last.name;
+    return Number(last.version);
   } finally {
     client.release();
   }
@@ -162,7 +155,7 @@ if (require.main === module) {
   run()
     .then((result) => {
       if (mode === "down") {
-        console.log(result == null ? "No migrations to rollback" : `Rolled back ${result}`);
+        console.log(result == null ? "No migrations to rollback" : `Rolled back V${result}`);
       } else {
         console.log("Migrations complete");
       }

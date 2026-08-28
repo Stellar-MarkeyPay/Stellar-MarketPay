@@ -16,7 +16,10 @@
     "migrate": "node src/db/migrate.js",
     "migrate:rollback": "node src/db/migrate.js down",
     "test:migrations": "node scripts/verify-migration-roundtrip.js",
-    "reindex:job-search": "node scripts/reindex-job-search-vector.js"
+    "reindex:job-search": "node scripts/reindex-job-search-vector.js",
+    "graphql:schema:write": "node scripts/graphql-schema-registry.js --write",
+    "graphql:schema:check": "node scripts/graphql-schema-registry.js --check",
+    "graphql:schema:breaking": "node scripts/graphql-schema-registry.js --breaking"
   },
   "dependencies": {
     "@simplewebauthn/server": "^9.0.3",
@@ -29,6 +32,7 @@
     "express": "^5.2.1",
     "express-rate-limit": "^7.3.1",
     "form-data": "^4.0.0",
+    "graphql": "^16.14.2",
     "helmet": "^7.1.0",
     "ioredis": "^5.3.2",
     "jsonwebtoken": "^9.0.3",

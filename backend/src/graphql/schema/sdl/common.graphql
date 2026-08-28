@@ -1,0 +1,212 @@
+# common.graphql — conventions every other type in this schema obeys.
+#
+# Three of them, and they are applied without exception because a convention
+# with exceptions is not a convention:
+#
+#   1. Every collection is a Relay connection.
+#   2. Every expected failure is a type, not a top-level error.
+#   3. Every field that costs something declares what it costs.
+
+"""
+A point in time, serialised as an RFC 3339 / ISO 8601 string in UTC.
+"""
+scalar DateTime
+
+"""
+A Stellar ed25519 public key: 56 characters, starting with `G`.
+
+Validated on the way in, so a malformed address is a `ValidationError` at the
+edge of the graph rather than a database round trip that finds nothing.
+"""
+scalar PublicKey
+
+"""
+An opaque pagination cursor. Clients must treat it as a token and never parse
+it: the encoding is a server implementation detail, and collections migrate
+from offset to keyset paging behind it without a schema change.
+"""
+scalar Cursor
+
+"""
+An arbitrary-precision decimal serialised as a string.
+
+Budgets and escrow amounts are money. IEEE-754 doubles are not, and
+`Float` would silently round a 7-decimal-place stroop amount.
+"""
+scalar Decimal
+
+"""
+A JSON value with no fixed shape. Used only where the domain genuinely has
+none — plugin payloads, screening-question answers. A `JSON` field that could
+be modelled is a modelling failure deferred, not avoided.
+"""
+scalar JSON
+
+# ---------------------------------------------------------------------------
+# Directives
+# ---------------------------------------------------------------------------
+
+"""
+Who may read this field.
+
+Enforced by wrapping the field's resolver when the schema is built, so it
+holds no matter which path reaches the field. Putting the check in the
+top-level query resolver instead would protect `Query.profile.email` and miss
+`job.applications.edges.node.applicant.email`, which is the same field reached
+from a public job.
+"""
+directive @auth(requires: AuthScope!) on FIELD_DEFINITION | OBJECT
+
+"""
+The identity a viewer must hold to read a field.
+"""
+enum AuthScope {
+  "Any caller, authenticated or not."
+  PUBLIC
+
+  "Any authenticated caller."
+  AUTHENTICATED
+
+  "The subject of the record itself — a profile's own owner."
+  SELF
+
+  "A party to the job: its client, its assigned freelancer, or an applicant."
+  PARTICIPANT
+
+  "The job's client, or the counterparty on an escrow."
+  COUNTERPARTY
+
+  "An administrator."
+  ADMIN
+}
+
+"""
+How long a field may be cached, and by whom.
+
+The response's policy is the **minimum** over every field the query touched.
+That is the only safe composition: one `PRIVATE` field must make the entire
+response private, or a shared cache will serve one viewer's data to another.
+"""
+directive @cacheControl(maxAge: Int, scope: CacheScope) on FIELD_DEFINITION | OBJECT
+
+enum CacheScope {
+  "May be stored by a shared cache — a CDN, a reverse proxy."
+  PUBLIC
+
+  "May be stored only by the requesting client, if at all."
+  PRIVATE
+}
+
+"""
+What this field costs to resolve, for the complexity limiter.
+
+Declared in the schema rather than in a side table so the cost is reviewed in
+the same diff as the field it describes. `multipliers` names arguments whose
+value scales the cost — `first` on a connection, for instance, so
+`first: 1000` is priced as a thousand children rather than as one field.
+"""
+directive @cost(complexity: Int! = 1, multipliers: [String!]) on FIELD_DEFINITION
+
+# ---------------------------------------------------------------------------
+# Pagination
+# ---------------------------------------------------------------------------
+
+"""
+Cursor-based pagination state, per the Relay connection specification.
+"""
+type PageInfo {
+  hasNextPage: Boolean!
+  hasPreviousPage: Boolean!
+  startCursor: Cursor
+  endCursor: Cursor
+}
+
+# ---------------------------------------------------------------------------
+# Errors
+# ---------------------------------------------------------------------------
+
+"""
+An expected failure, modelled as data.
+
+The top-level `errors` array still exists and still carries what it should:
+bugs, timeouts, and malformed documents. Anything a client is expected to
+handle appears here instead, at the position in the response where it
+happened, so it cannot be silently ignored.
+"""
+interface Error {
+  "Human-readable, safe to show a user."
+  message: String!
+
+  "Stable, machine-readable. Switch on this, never on `message`."
+  code: String!
+}
+
+"The requested object does not exist, or the viewer may not know that it does."
+type NotFoundError implements Error {
+  message: String!
+  code: String!
+  "The identifier that did not resolve."
+  id: ID
+}
+
+"The viewer is authenticated but not permitted."
+type ForbiddenError implements Error {
+  message: String!
+  code: String!
+  "The scope the field required."
+  requiredScope: AuthScope
+}
+
+"The viewer is not authenticated and the field requires it."
+type UnauthorizedError implements Error {
+  message: String!
+  code: String!
+}
+
+"An input value was rejected."
+type ValidationError implements Error {
+  message: String!
+  code: String!
+  "Path to the offending input field, dotted."
+  field: String
+}
+
+"""
+The operation could not be applied to the object in its current state — an
+escrow released twice, an application accepted after bidding closed.
+"""
+type ConflictError implements Error {
+  message: String!
+  code: String!
+  "The state the object was actually in."
+  currentState: String
+}
+
+"""
+Every error a mutation may return.
+
+A union rather than a bare interface: a client that switches on `__typename`
+gets an exhaustiveness check from the generated types, and adding a new member
+is a reviewable schema change rather than a silent runtime surprise.
+"""
+union MutationError =
+  | NotFoundError
+  | ForbiddenError
+  | UnauthorizedError
+  | ValidationError
+  | ConflictError
+
+# ---------------------------------------------------------------------------
+# Node
+# ---------------------------------------------------------------------------
+
+"""
+An object with a globally unique, opaque identifier.
+
+`Node` exists so a client can refetch any single object it already holds —
+after a mutation, or on cache eviction — without knowing which root field
+produced it.
+"""
+interface Node {
+  id: ID!
+}

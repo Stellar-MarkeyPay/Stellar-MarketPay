@@ -1351,4 +1351,75 @@ router.post(
   }
 );
 
+// ── POST /api/admin/reputation/commitments/:id/revoke — overturn a rating on appeal (Issue #319) ──
+/**
+ * @swagger
+ * /api/admin/reputation/commitments/{id}/revoke:
+ *   post:
+ *     summary: Overturn a rating's zero-knowledge reputation commitment
+ *     description: >
+ *       Zero-knowledge reputation with selective disclosure (Issue #319):
+ *       when a rating appeal is upheld, this revokes the rating's committed
+ *       leaf. The subject's Merkle root advances to a new epoch, and every
+ *       outstanding proof bound to an epoch at or after the one that first
+ *       included this rating becomes invalid — both here and on-chain (the
+ *       Soroban contract's `earliest_invalidated_epoch`). Proofs bound to
+ *       strictly earlier epochs are unaffected. Admin-only, 2FA-gated.
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *         description: reputation_commitments.id (not the rating id)
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [reason]
+ *             properties:
+ *               reason: { type: string }
+ *     responses:
+ *       200: { description: Revoked }
+ *       404: { description: Commitment not found }
+ *       409: { description: Already revoked }
+ */
+router.post(
+  "/reputation/commitments/:id/revoke",
+  verifyJWT,
+  requireAdminRole,
+  requireAdmin2FA,
+  async (req, res, next) => {
+    try {
+      const { reason } = req.body || {};
+      if (!reason || typeof reason !== "string") {
+        return res.status(400).json({ error: "reason is required" });
+      }
+      const reputationService = require("../services/reputationService");
+      const result = await reputationService.revokeRating({
+        commitmentId: req.params.id,
+        reason,
+        revokedBy: req.user.publicKey,
+      });
+
+      await logAdminAction({
+        action: "reputation_rating_revoked",
+        adminAddress: req.user.publicKey,
+        targetId: req.params.id,
+        targetType: "reputation_commitment",
+        details: { reason, invalidatesFromEpoch: result.invalidatesFromEpoch },
+      });
+
+      res.json({ success: true, data: result });
+    } catch (e) {
+      next(e);
+    }
+  }
+);
+
 module.exports = router;

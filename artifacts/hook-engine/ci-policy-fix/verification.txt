@@ -1,0 +1,54 @@
+CI policy integration verification record
+=========================================
+Input branch: fix/fast-correct-git-hooks
+Pre-repair head: ad9640695a5505546ca3e0f5559ff87a26a6146f
+
+BASELINE GITHUB BEHAVIOUR
+Command: gh pr view 1 --repo Immex171/Stellar-MarketPay --json statusCheckRollup
+Input: PR #1 at ad964069
+Literal failing outputs:
+- Local/CI parity: FAILURE
+  nothing in the repository runs the policy CLI at the "commit-msg" stage
+- Merge policy: FAILURE
+  .husky/commit-msg digest recorded a43bc3aa91f8, found e77e6a4ae690
+  .husky/pre-commit digest recorded e0dcca293596, found 3b4d2ebe71e9
+  .husky/pre-push digest recorded 6f06973213eb, found b29f3dd77746
+Exit status: checks failed
+
+MODIFIED BEHAVIOUR
+Command: npm run policy:test
+Input: policy/tests/*.test.js plus modified scripts/hooks/cli.mjs and scripts/hooks/runner.mjs
+Literal output summary:
+1..70
+# tests 70
+# pass 70
+# fail 0
+Exit status: 0
+
+Command: MARKETPAY_HOOK_ENFORCE_BUDGET=1 npm run test:hooks
+Input: scripts/hooks/tests/*.test.mjs
+Literal output summary:
+1..20
+# tests 20
+# pass 20
+# fail 0
+Exit status: 0
+
+Command: npm run policy:integrity
+Input: modified policy/integrity.json and governed hook/policy files
+Literal output:
+policy: policy/integrity.json is up to date (23 files)
+Exit status: 0
+
+Command: npm run format:check
+Input: complete modified repository tree
+Literal output:
+Checking formatting...
+All matched files use Prettier code style!
+Exit status: 0
+
+BEHAVIOUR CHANGE
+- pre-commit invokes: node policy/cli.js check --stage pre-commit --source staged
+- commit-msg invokes: node policy/cli.js check --stage commit-msg --source staged --commit-msg-file MESSAGE
+- pre-push invokes: node policy/cli.js check --stage pre-push --source range --base auto
+- every policy invocation is uncached and propagates its exit status

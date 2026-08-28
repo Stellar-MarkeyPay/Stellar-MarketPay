@@ -1,0 +1,130 @@
+ESCROW V2 VERIFICATION RECORD
+Date: 2026-08-27
+Workspace: /home/emmanuel-ogheneovo/GrantFox 5/Stellar-MarketPay
+
+BASELINE
+Command: cargo test --features std
+Directory: contracts/marketpay-contract
+Inputs: repository HEAD before escrow-v2 changes; default test environment
+Literal result: 56 unit passed; 11 differential passed; 1 invariant-fuzz passed; 10 regressions passed; 0 failed
+Exit status: 0
+
+Command: cargo clippy --all-targets --features std -- -D warnings
+Directory: contracts/marketpay-contract
+Literal result: Finished dev profile; no warnings or errors
+Exit status: 0
+
+MODIFIED CONTRACT / WASM
+Command: cargo check --target wasm32-unknown-unknown
+Literal result: Finished dev profile
+Exit status: 0
+
+Command: cargo test --features std
+Literal result:
+  unit: 59 passed, 0 failed
+  differential: 11 passed, 0 failed
+  invariant_fuzz: 1 passed, 0 failed
+  regressions: 10 passed, 0 failed
+  v2_escrow: 8 passed, 0 failed
+  v2_properties: 2 passed, 0 failed
+  doc tests: 0 failed
+Exit status: 0
+
+Command: cargo clippy --all-targets --features std -- -D warnings
+Literal result: Finished dev profile; no warnings or errors
+Exit status: 0
+
+Command: cargo audit --ignore RUSTSEC-2020-0071
+Literal result: 0 vulnerabilities; 2 allowed unmaintained warnings (RUSTSEC-2024-0388, RUSTSEC-2024-0436)
+Exit status: 0
+
+Command: cargo build --target wasm32-unknown-unknown --release
+Literal result: Finished release profile
+Exit status: 0
+Artifact: contracts/marketpay-contract/target/wasm32-unknown-unknown/release/marketpay_contract.wasm
+Size: 176475 bytes
+SHA-256: 26ba099d61c9eafd79b90174ac796ca632b65ddad9551d4ff66d663b8ef103c6
+
+STATE-MACHINE / MIGRATION / ACCOUNTING INPUTS
+- exhaustive transition input: 7 lifecycle states x 11 actions; accepted edges: 20
+- randomized property input: seeds 1..=10000, 64 actions per seed
+- no-dust input: 101 units, 100-ledger stream, withdrawal on every ledger
+- migration input: v1-shaped locked escrow, simulated upgrade version 1 -> 2, lazy v2 access, start, release
+- rollback input: pristine lazy migration restored from exact v1 backup
+Literal result: conservation, at-most-one settlement, no dust, lazy settlement, and rollback assertions passed
+Exit status: 0
+
+RESOURCE COMMAND
+Command: cargo test --features std --test v2_escrow resource_matrix_covers_every_v2_entrypoint_and_the_template_upper_bound -- --nocapture
+Literal output (CPU instructions, memory bytes):
+RESOURCE,create_milestone_template,178783,28057
+RESOURCE,get_milestone_template,309059,51829
+RESOURCE,create_escrow_from_template,1091466,171574
+RESOURCE,get_escrow_v2,815683,140936
+RESOURCE,propose_milestone_amendment,1333587,259167
+RESOURCE,get_milestone_amendment,1073338,186517
+RESOURCE,approve_milestone_amendment,2035421,345340
+RESOURCE,create_streaming_escrow,1526003,278633
+RESOURCE,withdraw_stream,1595090,303154
+RESOURCE,get_stream,927079,160476
+RESOURCE,pause_stream,1481902,282690
+RESOURCE,resume_stream,1456845,281524
+RESOURCE,cancel_stream,1795681,326735
+RESOURCE,migrate_escrow_v2,1559526,297890
+RESOURCE,get_v2_migration_status,1051262,183724
+RESOURCE,rollback_escrow_v2,1671335,320157
+RESOURCE,v1_create_escrow_plain,1773006,334718
+RESOURCE,v1_get_escrow,1066544,185126
+RESOURCE,v1_start_work,1650537,322707
+RESOURCE,v1_release_escrow,1857787,347820
+RESOURCE,v1_refund_escrow,1893627,361589
+RESOURCE,v1_partial_release,1965363,379073
+RESOURCE,v1_raise_dispute,1886751,370858
+Exit status: 0
+
+FORMAL / DIFFERENTIAL PR GATES
+Command: cargo clippy --all-targets -- -D warnings && cargo check --no-default-features && cargo test --release -- --nocapture
+Directory: contracts/marketpay-spec
+Literal result: 4 bounded-model tests passed, 1 nightly test ignored; 1673 states, 6295 calls applied, 89849 rejected, 1480 settlements; 5 specification sanity tests passed
+Exit status: 0
+
+Command: FUZZ_ROUNDS=500 cargo test --release --features std --test invariant_fuzz
+Literal result: 1 passed, 0 failed
+Exit status: 0
+
+APPLICATION CI
+Frontend literal results:
+- Jest: 9 suites passed, 76 tests passed, 36 snapshots passed; exit 0
+- accessibility: 5 passed; exit 0
+- type-check: exit 0
+- lint: exit 0 (8 pre-existing warnings)
+- Next production build: completed; exit 0
+- Storybook: Manager built; Preview built in 42 s; exit 0
+- Playwright e2e: 7 passed, 1 skipped; exit 0
+- Playwright visual: 3 passed; exit 0
+
+Backend literal results:
+- Jest with PostgreSQL/Redis: 52 suites passed, 508 tests passed; exit 0
+- chaos: 1 suite passed, 15 tests passed; exit 0
+- migrations: all same-number/different-name migrations applied, including both V19 records and V20; exit 0
+- lint: exit 0
+- build/OpenAPI generation: exit 0; generated JSON parsed successfully
+
+Root quality literal results:
+- npm run format:check: All matched files use Prettier code style; exit 0
+- npm run type-check: exit 0
+- npm run lint: exit 0 (pre-existing frontend warnings only)
+
+ROLLBACK
+Command: bash -n scripts/rollback-escrow-v2.sh
+Literal result: no output
+Exit status: 0
+
+Command: PATH=<mock-stellar> scripts/rollback-escrow-v2.sh CCONTRACT admin-alias testnet CWASMHASH job-1 job-2
+Literal result: resolved GADMINADDRESS; emitted rollback for job-1 and job-2, v1 upgrade, then get_version in that order
+Exit status: 0
+
+Contract rollback behavior is also executed by:
+cargo test --features std --test v2_escrow lazy_v1_migration_settles_under_v2_and_pristine_migration_rolls_back
+Literal result: 1 passed, 0 failed
+Exit status: 0

@@ -27,12 +27,24 @@ Welcome to Stellar MarketPay documentation. This index helps you find what you n
 - **[Contract Contributor Guide](./contract-contributor-guide.md)** - Local setup, test snapshots, fund-moving review bar, storage compatibility, and a worked entrypoint example
 - **[Environment Variables](./environment-variables.md)** - Single source of truth for runtime config
 - **[CDN Strategy](./CDN_STRATEGY.md)** - Multi-CDN edge caching, event-driven invalidation, cache-key/TTL strategy, stampede protection (decision recorded in [ADR-007](./ADR-007-multi-cdn-edge-strategy.md))
+- **[Enterprise Federation Architecture](./ADR-012-enterprise-federation.md)** - Per-organisation SAML/OIDC identity, wallet-authority separation, deprovisioning, and phased SCIM/controls delivery
+
+### Formal Verification
+
+The escrow contract holds user funds. These two documents state what it
+guarantees and how much of that has actually been established — including, at
+length, what has not.
+
+- **[Escrow Specification](./SPECIFICATION.md)** - The formal invariants, the legal transition relation, per-entrypoint pre/postconditions, and the ten findings where the design and the implementation disagreed
+- **[Verification Approach and Limitations](./VERIFICATION.md)** - Tooling evaluated and why, what each technique establishes, results, and the bounds every claim is subject to
 
 ### API Documentation
 
 - **[API Documentation](./API_DOCUMENTATION.md)** - REST API endpoints
 - **[API Reference](./api.md)** - Detailed API reference
 - **[Scope WebSocket Protocol](./websocket-scope-protocol.md)** - Realtime session protocol and client schema
+- **[GraphQL Gateway Guide](./GRAPHQL.md)** - Domain schema conventions, registry checks, migration status, and REST boundaries
+- **[GraphQL Gateway Design](./GRAPHQL_DESIGN_COMMENT.md)** - Architecture, data model, safety posture, and phased rollout for issue #318
 
 ---
 
@@ -170,6 +182,42 @@ Decisions that shaped Stellar MarketPay's architecture:
 - Current DR evidence is simulation-only, not yet production-proven
 
 **Status**: ✅ Accepted
+
+---
+
+### ADR-010: Zero-Knowledge Reputation with Selective Disclosure
+
+**File**: [ADR-010-zk-reputation.md](./ADR-010-zk-reputation.md)
+
+**Decision**: Pedersen commitments + Chaum–Pedersen sigma protocols over BLS12-381 G1 (no trusted setup), anchored in a per-subject Merkle tree, with an on-chain Soroban verifier mirroring the off-chain JS byte-for-byte
+
+**Key Points**:
+
+- Why a sigma-protocol scheme was chosen over a zk-SNARK for v1
+- O(1) revocation via a single `earliestInvalidatedEpoch` scalar
+- Measured on-chain verification cost: cheap for `dispute_free`, not yet viable in one transaction for `rating_threshold`/`earnings_band` — honest numbers, not an assumed yes
+- The contiguous-leaf-range scope decision and what it does and doesn't hide
+
+**Status**: ✅ Accepted
+
+---
+
+### ADR-012: Enterprise Federation and Transaction Authority Separation
+
+**File**: [ADR-012-enterprise-federation.md](./ADR-012-enterprise-federation.md)
+
+**Decision**: Treat SAML/OIDC authentication as an organisation membership
+session and require an independent linked-wallet or passkey signing proof for
+every escrow-sensitive transaction.
+
+**Key Points**:
+
+- Per-organisation provider and federated-identity model with atomic replay barriers
+- Linked wallet first; passkey account later; no platform-custodied employee keys
+- Deprovisioning immediately removes off-chain access without misrepresenting existing on-chain authority
+- Additive six-PR migration plan that leaves existing wallet users unchanged
+
+**Status**: ✅ Accepted for phased delivery
 
 ---
 
@@ -457,6 +505,20 @@ stellar-marketpay/
 - See [CONTRIBUTING.md](../CONTRIBUTING.md) for guidelines
 - Check [TODO.md](../TODO.md) for outstanding tasks
 - Review [ROADMAP.md](../ROADMAP.md) for planned features
+
+### Merge Policy & Supply Chain
+
+The rules that gate a merge are defined once and executed identically by the
+local hooks and by a required CI check, so bypassing a hook changes when you
+learn about a violation, never whether it is enforced.
+
+- **[Policy Catalogue](./POLICY_CATALOGUE.md)** - Every rule, the incident behind it, its severity per stage, and the override mechanism
+- **[Policy Engine](./POLICY_ENGINE.md)** - Architecture, the parity guarantee, warn-only rollout, and how to add a rule
+- **[Git Hooks & Commits](./GIT_HOOKS_AND_COMMITS.md)** - The local hook runner the policy stages plug into
+- **[Branch Protection & Merge Queue](./BRANCH_PROTECTION.md)** - Required checks, the merge queue, and the administrator-override decision
+- **[Commit Signing](./COMMIT_SIGNING.md)** - One-command enrolment and the server-side rollout path
+- **[Secrets: Prevention and Response](./SECRET_RESPONSE.md)** - Scanning locally and remotely, the allowlist, and what to do when a credential leaks
+- **[Build Provenance](./PROVENANCE.md)** - Attesting the release wasm and verifying a deployed contract
 
 ---
 

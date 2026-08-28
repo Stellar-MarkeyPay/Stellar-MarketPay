@@ -1,0 +1,57 @@
+# dispute.graphql — an arbitrated disagreement over an escrow.
+
+type Dispute implements Node @cacheControl(maxAge: 0, scope: PRIVATE) @auth(requires: PARTICIPANT) {
+  id: ID!
+  jobId: ID!
+  status: DisputeStatus!
+  reason: String!
+  description: String
+
+  "The party who raised it."
+  raisedBy: PublicKey!
+  raisedAt: DateTime!
+  resolvedAt: DateTime
+
+  "The arbitrator's decision, once there is one."
+  resolution: DisputeResolution
+
+  "Evidence submitted by either party."
+  evidence: [Evidence!]!
+
+  "The job under dispute."
+  job: Job @cost(complexity: 2)
+
+  """
+  The assigned arbitrator.
+
+  Null until one is assigned, and only ever the arbitrator's public profile —
+  arbitration is pseudonymous by design.
+  """
+  arbitrator: Profile @cost(complexity: 2)
+}
+
+enum DisputeStatus {
+  OPEN
+  UNDER_REVIEW
+  RESOLVED
+  WITHDRAWN
+}
+
+enum DisputeResolution {
+  RELEASE_TO_FREELANCER
+  REFUND_TO_CLIENT
+  SPLIT
+}
+
+"A file submitted as evidence, stored on IPFS."
+type Evidence {
+  "IPFS content identifier. The content itself is fetched out of band."
+  cid: String!
+  filename: String
+  contentType: String
+  sizeBytes: Int
+  submittedBy: PublicKey!
+  submittedAt: DateTime!
+}
+
+union DisputeResult = Dispute | NotFoundError | ForbiddenError | UnauthorizedError

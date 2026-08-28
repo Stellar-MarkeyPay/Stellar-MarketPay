@@ -501,21 +501,6 @@
                         "key": {
                           "vec": [
                             {
-                              "symbol": "TimeoutTimestamp"
-                            },
-                            {
-                              "string": "multisig-refund-job"
-                            }
-                          ]
-                        },
-                        "val": {
-                          "u32": 604800
-                        }
-                      },
-                      {
-                        "key": {
-                          "vec": [
-                            {
                               "symbol": "Version"
                             }
                           ]

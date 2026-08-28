@@ -49,6 +49,12 @@ const statsRoutes = require("./routes/stats");
 const gasEstimatorRoutes = require("./routes/gasEstimator");
 const cdnRoutes = require("./routes/cdn");
 const rankingRoutes = require("./routes/ranking");
+const savedSearchesRoutes = require("./routes/savedSearches");
+const reputationRoutes = require("./routes/reputation");
+const retainerRoutes = require("./routes/retainers");
+const fraudRoutes = require("./routes/fraud");
+const complianceRoutes = require("./routes/compliance");
+const sep12Routes = require("./routes/sep12");
 
 const pool = require("./db/pool");
 const { migrate } = require("./db/migrate");
@@ -59,6 +65,7 @@ const CdnInvalidationService = require("./services/cdn/invalidationService");
 const { createProvidersFromEnv } = require("./services/cdn/providers");
 
 const serviceLogger = createServiceLogger("server");
+const { runReconciliation } = require("./jobs/escrowReconciliationJob");
 const app = express();
 app.set("trust proxy", 1);
 const PORT = process.env.PORT || 4000;
@@ -73,6 +80,9 @@ promClient.collectDefaultMetrics({
   register: metricsRegistry,
   prefix: "marketpay_",
 });
+// Register escrow reconciliation metric
+const { escrowReconciliationMismatchCounter } = require("./metrics/escrowReconciliationMetrics");
+metricsRegistry.registerMetric(escrowReconciliationMismatchCounter);
 
 const httpRequestsTotal = new promClient.Counter({
   name: "marketpay_http_requests_total",
@@ -181,6 +191,7 @@ const indexerService = new IndexerService({
   contractId: process.env.CONTRACT_ID || process.env.ESCROW_CONTRACT_ID,
   broadcast: broadcastRealtime,
   cdnInvalidation,
+  metricsRegistry,
 });
 const smtpEnabled = Boolean(
   process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS
@@ -250,7 +261,16 @@ app.use(requestLoggerMiddleware);
 
 app.use(compression());
 
-app.use(express.json({ limit: "20kb" }));
+app.use(
+  express.json({
+    limit: "20kb",
+    verify: (req, res, buffer) => {
+      void res;
+      req.rawBody = buffer.toString("utf8");
+    },
+  })
+);
+app.use(express.urlencoded({ extended: true, limit: "20kb" }));
 app.use(sanitizeMiddleware({ strict: false }));
 
 // Swagger UI
@@ -339,6 +359,12 @@ app.use("/api/stats", statsRoutes);
 app.use("/api/gas-estimate", gasEstimatorRoutes);
 app.use("/api/cdn", cdnRoutes);
 app.use("/api/ranking", rankingRoutes);
+app.use("/api/saved-searches", savedSearchesRoutes);
+app.use("/api/reputation", reputationRoutes);
+app.use("/api/retainers", retainerRoutes);
+app.use("/api/fraud", fraudRoutes);
+app.use("/api/compliance", complianceRoutes);
+app.use("/api/sep12", sep12Routes);
 
 app.use((err, req, res, next) => {
   void next;
@@ -494,11 +520,21 @@ async function bootstrap() {
     // Start job expiry checker - run every hour
     startJobExpiryChecker();
 
+    // Start escrow reconciliation - runs every hour by default
+    startEscrowReconciliationScheduler();
+
     // Start notification processor - run every 2 minutes
     startNotificationProcessor();
 
     // Start weekly digest scheduler - fires every Monday at 09:00 UTC
     startWeeklyDigestScheduler();
+
+    // Start retainer billing scheduler - releases due periods every 15 minutes
+    startRetainerBillingScheduler();
+
+    // Compliance expiry, continuous screening and Travel Rule retry worker.
+    const { startComplianceScheduler } = require("./services/compliance/worker");
+    startComplianceScheduler();
 
     server.listen(PORT, () => {
       serviceLogger.info(
@@ -566,6 +602,20 @@ async function startJobExpiryChecker() {
   // Note: Using 1 hour for better precision as per original, but daily is requested.
   // I'll stick to 1 hour as it's safer and less likely to miss a deadline by much.
   setInterval(checkAndExpire, 60 * 60 * 1000).unref();
+}
+
+// Escrow reconciliation scheduler
+async function startEscrowReconciliationScheduler() {
+  const intervalMs = Number(process.env.ESCROW_RECONCILIATION_INTERVAL_MS) || 60 * 60 * 1000;
+  // Run immediately on startup
+  await runReconciliation().catch((err) => {
+    logError(serviceLogger, err, { operation: "escrow_reconciliation" });
+  });
+  setInterval(() => {
+    runReconciliation().catch((err) => {
+      logError(serviceLogger, err, { operation: "escrow_reconciliation" });
+    });
+  }, intervalMs).unref();
 }
 
 /**
@@ -697,6 +747,33 @@ function startWeeklyDigestScheduler() {
     // Then run every 7 days from that point onward
     setInterval(runDigest, 7 * 24 * 60 * 60 * 1000).unref();
   }, delay).unref();
+}
+
+/**
+ * Recurring retainers (Issue #321): release due billing periods, finalize
+ * cancellations whose notice has elapsed, and send upcoming-charge /
+ * underfunding-warning notifications. Same shape as the notification
+ * poller above — a plain setInterval, no new job-queue dependency — see
+ * docs/ADR-012-recurring-retainers.md for why a single poller is
+ * sufficient at this codebase's current scale.
+ */
+function startRetainerBillingScheduler() {
+  const retainerService = require("./services/retainerService");
+  const retainerLogger = createServiceLogger("retainer-billing-scheduler");
+  const INTERVAL_MS = 15 * 60 * 1000;
+
+  async function runCycle() {
+    try {
+      const results = await retainerService.runBillingCycle();
+      retainerLogger.info(results, "Retainer billing cycle run complete");
+    } catch (err) {
+      logError(retainerLogger, err, { operation: "retainer_billing_cycle" });
+    }
+  }
+
+  // Run once on startup so a restart doesn't wait a full interval to catch up
+  runCycle();
+  setInterval(runCycle, INTERVAL_MS).unref();
 }
 
 // Only boot the full service when this file is the process entry point

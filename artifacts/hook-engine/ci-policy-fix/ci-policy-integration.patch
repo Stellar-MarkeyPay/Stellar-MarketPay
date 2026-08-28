@@ -1,0 +1,127 @@
+diff --git a/docs/PR_FAST_CORRECT_GIT_HOOKS.md b/docs/PR_FAST_CORRECT_GIT_HOOKS.md
+index fd0e9c1..f0f9c88 100644
+--- a/docs/PR_FAST_CORRECT_GIT_HOOKS.md
++++ b/docs/PR_FAST_CORRECT_GIT_HOOKS.md
+@@ -70,6 +70,14 @@ The previous hooks had four reliability problems:
+   `core.hooksPath`, CRLF, executable-bit problems, missing dependencies, and optional Rust caches.
+ - Adds hook-engine CI coverage on Ubuntu, macOS, and Windows.
+ 
++### Shared merge-policy integration
++
++- Runs the repository policy CLI from the hook engine at `pre-commit`, `commit-msg`, and
++  `pre-push`, keeping local and CI enforcement on the same entrypoint.
++- Keeps policy evaluation uncached so changes to staged input, commit trailers, overrides, and the
++  pushed range are evaluated every time.
++- Regenerates the hook-integrity manifest for the portable Husky launchers.
++
+ ## Measurements
+ 
+ Measured on Linux with Node 24.18 and Cargo 1.97:
+@@ -88,6 +96,7 @@ runs survivable without moving whole-crate Clippy into pre-commit.
+ ## Verification
+ 
+ - Hook engine: 20 tests passed on Linux, macOS, and Windows.
++- Policy engine and local/CI parity: 70 tests passed.
+ - Partial staging: staged blob validated while an unstaged hunk remained unchanged.
+ - Work preservation: staged diff, worktree diff, and stash list remained byte-identical after
+   SIGINT.
+diff --git a/policy/integrity.json b/policy/integrity.json
+index 8d45794..7a7d9d1 100644
+--- a/policy/integrity.json
++++ b/policy/integrity.json
+@@ -3,9 +3,9 @@
+   "algorithm": "sha256",
+   "generatedFrom": [".husky/", "policy/engine/", "policy/policies.json", "policy/cli.js"],
+   "files": {
+-    ".husky/commit-msg": "a43bc3aa91f8caeeb738c45917b927f634ee3c9e8ed8278ac345764b5ee32f1b",
+-    ".husky/pre-commit": "e0dcca293596fc71746af517de989319b0b1a8b72e9fc2f4373b315eca52530f",
+-    ".husky/pre-push": "6f06973213eb07a5d3406739e5bc5ca344f9c5f5514f3ed3fde36b582695f406",
++    ".husky/commit-msg": "e77e6a4ae69087f286d3d2b4929d20c8827f18c51d35adb9daec223824255229",
++    ".husky/pre-commit": "3b4d2ebe71e95992e3d5247ce93771bcb288a0614b9cf92f8dc03a1667d6c94a",
++    ".husky/pre-push": "b29f3dd7774676a642b5e1d8f8195dd198fd2926aca7f31e11484269bd4fb37c",
+     "policy/cli.js": "953800e952f39f382b7d2cbee7b8356e2d9196927c92a3682c922b8e0cf1b5f9",
+     "policy/engine/checks/cargo-lock-integrity.js": "cf9031176c8ac64f0ef54b14e3f2338cd16b78499fda30f32dd21e4adb6b247c",
+     "policy/engine/checks/contract-entrypoint-tests.js": "aeb262cb5e507888e7998709f34dada245cb72a1dc5cb998a59d8c5af88de971",
+diff --git a/scripts/hooks/cli.mjs b/scripts/hooks/cli.mjs
+index 446ddbd..033263b 100644
+--- a/scripts/hooks/cli.mjs
++++ b/scripts/hooks/cli.mjs
+@@ -43,6 +43,18 @@ function runCommitlint(root, messageFile) {
+   return result.status ?? 1;
+ }
+ 
++function runCommitMessagePolicy(root, messageFile) {
++  const cli = path.join(root, "policy", "cli.js");
++  if (!existsSync(cli)) return 0;
++  const result = spawnSync(
++    process.execPath,
++    [cli, "check", "--stage", "commit-msg", "--source", "staged", "--commit-msg-file", messageFile],
++    { cwd: root, stdio: "inherit", windowsHide: false }
++  );
++  if (result.error) throw result.error;
++  return result.status ?? 1;
++}
++
+ async function main() {
+   const command = process.argv[2];
+   const originalCwd = process.cwd();
+@@ -59,7 +71,9 @@ async function main() {
+   if (command === "commit-msg") {
+     if (!messageArgument) throw new Error("commit-msg requires the commit message file path");
+     const messageFile = path.resolve(originalCwd, messageArgument);
+-    return runCommitlint(root, messageFile);
++    const commitlintStatus = runCommitlint(root, messageFile);
++    if (commitlintStatus !== 0) return commitlintStatus;
++    return runCommitMessagePolicy(root, messageFile);
+   }
+   if (command === "doctor") return printDiagnosis(diagnose(root));
+ 
+diff --git a/scripts/hooks/runner.mjs b/scripts/hooks/runner.mjs
+index 5e1f3d2..accbc06 100644
+--- a/scripts/hooks/runner.mjs
++++ b/scripts/hooks/runner.mjs
+@@ -332,6 +332,25 @@ function rustEnvironment(root) {
+   return { env, sccache };
+ }
+ 
++function policyStep(root, stage) {
++  const cli = path.join(root, "policy", "cli.js");
++  if (!existsSync(cli)) return null;
++  const args =
++    stage === "pre-commit"
++      ? [cli, "check", "--stage", "pre-commit", "--source", "staged"]
++      : [cli, "check", "--stage", "pre-push", "--source", "range", "--base", "auto"];
++  return {
++    name: `policy-${stage}`,
++    command: `node policy/cli.js ${args.slice(1).join(" ")}`,
++    toolVersion: `node ${process.version}`,
++    inputSignature: "uncached-policy-evaluation",
++    executable: process.execPath,
++    args,
++    cwd: root,
++    cacheable: false,
++  };
++}
++
+ function relatedJestArgs(snapshot, route, project, baseArgs) {
+   const projectFiles = route.paths
+     .filter((file) => file.startsWith(`${project}/`))
+@@ -484,6 +503,9 @@ function prePushSteps(root, snapshot, route) {
+     });
+   }
+ 
++  const policy = policyStep(root, "pre-push");
++  if (policy) steps.push(policy);
++
+   return steps;
+ }
+ 
+@@ -526,6 +548,8 @@ export async function runPreCommit(root) {
+     linkDependencyTrees(root, snapshot.path);
+     await optionalTestDelay();
+     const steps = preCommitSteps(root, snapshot.path, files);
++    const policy = policyStep(root, "pre-commit");
++    if (policy) steps.push(policy);
+     return executeSteps({ root, hook: "pre-commit", steps });
+   } finally {
+     activeCleanup = null;

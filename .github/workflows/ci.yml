@@ -5,6 +5,9 @@ on:
     branches: [main, develop]
   pull_request:
     branches: [main]
+  # Required checks must also report inside the merge queue, or a queued
+  # entry never satisfies branch protection and the queue stalls.
+  merge_group:
 
 jobs:
   frontend:
@@ -92,12 +95,22 @@ jobs:
           --health-retries 10
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Schema compatibility is checked against the pull request base.
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
           cache: "npm"
           cache-dependency-path: backend/package-lock.json
       - run: npm ci
+      - name: Check GraphQL schema registry snapshot
+        run: npm run graphql:schema:check
+      - name: Reject breaking GraphQL schema changes
+        if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
+        env:
+          GRAPHQL_SCHEMA_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+        run: npm run graphql:schema:breaking -- --base "$GRAPHQL_SCHEMA_BASE_SHA"
       - run: npm test
         env:
           DATABASE_URL: postgresql://test:test@localhost:5432/marketpay_test
@@ -168,8 +181,14 @@ jobs:
             target
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
       - run: cargo check --target wasm32-unknown-unknown
+      # Runs the unit tests in `src/lib.rs` and the verification suites in
+      # `tests/` — differential, regressions and invariant fuzzing. See
+      # docs/VERIFICATION.md.
       - run: cargo test --features std
-      - run: cargo clippy -- -D warnings
+      # `--all-targets --features std` rather than the bare invocation: without
+      # it clippy only sees the library, and the eleven lints living in the
+      # test code never failed the build.
+      - run: cargo clippy --all-targets --features std -- -D warnings
       - run: cargo install cargo-audit --locked
       - run: cargo audit --ignore RUSTSEC-2020-0071
       - run: cargo build --target wasm32-unknown-unknown --release

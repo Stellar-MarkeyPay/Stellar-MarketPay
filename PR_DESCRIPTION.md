@@ -1,105 +1,190 @@
-# PR: Build Component Library with Storybook, Design Tokens, Shared Primitives & Visual Regression Testing
-
-closes #251
-
 ## Summary
 
-This PR establishes an isolated component library environment with Storybook 8 for Next.js, extracts and documents design tokens as the source of truth for both light and dark themes, consolidates duplicated UI patterns into shared primitives, adds automated WCAG 2.1 AA accessibility checks, and implements visual regression testing on CI.
+This PR adds the compliance core needed for regulated value movement: tiered
+identity verification, SEP-12 interoperability, sanctions/PEP screening,
+transaction monitoring, explainable risk scoring, human case management, Travel
+Rule exchange, effective-dated jurisdiction policy, regulatory reporting, and a
+tamper-evident audit trail.
 
-### Key Achievements:
+The implementation was designed before coding in
+`docs/COMPLIANCE_DESIGN_COMMENT.md` and is split into independently reviewable
+foundation, identity/screening, and monitoring/API commits.
 
-- **Storybook Infrastructure**: Configured `@storybook/nextjs` with custom context decorators for `ThemeContext` (dark/light theme switching), `PriceContext` (XLM/USD pricing mode), `i18n` (en/es/fr/pt language detection & toggle), `StellarAccountContext`, and `ToastProvider`.
-- **100% Component Story Coverage**: Added comprehensive story files for all 48 components across `frontend/components` and `frontend/components/Onboarding/`, covering default, loading/skeleton, empty, error, and long-content overflow states.
-- **Design Tokens Extraction**: Centralized tokens in `frontend/styles/tokens.ts` (colors, typography, spacing, radii, shadows, z-indices) and documented in `docs/design-tokens.md` and interactive Storybook doc `frontend/stories/DesignTokens.stories.tsx`.
-- **Shared UI Primitives**: Consolidated common UI patterns into reusable primitives under `frontend/components/primitives/`:
-  - `Button` (5 variants, 3 sizes, loading spinner, 44px touch targets)
-  - `Badge` (semantic status colors: open, progress, complete, cancelled, disputed, gold, neutral)
-  - `Modal` (accessible dialog with focus trap, backdrop blur, Escape key dismiss)
-  - `Input` & `Textarea` (form fields with label, error, helper text, and character counter)
-  - `Card` (standard card container with header, footer, hover states)
-  - `Skeleton` (text, circle, rectangle, card loading states)
-  - `StatCard` (metric display card with trend indicators and color schemes)
-- **Automated Accessibility Testing**: Configured `@storybook/addon-a11y` and added automated `axe-core` test suite in `frontend/__tests__/accessibility.test.tsx` ensuring zero serious/critical WCAG violations.
-- **Visual Regression Testing**: Added Jest story snapshot regression suite (`frontend/__tests__/stories.snapshot.test.tsx`) and Playwright visual screenshot suite (`frontend/tests/visual-regression.spec.ts`).
-- **CI/CD Integration**: Updated `.github/workflows/ci.yml` to build Storybook (`npm run build-storybook`), upload `storybook-static` as a reviewable artifact, run accessibility checks, and execute visual tests.
-- **Contribution Standards**: Documented component contribution rules in `CONTRIBUTING.md` requiring every new component to ship with stories and adhere to design tokens.
+## What was fixed
 
----
+### Identity verification and privacy
 
-## Technical Details & Architecture
+- Added individual and corporate verification subjects with centrally checked
+  state transitions and three configurable KYC tiers.
+- Tier now gates rolling transaction limits instead of disabling unrelated
+  platform access.
+- Added provider-backed document, liveness, expiry, and re-verification flows.
+- Added corporate directors and beneficial owners with their own screening
+  status.
+- Added SEP-12 `info` and `customer` endpoints backed by the same encrypted
+  subject record, avoiding a second identity store.
+- Added AES-256-GCM context-bound envelopes, key IDs for rotation, HMAC blind
+  indexes, evidence hashes, data minimisation, retention rules, legal holds, and
+  provider/local deletion workflows.
 
-### 1. Decorators in Storybook Preview
+### Screening, monitoring, and risk
 
-`.storybook/preview.tsx` injects all essential application contexts into every story:
+- Added sanctions, PEP, and adverse-media screening on onboarding, before
+  transfers, and on a scheduled re-screening cycle.
+- Added configurable structuring, velocity, new-counterparty concentration, and
+  counterparty fan-out rules.
+- Added explainable 0-100 risk assessments combining identity, behaviour,
+  screening, on-chain exposure, and geography. Every score stores component
+  values, reason codes, evidence hash, model version, and policy version.
+- Added idempotent transfer evaluations with observe and enforcement modes.
+- Mounted the existing fraud route, which was previously present but not
+  reachable from the application server.
 
-```tsx
-<I18nextProvider i18n={i18next}>
-  <ThemeProvider>
-    <PriceProvider>
-      <StellarAccountProvider>
-        <ToastProvider>
-          <Story />
-        </ToastProvider>
-      </StellarAccountProvider>
-    </PriceProvider>
-  </ThemeProvider>
-</I18nextProvider>
-```
+### Human case management
 
-### 2. Design Tokens Schema
+- Added alert-to-case creation and a central case state machine:
+  `open -> triaged -> investigating -> decided -> closed`, with a controlled
+  escalation loop.
+- Automated rules may open alerts and hold the affected transfer, but they do
+  not create a human disposition.
+- Added analyst attribution, mandatory reasons, evidence links, disposition,
+  and before/after state audit events for every triage decision.
 
-Defined in `frontend/styles/tokens.ts`:
+### Travel Rule
 
-- **Colors**: Brand Gold (`market.50` - `market.900`), Brand Neutral (`ink.500` - `ink.950`), Semantic Status (`success`, `warning`, `error`, `info`, `purple`), Theme variables (`light` and `dark`).
-- **Typography**: Display (`Playfair Display`), Body (`DM Sans`), Mono (`JetBrains Mono`), scale (`xs` to `4xl`).
-- **Spacing & Radii**: 4px scale, 44px min touch target, `sm` (4px) to `2xl` (16px) & `full`.
+- Added policy-controlled thresholds and required originator/beneficiary fields.
+- Added institution discovery, protocol delivery, idempotency, receipt hashes,
+  bounded retry/backoff, and manual-review handling for unreachable peers.
+- Added a distinct self-hosted-wallet flow using signed challenge,
+  microtransaction, or wallet-connection control evidence.
+- Sensitive exchange payloads are encrypted; audit records retain references
+  and hashes rather than plaintext identity data.
 
----
+### Jurisdiction, geo, reporting, and audit
 
-## Local CI & Testing Commands
+- Added versioned, effective-dated jurisdiction policies stored in PostgreSQL
+  and refreshed through a short cache, so rule changes do not require a deploy.
+- Added schema validation, monotonic tier validation, weight/threshold checks,
+  immutable checksums, and four-eyes publication.
+- Added geo decisions using coarse, trusted edge signals plus KYC/declared
+  country. Client-supplied forwarding headers are ignored unless trusted-edge
+  mode is explicitly enabled, and raw IP addresses are not stored.
+- Added deterministic SAR JSON/XML generation, encrypted report storage,
+  integrity hashes, filing references, and manual or provider submission.
+- Added append-only, per-subject hash chains containing actor, action, object,
+  correlation ID, policy version, reason, decision, and evidence hash. Database
+  sequencing and transaction/advisory locks preserve a valid chain under
+  concurrent writers.
 
-Run these terminal commands in `frontend/` before pushing:
+### Database migration and operations
 
-```bash
-# 1. Run unit & snapshot tests
-npm test
+- Added additive migration `V21__compliance_core` with 15 normalized tables and
+  an observe-only default policy.
+- Fixed the migration journal to key migrations by `(version, name)`. The old
+  version-only primary key silently skipped same-number migrations already
+  present in this repository.
+- Added exact named rollback and an automatic upgrade path for existing
+  migration journals.
+- Added provider configuration, encryption/key-rotation guidance, retention and
+  deletion procedures, policy promotion, scheduler operations, migration, and
+  rollback in `docs/COMPLIANCE_OPERATIONS.md`.
+- The V21 down migration is appropriate only during the empty observation
+  window. After decisions exist, rollback switches policy to observe mode,
+  stops workers, preserves audit-bearing tables, and rolls the application back
+  while a forward fix is prepared.
 
-# 2. Run automated accessibility checks
-npm run test:a11y
+### CI integration fixes
 
-# 3. Run TypeScript type checks
-npm run type-check
+- Synced the branch with the latest upstream `main` before final validation.
+- Corrected the new escrow-reconciliation test's module paths so Jest resolves
+  the database, contract client, metric, and logger from `src/__tests__`.
+- Made `frontend/lib/i18n.d.ts` an actual external module matching the runtime
+  default and named exports, restoring TypeScript validation for relative and
+  alias imports.
+- Explicitly enabled locale grouping for XLM display so Node 24 ICU formats
+  Spanish four-digit values consistently with the application's tests.
+- Normalized the upstream reconciliation, locale, URL-filter, server, and PR
+  files with the repository's Prettier configuration.
 
-# 4. Run ESLint lint checks
-npm run lint
+## API surface
 
-# 5. Build static Storybook bundle
-npm run build-storybook
+- Native compliance APIs under `/api/compliance` for identity sessions, tier
+  limits, transfers, Travel Rule evidence/status, audit history, cases, policy,
+  screening, reports, and worker execution.
+- SEP-12 APIs under `/api/sep12`.
+- JWT ownership checks protect subject endpoints and administrator middleware
+  protects case, policy, reporting, screening, and worker actions.
+- OpenAPI generation now reports 257 documented paths and 286 HTTP methods with
+  no undocumented application routes.
 
-# 6. Run Next.js production build
-npm run build
+## Type of change
 
-# 7. Run visual regression tests (requires dev server / mock mode)
-npm run test:visual
-```
+- [x] New feature
+- [x] Bug fix
+- [x] Database migration
+- [x] Backend/API
+- [x] Documentation
 
-In root directory:
+## Related issue
 
-```bash
-# Prettier check & format
-npm run format:check
-npm run format
-```
+Closes #<!-- add issue number -->
 
----
+## Compatibility and rollout
 
-## Verification Plan
+- V21 is additive; existing profiles and money-movement APIs remain available.
+- A legacy `profiles.is_kyc_verified` value is retained only as an evidence
+  marker during lazy subject creation. It does not invent a v2 tier or copy
+  plaintext data.
+- The seeded policy is observe-only, so the first deployment records outcomes
+  without introducing new transfer holds.
+- Promote a separately reviewed, effective-dated enforcement policy only after
+  observation results and provider credentials have been verified.
+- Production must configure encryption, blind-index, provider, and webhook keys
+  documented in `backend/.env.example` and the operations runbook.
 
-- [x] All 48 components have corresponding `.stories.tsx` files.
-- [x] Storybook context decorators properly supply theme, price, and i18n contexts.
-- [x] Automated accessibility test suite runs axe-core with zero serious/critical violations.
-- [x] Jest story snapshot test verifies component structure and catches regression diffs.
-- [x] Design tokens documented in `docs/design-tokens.md` and `frontend/styles/tokens.ts`.
-- [x] `CONTRIBUTING.md` updated with component contribution rules.
-- [x] `README.md` updated with Storybook badge and component library links.
-- [x] CI workflow builds Storybook and uploads static artifacts on pull requests.
+## Validation
+
+Validation completed locally against the latest upstream `main` on August 28,
+2026:
+
+- `npm run format:check`
+- `npm run lint`
+- `npm run type-check`
+- `cd backend && npm run build`
+  - 257 unique API paths
+  - 286 HTTP methods
+  - all routes documented
+- `cd backend && npm test`
+  - 62 suites passed
+  - 560 tests passed
+- Complete frontend CI sequence:
+  - unit: 10 suites / 87 tests / 36 snapshots passed
+  - accessibility: 5 tests passed
+  - production build and Storybook build passed
+  - Playwright E2E: 8 passed / 1 skipped
+  - visual regression: 3 passed
+- The PR's Soroban contract CI job passed after the upstream merge.
+- PostgreSQL `migrate -> rollback V21 -> migrate` verified against a real local
+  database.
+- Manual database-backed scenarios verified:
+  - individual tiering, expiry decision, limit gating, and onboarding screening
+  - corporate verification and beneficial-owner screening
+  - hot jurisdiction-policy publication without restart/deploy
+  - observed transfer and self-hosted Travel Rule completion
+  - alert triage through human decision and SAR filing
+  - eight concurrent audit appends with a valid ordered hash chain
+  - bounded worker cycle with no due work
+
+## Reviewer guide
+
+1. Review `docs/COMPLIANCE_DESIGN_COMMENT.md` for boundaries, state machines,
+   storage, migration, and phased rollout.
+2. Review V21 and the migration journal fix.
+3. Review crypto, policy, state machine, and audit primitives.
+4. Review identity/SEP-12 and continuous screening.
+5. Review transfer monitoring, risk, cases, Travel Rule, reporting, routes, and
+   the operational runbook.
+
+## Screenshots
+
+Not applicable; this PR is a backend compliance subsystem.

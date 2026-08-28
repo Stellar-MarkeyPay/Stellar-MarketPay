@@ -39,6 +39,12 @@
  *     iterations, preventing unbounded storage/gas usage in pathological trees.
  */
 
+// `ReferralKey`'s variants deliberately share a `Referral` prefix; see the
+// type's doc comment. The allow is module-level because the lint fires from
+// inside the `#[contracttype]` expansion, where an item-level attribute does
+// not reach it.
+#![allow(clippy::enum_variant_names)]
+
 use soroban_sdk::{contracttype, symbol_short, Address, Env, Vec};
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -56,6 +62,12 @@ pub const BPS_DENOMINATOR: i128 = 10_000;
 // ─── Storage keys ─────────────────────────────────────────────────────────────
 
 /// Keyed by the *child* address — stores the parent (referrer) address.
+///
+/// The shared `Referral` prefix is what the module-level
+/// `enum_variant_names` allow above is for: `#[contracttype]` derives the
+/// on-chain encoding from these variant names, so renaming them changes the
+/// storage key of every referral relationship already written to the ledger.
+/// That is a migration, not a cleanup.
 #[contracttype]
 #[derive(Clone)]
 pub enum ReferralKey {

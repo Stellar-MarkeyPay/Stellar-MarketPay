@@ -7,10 +7,29 @@ license = "MIT"
 resolver = "2"
 
 [lib]
-crate-type = ["cdylib"]
+# `rlib` alongside `cdylib` so the crate can be linked by the differential
+# tests in `tests/`, which drive the real contract and the reference model in
+# `../marketpay-spec` through the same call sequences and compare the results.
+# A `cdylib`-only crate cannot be depended on by an integration test, which is
+# why every test in this crate used to live inside `src/lib.rs`. The wasm
+# build is unaffected: `cargo build --target wasm32-unknown-unknown` still
+# emits the same `cdylib`.
+crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-soroban-sdk = { version = "=22.0.0", default-features = false }
+# "alloc": src/reputation.rs (Issue #319) uses `format!`/`alloc::string`/
+# `alloc::vec` for dynamic Fiat-Shamir transcript labels and JSON encoding
+# of statement public parameters — nothing else in this crate needs real
+# heap allocation (everything else uses soroban_sdk's own host-backed
+# Vec/String/Bytes, which need no allocator at all). This feature is what
+# links soroban-sdk's bundled bump allocator for the wasm32 target; without
+# it `extern crate alloc` compiles but linking fails with "no global memory
+# allocator found" on the actual wasm32-unknown-unknown target (it does not
+# fail under `cargo check`/`cargo test --features std` on the host target,
+# where std's own allocator is linked in regardless — this was caught only
+# by explicitly building for wasm32-unknown-unknown, not by the faster
+# native-target checks used during day-to-day development).
+soroban-sdk = { version = "=22.0.0", default-features = false, features = ["alloc"] }
 stellar-xdr = { version = "=22.0.0", default-features = false, features = ["curr"] }
 base64ct = "=1.6.0"
 zeroize_derive = "=1.4.2"
@@ -27,6 +46,9 @@ ethnum = "1.5.3"
 
 [dev-dependencies]
 soroban-sdk = { version = "=22.0.0", default-features = false, features = ["testutils"] }
+# The formal specification and reference model. A dev-dependency, not a
+# dependency: none of it is compiled into the deployed wasm.
+marketpay-spec = { path = "../marketpay-spec" }
 
 [features]
 std = ["stellar-xdr/std"]

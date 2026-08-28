@@ -16,8 +16,9 @@ import {
   Legend,
   ArcElement,
 } from "chart.js";
-import { Line, Bar, Doughnut } from "react-chartjs-2";
+import { Doughnut, Line, Bar } from "react-chartjs-2";
 import { format } from "date-fns";
+import { formatChartDate } from "@/utils/format";
 
 ChartJS.register(
   CategoryScale,
@@ -177,7 +178,7 @@ export default function AdminAnalytics({ publicKey }: AdminAnalyticsProps) {
 
   // Chart data
   const userGrowthData = {
-    labels: metrics.weeklyGrowth.map((w) => format(new Date(w.week), "MMM dd")),
+    labels: metrics.weeklyGrowth.map((w) => formatChartDate(w.week)),
     datasets: [
       {
         label: "New Users",
@@ -190,7 +191,7 @@ export default function AdminAnalytics({ publicKey }: AdminAnalyticsProps) {
   };
 
   const jobVolumeData = {
-    labels: metrics.jobVolume.slice(-14).map((d) => format(new Date(d.date), "MMM dd")),
+    labels: metrics.jobVolume.slice(-14).map((d) => formatChartDate(d.date)),
     datasets: [
       {
         label: "Jobs Created",
@@ -206,7 +207,7 @@ export default function AdminAnalytics({ publicKey }: AdminAnalyticsProps) {
   };
 
   const disputeData = {
-    labels: metrics.disputeMetrics.map((d) => format(new Date(d.week), "MMM dd")),
+    labels: metrics.disputeMetrics.map((d) => formatChartDate(d.week)),
     datasets: [
       {
         label: "Disputes Opened",

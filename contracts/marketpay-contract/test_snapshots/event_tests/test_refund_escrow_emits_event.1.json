@@ -437,21 +437,6 @@
                         "key": {
                           "vec": [
                             {
-                              "symbol": "TimeoutTimestamp"
-                            },
-                            {
-                              "string": "evt-job-4"
-                            }
-                          ]
-                        },
-                        "val": {
-                          "u32": 604800
-                        }
-                      },
-                      {
-                        "key": {
-                          "vec": [
-                            {
                               "symbol": "Version"
                             }
                           ]

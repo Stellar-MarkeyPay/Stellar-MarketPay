@@ -5,6 +5,8 @@
 const express = require("express");
 const router = express.Router();
 const { createRateLimiter } = require("../middleware/rateLimiter");
+const { verifyJWT } = require("../middleware/auth");
+const reputationRequirementService = require("../services/reputationRequirementService");
 
 const applicationRateLimiter = createRateLimiter(5, 1); // 100 requests per 15 minutes
 const generalApplicationRateLimiter = createRateLimiter(30, 1); // 100 requests per minute for listing/getting applications
@@ -80,12 +82,21 @@ router.get("/job/:jobId", generalApplicationRateLimiter, async (req, res, next) 
     const { predictJobCompletion } = require("../services/analytics");
     const job = await getJob(req.params.jobId);
 
+    // ZK reputation (Issue #319): attach each applicant's verified proof
+    // statuses so a client can filter by proof without ever seeing the
+    // underlying ratings — only the statement kind, its public parameters,
+    // and whether it verified.
+    const proofsByApplication = await reputationRequirementService.getApplicationProofs(
+      applications.map((app) => app.id)
+    );
+
     const applicationsWithPredictions = await Promise.all(
       applications.map(async (app) => {
         const prediction = await predictJobCompletion(job, app.freelancerAddress);
         return {
           ...app,
           prediction,
+          reputationProofs: proofsByApplication.get(app.id) || [],
         };
       })
     );
@@ -811,6 +822,64 @@ router.delete("/:id", applicationRateLimiter, async (req, res, next) => {
   try {
     const app = await withdrawApplication(req.params.id, req.body.freelancerAddress);
     res.json({ success: true, data: app });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/**
+ * @swagger
+ * /api/applications/{id}/reputation-proof:
+ *   post:
+ *     summary: Attach a zero-knowledge reputation proof to your application
+ *     description: >
+ *       Zero-knowledge reputation with selective disclosure (Issue #319): a
+ *       freelancer proves a claim about their history — e.g. average rating
+ *       >= 4.5 — without exposing individual ratings, amounts or disputes.
+ *       The proof must have been built with context.audience set to the
+ *       job's client and context.purpose set to `job-application:{jobId}`;
+ *       this endpoint verifies that binding itself rather than trusting the
+ *       caller, so a proof cannot be lifted from one application and
+ *       replayed on another. Build the proof via POST
+ *       /api/reputation/{publicKey}/prove (hosted) or client-side using the
+ *       same statement/circuit modules against your own openings (GET
+ *       /api/reputation/{publicKey}/openings).
+ *     tags: [Applications]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [proof]
+ *             properties:
+ *               proof:
+ *                 type: object
+ *     responses:
+ *       201: { description: Proof recorded (verified may be false — the response says why) }
+ *       400: { description: Bad request }
+ *       403: { description: Forbidden — not this application's freelancer }
+ *       404: { description: Application not found }
+ */
+router.post("/:id/reputation-proof", applicationRateLimiter, verifyJWT, async (req, res, next) => {
+  try {
+    const { proof } = req.body || {};
+    if (!proof || typeof proof !== "object") {
+      return res.status(400).json({ success: false, error: "proof is required" });
+    }
+    const record = await reputationRequirementService.attachApplicationProof({
+      applicationId: req.params.id,
+      freelancerAddress: req.user.publicKey,
+      proof,
+    });
+    res.status(201).json({ success: true, data: record });
   } catch (e) {
     next(e);
   }

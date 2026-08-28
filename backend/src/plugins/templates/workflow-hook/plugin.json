@@ -1,0 +1,10 @@
+{
+  "id": "example-workflow-hook",
+  "name": "Example Workflow Hook",
+  "version": "1.0.0",
+  "apiVersion": "1.0",
+  "extensionPoints": ["workflow_hook"],
+  "workflowEvents": ["job.created"],
+  "permissions": ["read:jobs", "write:notifications"],
+  "entry": "index.js"
+}

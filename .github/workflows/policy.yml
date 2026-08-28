@@ -1,0 +1,134 @@
+# Merge policy gate.
+#
+# This is the server-side half of the rule set defined in policy/policies.json.
+# It runs the *same* engine and the *same* manifest as the Husky hooks, with
+# `--stage ci`; nothing about a rule is redefined here. See
+# docs/POLICY_ENGINE.md for the parity argument and docs/POLICY_CATALOGUE.md
+# for the rules themselves.
+#
+# Two properties matter and are easy to lose:
+#
+#   1. The policy is evaluated from the BASE branch, not the head. The base is
+#      checked out separately and its engine judges the pull request, so a
+#      change that deletes the rule it violates does not get to be judged by
+#      its own edit.
+#   2. The job runs on `merge_group` as well as `pull_request`. A required
+#      check that only runs on the pull request is a check that two
+#      individually green branches can merge around — which is exactly how the
+#      dropped-declarations merge reached main.
+
+name: Policy Gate
+
+on:
+  pull_request:
+    branches: [main, develop]
+  merge_group:
+  push:
+    branches: [main, develop]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: policy-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  policy:
+    name: Merge policy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the changeset
+        uses: actions/checkout@v4
+        with:
+          # Full history: the engine diffs against the merge base and reads
+          # commit signatures, neither of which survives a shallow clone.
+          fetch-depth: 0
+
+      - name: Resolve the base and head of the changeset
+        id: range
+        env:
+          EVENT: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          BASE_REF: ${{ github.event.pull_request.base.ref || github.event.merge_group.base_ref }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT" = "pull_request" ]; then
+            echo "base=$PR_BASE" >> "$GITHUB_OUTPUT"
+            echo "head=$PR_HEAD" >> "$GITHUB_OUTPUT"
+            echo "policy_ref=$PR_BASE" >> "$GITHUB_OUTPUT"
+          elif [ "$EVENT" = "merge_group" ]; then
+            base="${BASE_REF#refs/heads/}"
+            git fetch --no-tags origin "$base"
+            echo "base=$(git rev-parse "origin/$base")" >> "$GITHUB_OUTPUT"
+            echo "head=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+            echo "policy_ref=$(git rev-parse "origin/$base")" >> "$GITHUB_OUTPUT"
+          else
+            echo "base=$(git rev-parse HEAD~1 2>/dev/null || git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+            echo "head=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+            echo "policy_ref=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      # The rule set that judges this change comes from the base branch. A
+      # pull request cannot weaken, disable or delete the check reviewing it.
+      - name: Check out the policy set from the base branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.range.outputs.policy_ref }}
+          path: .policy-base
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Evaluate merge policy
+        env:
+          # The pull request body is one of the surfaces a storage-compatibility
+          # acknowledgement may live on.
+          POLICY_PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          set -euo pipefail
+          policy_root="$GITHUB_WORKSPACE/.policy-base"
+          if [ ! -f "$policy_root/policy/cli.js" ]; then
+            echo "::notice::Bootstrapping the policy gate from the changeset; the base branch has no policy engine yet."
+            policy_root="$GITHUB_WORKSPACE"
+          fi
+          cd "$policy_root"
+          node policy/cli.js check \
+            --stage ci \
+            --source range \
+            --repo-root "$GITHUB_WORKSPACE" \
+            --policy-root "$policy_root" \
+            --base "${{ steps.range.outputs.base }}" \
+            --head "${{ steps.range.outputs.head }}" \
+            --json-out "$RUNNER_TEMP/policy.json"
+
+      - name: Upload findings
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: policy-findings
+          path: ${{ runner.temp }}/policy.json
+          retention-days: 30
+          if-no-files-found: ignore
+
+  parity:
+    name: Local/CI parity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      # The engine has no runtime dependencies, so the parity and rule tests
+      # run without an install step. That is deliberate: a gate that cannot
+      # run until a lockfile resolves is a gate that stops running the day a
+      # registry has a bad afternoon.
+      - name: Rule tests (both outcomes for every rule)
+        run: npm run policy:test
+      - name: Hook and engine integrity
+        run: npm run policy:integrity
+      - name: Override audit
+        run: npm run policy:overrides

@@ -1,0 +1,186 @@
+# root.graphql — the entry points.
+#
+# Kept deliberately small. A gateway whose root grows one field per screen has
+# become the REST API again; the traversal is meant to happen through edges,
+# not through a widening root.
+
+type Query {
+  """
+  Refetch any object by its global id.
+
+  Exists so a client can refresh a single object after a mutation without
+  knowing which root field produced it.
+  """
+  node(id: ID!): Node @cost(complexity: 2)
+
+  "A single job. Returns `NotFoundError` rather than null so the reason is typed."
+  job(id: ID!): JobResult @cost(complexity: 2)
+
+  "The job feed."
+  jobs(first: Int = 20, after: Cursor, filter: JobFilter, sort: JobSort = NEWEST): JobConnection!
+    @cost(complexity: 3, multipliers: ["first"])
+
+  "A single profile, by Stellar account."
+  profile(address: PublicKey!): ProfileResult @cost(complexity: 2)
+
+  "Browse profiles."
+  profiles(
+    first: Int = 20
+    after: Cursor
+    skills: [String!]
+    availability: AvailabilityStatus
+  ): ProfileConnection! @cost(complexity: 3, multipliers: ["first"])
+
+  """
+  The authenticated viewer.
+
+  Null when the request is anonymous. This is the only correct way to ask
+  "who am I" — a client must never infer identity from a token it decoded
+  itself.
+  """
+  viewer: Viewer @cacheControl(maxAge: 0, scope: PRIVATE)
+
+  "A single application. Participants only."
+  application(id: ID!): ApplicationResult @auth(requires: AUTHENTICATED) @cost(complexity: 2)
+
+  "An escrow by the job it funds. Participants only."
+  escrow(jobId: ID!): EscrowResult @auth(requires: AUTHENTICATED) @cost(complexity: 3)
+
+  "A dispute by the job it concerns. Participants only."
+  dispute(jobId: ID!): DisputeResult @auth(requires: AUTHENTICATED) @cost(complexity: 3)
+}
+
+"""
+The authenticated caller, and the things that belong to them.
+
+Everything hanging off `Viewer` is implicitly the viewer's own, which is why
+these fields need no further `@auth`: reaching them at all required
+authentication, and they are scoped to the identity that authenticated.
+"""
+type Viewer @cacheControl(maxAge: 0, scope: PRIVATE) {
+  address: PublicKey!
+  isAdmin: Boolean!
+
+  "The viewer's own profile."
+  profile: Profile @cost(complexity: 2)
+
+  "Jobs the viewer posted."
+  postedJobs(first: Int = 20, after: Cursor, status: JobStatus): JobConnection!
+    @cost(complexity: 3, multipliers: ["first"])
+
+  "Jobs the viewer is working on."
+  assignedJobs(first: Int = 20, after: Cursor, status: JobStatus): JobConnection!
+    @cost(complexity: 3, multipliers: ["first"])
+
+  "Applications the viewer has submitted."
+  applications(first: Int = 20, after: Cursor, status: ApplicationStatus): ApplicationConnection!
+    @cost(complexity: 3, multipliers: ["first"])
+
+  "Unread notification count."
+  unreadNotificationCount: Int! @cost(complexity: 2)
+}
+
+type Mutation {
+  "Submit an application to a job."
+  submitApplication(input: SubmitApplicationInput!): SubmitApplicationPayload!
+    @auth(requires: AUTHENTICATED)
+
+  "Accept an application, assigning its freelancer to the job."
+  acceptApplication(input: AcceptApplicationInput!): AcceptApplicationPayload!
+    @auth(requires: AUTHENTICATED)
+
+  "Withdraw one of the viewer's own applications."
+  withdrawApplication(input: WithdrawApplicationInput!): WithdrawApplicationPayload!
+    @auth(requires: AUTHENTICATED)
+
+  "Record an escrow release after the on-chain transaction has been submitted."
+  releaseEscrow(input: ReleaseEscrowInput!): ReleaseEscrowPayload! @auth(requires: AUTHENTICATED)
+
+  "Raise a dispute on a job."
+  raiseDispute(input: RaiseDisputeInput!): RaiseDisputePayload! @auth(requires: AUTHENTICATED)
+
+  "Leave a rating for a counterparty on a completed job."
+  createRating(input: CreateRatingInput!): CreateRatingPayload! @auth(requires: AUTHENTICATED)
+}
+
+# ---------------------------------------------------------------------------
+# Mutation inputs and payloads
+#
+# Every mutation takes a single `input` object and returns a payload carrying
+# both the affected object and a typed `errors` list. One argument means a
+# new optional field is an additive change; a payload object means a mutation
+# can grow a second return value without a breaking change.
+# ---------------------------------------------------------------------------
+
+input SubmitApplicationInput {
+  jobId: ID!
+  coverLetter: String!
+  bidAmount: Decimal
+  estimatedDays: Int
+  screeningAnswers: [String!]
+  "Commitment hash, when applying to a sealed-bid job."
+  commitmentHash: String
+}
+
+type SubmitApplicationPayload {
+  application: Application
+  job: Job
+  errors: [MutationError!]!
+}
+
+input AcceptApplicationInput {
+  applicationId: ID!
+}
+
+type AcceptApplicationPayload {
+  application: Application
+  job: Job
+  errors: [MutationError!]!
+}
+
+input WithdrawApplicationInput {
+  applicationId: ID!
+}
+
+type WithdrawApplicationPayload {
+  application: Application
+  errors: [MutationError!]!
+}
+
+input ReleaseEscrowInput {
+  jobId: ID!
+  "Hash of the already-submitted Soroban transaction."
+  txHash: String!
+  "Milestone index, for a partial release."
+  milestoneIndex: Int
+}
+
+type ReleaseEscrowPayload {
+  escrow: Escrow
+  job: Job
+  errors: [MutationError!]!
+}
+
+input RaiseDisputeInput {
+  jobId: ID!
+  reason: String!
+  description: String
+}
+
+type RaiseDisputePayload {
+  dispute: Dispute
+  job: Job
+  errors: [MutationError!]!
+}
+
+input CreateRatingInput {
+  jobId: ID!
+  subjectAddress: PublicKey!
+  score: Int!
+  comment: String
+}
+
+type CreateRatingPayload {
+  rating: Rating
+  errors: [MutationError!]!
+}

@@ -1,0 +1,4 @@
+Original source locator: HEAD:contracts/marketpay-contract/src/lib.rs
+Git blob: dcb6a6a981efa0adc7a65917a44fe113a9e5488a
+SHA-256: 8102b7973981575cd33c2115983a3465684b8abb87e3fc19d93b54499316710d
+Verification command: git show HEAD:contracts/marketpay-contract/src/lib.rs | sha256sum

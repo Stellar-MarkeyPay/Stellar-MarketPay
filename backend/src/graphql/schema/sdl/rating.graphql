@@ -1,0 +1,38 @@
+# rating.graphql — a review left after a job completes.
+#
+# Ratings are public: they are the marketplace's reputation signal and a
+# private review would be worthless. The *author* of a rating is public too,
+# deliberately — anonymous reviews on a two-sided marketplace are a
+# retaliation vector.
+
+type Rating implements Node @cacheControl(maxAge: 120, scope: PUBLIC) {
+  id: ID!
+  jobId: ID
+  "Whom the rating is about."
+  subjectAddress: PublicKey!
+  "Who left it."
+  authorAddress: PublicKey!
+  "One to five."
+  score: Int!
+  comment: String
+  createdAt: DateTime!
+
+  subject: Profile @cost(complexity: 2)
+  author: Profile @cost(complexity: 2)
+  job: Job @cost(complexity: 2)
+}
+
+type RatingEdge {
+  node: Rating!
+  cursor: Cursor!
+}
+
+type RatingConnection {
+  edges: [RatingEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+  "Mean score across the whole collection, not just the current page."
+  averageScore: Float
+}
+
+union RatingResult = Rating | NotFoundError

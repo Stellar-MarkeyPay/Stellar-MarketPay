@@ -15,11 +15,24 @@
     "test:frontend": "(cd frontend && npm test)",
     "test:backend": "(cd backend && npm test)",
     "test:contracts": "cargo test --manifest-path contracts/marketpay-contract/Cargo.toml --features std",
+    "policy": "node policy/cli.js",
+    "policy:check": "node policy/cli.js check --stage pre-push --source range --base auto",
+    "policy:ci": "node policy/cli.js check --stage ci --source range --base auto",
+    "policy:test": "node --test policy/tests/*.test.js",
+    "policy:measure": "node policy/cli.js measure --depth 150",
+    "policy:catalogue": "node policy/cli.js catalogue",
+    "policy:integrity": "node policy/cli.js integrity",
+    "policy:overrides": "node policy/cli.js overrides",
+    "policy:signing-setup": "bash scripts/setup-commit-signing.sh",
     "commit": "cz",
     "release": "commit-and-tag-version",
     "release:minor": "commit-and-tag-version --release-as minor",
     "release:patch": "commit-and-tag-version --release-as patch",
-    "release:major": "commit-and-tag-version --release-as major"
+    "release:major": "commit-and-tag-version --release-as major",
+    "test:hooks": "node --test scripts/hooks/tests/*.test.mjs",
+    "hooks:pre-commit": "node scripts/hooks/cli.mjs pre-commit",
+    "hooks:pre-push": "node scripts/hooks/cli.mjs pre-push",
+    "hooks:doctor": "node scripts/hooks/cli.mjs doctor"
   },
   "config": {
     "commitizen": {
@@ -28,7 +41,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ajulaybeeb/Stellar-MarketPay.git"
+    "url": "git+https://github.com/Edoscoba/Stellar-MarketPay.git"
   },
   "keywords": [
     "stellar",
@@ -46,7 +59,9 @@
     "commit-and-tag-version": "^13.1.2",
     "commitizen": "^4.3.2",
     "husky": "^9.1.7",
-    "lint-staged": "^17.3.0",
     "prettier": "^3.9.6"
+  },
+  "engines": {
+    "node": ">=22.12.0"
   }
 }

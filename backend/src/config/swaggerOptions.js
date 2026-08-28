@@ -225,6 +225,15 @@ const swaggerOptions = {
         },
       },
       responses: {
+        BadRequest: {
+          description: "Request validation failed",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Error" },
+              example: { error: "Invalid request" },
+            },
+          },
+        },
         Unauthorized: {
           description: "Unauthorized - missing, invalid, or expired authentication",
           content: {
@@ -240,6 +249,15 @@ const swaggerOptions = {
             "application/json": {
               schema: { $ref: "#/components/schemas/Error" },
               example: { error: "Forbidden: Admin access required" },
+            },
+          },
+        },
+        NotFound: {
+          description: "Requested resource was not found",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Error" },
+              example: { error: "Not found" },
             },
           },
         },

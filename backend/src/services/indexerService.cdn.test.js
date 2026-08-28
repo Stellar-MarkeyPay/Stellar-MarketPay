@@ -34,13 +34,103 @@ function makeEvent(overrides = {}) {
 }
 
 describe("IndexerService -> CdnInvalidationService wiring", () => {
+  class CdnTestIndexer extends IndexerService {
+    constructor(options = {}) {
+      super({
+        platformWallet: "GPLATFORM",
+        contractId: "CONTRACT1",
+        broadcast: jest.fn(),
+        cdnInvalidation: options.cdnInvalidation || null,
+        clock: () => new Date("2026-08-26T12:00:00.000Z"),
+      });
+
+      this.memory = {
+        checkpoints: new Map(),
+        lineage: new Map(),
+        rawEvents: new Map(),
+        outbox: new Map(),
+      };
+    }
+
+    async loadCheckpoint(streamName = "contract_events") {
+      return this.memory.checkpoints.get(streamName) || null;
+    }
+
+    async saveCheckpoint({ streamName = "contract_events", ledger, ledgerHash, eventUid }) {
+      this.memory.checkpoints.set(streamName, {
+        stream_name: streamName,
+        last_ledger_sequence: ledger || null,
+        last_ledger_hash: ledgerHash || null,
+        last_event_uid: eventUid || null,
+      });
+    }
+
+    async _withTransaction(fn) {
+      return fn({});
+    }
+
+    async _createBatch() {
+      return "batch:1";
+    }
+
+    async _finalizeBatch() {}
+
+    async _getLineageRecord(_client, source, ledgerSequence) {
+      return this.memory.lineage.get(`${source}:${ledgerSequence}`) || null;
+    }
+
+    async _upsertLineageRecord(_client, source, record) {
+      this.memory.lineage.set(`${source}:${record.ledgerSequence}`, {
+        source,
+        ledger_sequence: record.ledgerSequence,
+        ledger_hash: record.ledgerHash || null,
+        parent_ledger_hash: record.parentLedgerHash || null,
+      });
+    }
+
+    async _insertRawEvent(_client, _batchId, record) {
+      if (this.memory.rawEvents.has(record.eventUid)) {
+        return false;
+      }
+      this.memory.rawEvents.set(record.eventUid, { ...record, canonical: true });
+      return true;
+    }
+
+    async _rebuildJobProjections() {}
+
+    async _refreshContractEventProjection() {}
+
+    async _recordAppliedEffect() {}
+
+    async _enqueueOutbox(_client, record, sideEffect, payload, suppressed) {
+      this.memory.outbox.set(`${record.eventUid}:${sideEffect}`, {
+        outbox_uid: `${record.eventUid}:${sideEffect}`,
+        event_uid: record.eventUid,
+        side_effect: sideEffect,
+        payload,
+        suppressed: Boolean(suppressed),
+        dispatched_at: null,
+      });
+    }
+
+    async flushOutbox() {
+      let dispatched = 0;
+      for (const row of this.memory.outbox.values()) {
+        if (row.suppressed || row.dispatched_at) continue;
+        try {
+          await this._dispatchOutboxRow(row);
+          row.dispatched_at = "2026-08-26T12:00:00.000Z";
+          dispatched += 1;
+        } catch (error) {
+          console.error("[Indexer] CDN invalidation failed:", error.message);
+        }
+      }
+      return { dispatched };
+    }
+  }
+
   function makeIndexer(cdnInvalidation) {
-    return new IndexerService({
-      platformWallet: "GPLATFORM",
-      contractId: "CONTRACT1",
-      broadcast: jest.fn(),
-      cdnInvalidation,
-    });
+    return new CdnTestIndexer({ cdnInvalidation });
   }
 
   test("triggers a targeted invalidation for a cache-affecting event", async () => {

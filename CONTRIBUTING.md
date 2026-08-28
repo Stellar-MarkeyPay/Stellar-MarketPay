@@ -51,9 +51,51 @@ To use an interactive commit prompt:
 npm run commit
 ```
 
-Local git hooks automatically run `lint-staged` on `pre-commit`, `commitlint` on `commit-msg`, and fast unit test suites on `pre-push`.
+Local Git hooks validate staged-index snapshots on `pre-commit`, run `commitlint` on ordinary
+messages, and execute only affected project suites on `pre-push`. Diagnose setup with
+`npm run hooks:doctor`.
 
 > For complete hook guidelines, escape hatch documentation (`--no-verify`), and benchmark details, see [docs/GIT_HOOKS_AND_COMMITS.md](./docs/GIT_HOOKS_AND_COMMITS.md).
+
+---
+
+## 🛡️ Merge Policy
+
+Alongside linting and tests, the hooks run a **merge policy** — a small set of
+rules drawn from failures this repository has actually had: a contract
+entrypoint changed with no test, a stored type reshaped with no migration
+note, a deleted `Cargo.lock`, a migration with no rollback, a test that asserts
+against the wall clock, a credential in a diff.
+
+The rules are defined once, in
+[`policy/policies.json`](./policy/policies.json), and the same definition is
+executed by the local hook and by a required CI check. A rule can be a warning
+locally and an error in CI, but it is never _detected_ differently — so
+`--no-verify` changes **when you find out** about a violation, never whether it
+is enforced.
+
+```bash
+npm run policy:check      # what the hooks will say about this branch
+npm run policy:ci         # what CI will say about it
+```
+
+Findings name the file, the rule and the fix. If one does not, that is a
+defect — open an issue. If a rule is wrong for a specific change, it can be
+overridden with an approver and an expiry rather than disabled; if it is wrong
+in general, argue with the **Why** paragraph in the catalogue and change it.
+
+- **[docs/POLICY_CATALOGUE.md](./docs/POLICY_CATALOGUE.md)** — every rule and its rationale
+- **[docs/POLICY_ENGINE.md](./docs/POLICY_ENGINE.md)** — how it works, and how to add a rule
+
+### Signing your commits
+
+```bash
+npm run policy:signing-setup
+```
+
+One-time enrolment; see [docs/COMMIT_SIGNING.md](./docs/COMMIT_SIGNING.md).
+Signing currently warns rather than blocks, and will become required once
+contributors have enrolled.
 
 ---
 
@@ -74,6 +116,8 @@ Local git hooks automatically run `lint-staged` on `pre-commit`, `commitlint` on
 - [ ] Uses documented design tokens ([docs/design-tokens.md](./docs/design-tokens.md)) rather than ad-hoc arbitrary values
 - [ ] Documentation updated if needed
 - [ ] No breaking changes (or clearly documented)
+- [ ] `npm run policy:ci` is clean — or every remaining finding is explained in the PR body
+- [ ] A change to `Escrow`, `DataKey` or another stored type carries a `Storage-Compat:` commit trailer
 
 ---
 

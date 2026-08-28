@@ -22,6 +22,7 @@ Stellar MarketPay is an open-source decentralised freelance marketplace where cl
 - ✅ **Release & Complete** — Client approves → funds released to freelancer instantly
 - 📜 **Job History** — Track all your jobs and earnings on-chain
 - 🎨 **Component Library & Storybook** — 48+ isolated components, theme & i18n decorators, design tokens, and visual regression testing ([docs/design-tokens.md](docs/design-tokens.md))
+- 🛡️ **Compliance Core** — Tiered individual/corporate KYC, SEP-12, continuous screening, transaction monitoring, Travel Rule exchange, human case decisions, jurisdiction policies, regulatory reports, and auditable encrypted data handling ([design](docs/COMPLIANCE_DESIGN_COMMENT.md), [operations](docs/COMPLIANCE_OPERATIONS.md))
 
 ---
 

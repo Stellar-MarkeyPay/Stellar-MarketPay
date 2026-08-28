@@ -1,0 +1,180 @@
+# job.graphql — the entity every screen in this product starts from.
+#
+# `Job` is the entry point for the traversal the gateway exists to collapse:
+# job → applications → applicant → ratings, plus escrow and dispute, in one
+# request instead of four serialised round trips.
+
+type Job implements Node @cacheControl(maxAge: 30, scope: PUBLIC) {
+  id: ID!
+  title: String!
+  description: String!
+  budget: Decimal!
+  currency: Currency!
+  category: String!
+  skills: [String!]!
+  status: JobStatus!
+
+  "The account that posted the job."
+  clientAddress: PublicKey!
+
+  "The assigned freelancer's account, once one is assigned."
+  freelancerAddress: PublicKey
+
+  deadline: DateTime
+  "IANA timezone the deadline is expressed in, when the client set one."
+  timezone: String
+
+  viewCount: Int!
+  applicantCount: Int!
+  shareCount: Int!
+  boosted: Boolean!
+  boostedUntil: DateTime
+  expiresAt: DateTime
+  biddingClosedAt: DateTime
+  createdAt: DateTime!
+  updatedAt: DateTime
+
+  "Questions an applicant must answer. Public: an applicant needs them to apply."
+  screeningQuestions: [String!]!
+
+  "Milestone breakdown, when the job is milestone-based."
+  milestones: [Milestone!]!
+
+  # --- edges ----------------------------------------------------------------
+
+  "The client who posted this job."
+  client: Profile @cost(complexity: 2)
+
+  "The assigned freelancer, once there is one."
+  freelancer: Profile @cost(complexity: 2)
+
+  """
+  Applications to this job.
+
+  Restricted to participants. On an open marketplace the *count* is public
+  (`applicantCount`) but the applications themselves are not: they contain
+  bid amounts, and on a sealed-bid job disclosing them before
+  `biddingClosedAt` would break the auction.
+  """
+  applications(first: Int = 20, after: Cursor, status: ApplicationStatus): ApplicationConnection!
+    @auth(requires: PARTICIPANT)
+    @cost(complexity: 3, multipliers: ["first"])
+    @cacheControl(maxAge: 0, scope: PRIVATE)
+
+  """
+  The escrow holding this job's funds.
+
+  Participants only. The on-chain contract is public, but correlating it to a
+  job, a client and a freelancer is exactly the linkage this field would leak.
+  """
+  escrow: Escrow
+    @auth(requires: PARTICIPANT)
+    @cost(complexity: 4)
+    @cacheControl(maxAge: 0, scope: PRIVATE)
+
+  "The open dispute, when the job is disputed."
+  dispute: Dispute
+    @auth(requires: PARTICIPANT)
+    @cost(complexity: 3)
+    @cacheControl(maxAge: 0, scope: PRIVATE)
+
+  "Ratings left for this job, once it completed."
+  ratings(first: Int = 10, after: Cursor): RatingConnection!
+    @cost(complexity: 2, multipliers: ["first"])
+
+  """
+  Whether the viewer has already applied.
+
+  Cheap for the client to compute from `applications`, except that a
+  non-participant cannot read `applications` — which is the whole reason this
+  field exists.
+  """
+  viewerHasApplied: Boolean! @auth(requires: AUTHENTICATED) @cacheControl(maxAge: 0, scope: PRIVATE)
+
+  "The viewer's relationship to this job. Drives most of the screen's UI."
+  viewerRole: JobViewerRole! @cacheControl(maxAge: 0, scope: PRIVATE)
+
+  # --- deprecations ---------------------------------------------------------
+
+  """
+  The escrow contract's on-chain identifier.
+  """
+  escrowContractId: String
+    @deprecated(
+      reason: "Use `escrow.contractId`. Kept until 2027-02-01 for clients written against the REST shape; see docs/GRAPHQL.md#deprecations."
+    )
+}
+
+"How the viewer relates to a job. `NONE` for anonymous and unrelated viewers."
+enum JobViewerRole {
+  NONE
+  CLIENT
+  FREELANCER
+  APPLICANT
+  ADMIN
+}
+
+enum JobStatus {
+  OPEN
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  DISPUTED
+  EXPIRED
+}
+
+enum Currency {
+  XLM
+  USDC
+}
+
+type Milestone {
+  index: Int!
+  title: String
+  amount: Decimal!
+  status: MilestoneStatus!
+  dueDate: DateTime
+  releasedAt: DateTime
+}
+
+enum MilestoneStatus {
+  PENDING
+  IN_PROGRESS
+  SUBMITTED
+  RELEASED
+  DISPUTED
+}
+
+type JobEdge {
+  node: Job!
+  cursor: Cursor!
+}
+
+type JobConnection {
+  edges: [JobEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+"Filters for the job feed. Every field is optional and ANDed."
+input JobFilter {
+  status: JobStatus
+  category: String
+  skills: [String!]
+  minBudget: Decimal
+  maxBudget: Decimal
+  currency: Currency
+  clientAddress: PublicKey
+  "Full-text search over title and description."
+  query: String
+}
+
+enum JobSort {
+  NEWEST
+  OLDEST
+  BUDGET_HIGH
+  BUDGET_LOW
+  MOST_APPLICANTS
+}
+
+union JobResult = Job | NotFoundError
