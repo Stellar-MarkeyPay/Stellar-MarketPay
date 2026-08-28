@@ -29,7 +29,7 @@ async function withDailyCache(name, params, loader) {
 
 async function getCategoryInsights(limit = 20) {
   return withDailyCache("categories", { limit }, async () => {
-    const { rows } = await pool.query(
+    const { rows } = await pool.analyticsQuery(
       `
       WITH job_applications AS (
         SELECT
@@ -81,7 +81,7 @@ async function getCategoryInsights(limit = 20) {
 
 async function getSkillInsights(limit = 20) {
   return withDailyCache("skills", { limit }, async () => {
-    const { rows } = await pool.query(
+    const { rows } = await pool.analyticsQuery(
       `
       WITH skill_rows AS (
         SELECT
@@ -120,7 +120,7 @@ async function getSkillInsights(limit = 20) {
 
 async function getCompetitiveJobs(limit = 20) {
   return withDailyCache("competitive", { limit }, async () => {
-    const { rows } = await pool.query(
+    const { rows } = await pool.analyticsQuery(
       `
       WITH app_counts AS (
         SELECT job_id, COUNT(*)::int AS application_count
@@ -167,7 +167,7 @@ async function getCompetitiveJobs(limit = 20) {
 
 async function getPayTrends(days = 30) {
   return withDailyCache("pay-trends", { days }, async () => {
-    const { rows } = await pool.query(
+    const { rows } = await pool.analyticsQuery(
       `
       SELECT
         DATE_TRUNC('day', created_at)::date AS date,
@@ -193,7 +193,7 @@ async function getPayTrends(days = 30) {
 
 async function getClientMix() {
   return withDailyCache("client-mix", {}, async () => {
-    const { rows } = await pool.query(
+    const { rows } = await pool.analyticsQuery(
       `
       WITH first_posts AS (
         SELECT client_address, MIN(created_at) AS first_post_at

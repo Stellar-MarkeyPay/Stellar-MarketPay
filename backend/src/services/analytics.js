@@ -17,7 +17,7 @@ let modelBias = 5.0; // Base duration of 5 days
  */
 async function trainRegressionModel() {
   try {
-    const { rows } = await pool.query(`
+    const { rows } = await pool.analyticsQuery(`
       SELECT j.budget, j.skills, j.created_at, j.updated_at,
              COALESCE(p.completed_jobs, 0) AS completed_jobs,
              COALESCE(p.rating, 4.0) AS rating

@@ -168,7 +168,7 @@ router.get("/metrics", verifyJWT, requireAdminRole, requireAdmin2FA, async (req,
     startDate.setDate(startDate.getDate() - daysBack);
 
     // Platform Health Metrics
-    const platformHealth = await pool.query(
+    const platformHealth = await pool.analyticsQuery(
       `
       SELECT
         COUNT(*) as total_jobs,
@@ -190,7 +190,7 @@ router.get("/metrics", verifyJWT, requireAdminRole, requireAdmin2FA, async (req,
     );
 
     // User Growth Metrics
-    const userGrowth = await pool.query(
+    const userGrowth = await pool.analyticsQuery(
       `
       SELECT
         COUNT(DISTINCT public_key) as total_users,
@@ -203,7 +203,7 @@ router.get("/metrics", verifyJWT, requireAdminRole, requireAdmin2FA, async (req,
     );
 
     // Weekly new user growth
-    const weeklyGrowth = await pool.query(
+    const weeklyGrowth = await pool.analyticsQuery(
       `
       SELECT
         DATE_TRUNC('week', created_at) as week,
@@ -217,7 +217,7 @@ router.get("/metrics", verifyJWT, requireAdminRole, requireAdmin2FA, async (req,
     );
 
     // Financial Metrics
-    const financialMetrics = await pool.query(
+    const financialMetrics = await pool.analyticsQuery(
       `
       SELECT
         COALESCE(SUM(budget) FILTER (WHERE status = 'funded'), 0) as total_xlm_escrow,
@@ -232,7 +232,7 @@ router.get("/metrics", verifyJWT, requireAdminRole, requireAdmin2FA, async (req,
     );
 
     // Quality Metrics
-    const qualityMetrics = await pool.query(
+    const qualityMetrics = await pool.analyticsQuery(
       `
       SELECT
         COALESCE(AVG(rating), 0) as avg_rating,
@@ -253,7 +253,7 @@ router.get("/metrics", verifyJWT, requireAdminRole, requireAdmin2FA, async (req,
     );
 
     // Dispute Metrics
-    const disputeMetrics = await pool.query(
+    const disputeMetrics = await pool.analyticsQuery(
       `
       SELECT
         DATE_TRUNC('week', created_at) as week,
@@ -268,7 +268,7 @@ router.get("/metrics", verifyJWT, requireAdminRole, requireAdmin2FA, async (req,
     );
 
     // Top Earners
-    const topEarners = await pool.query(`
+    const topEarners = await pool.analyticsQuery(`
       SELECT
         p.public_key,
         p.display_name,
@@ -282,7 +282,7 @@ router.get("/metrics", verifyJWT, requireAdminRole, requireAdmin2FA, async (req,
     `);
 
     // Job Volume Over Time
-    const jobVolume = await pool.query(
+    const jobVolume = await pool.analyticsQuery(
       `
       SELECT
         DATE_TRUNC('day', created_at) as date,
