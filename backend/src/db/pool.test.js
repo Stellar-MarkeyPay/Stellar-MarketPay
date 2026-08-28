@@ -102,12 +102,14 @@ describe("PostgreSQL pool timeouts", () => {
 
     await pool.query("SELECT slow_success()");
 
-    expect(mockLogger.warn).toHaveBeenCalledWith(expect.objectContaining({
-      alert: "db_query_near_statement_timeout",
-      query: "SELECT slow_success()",
-      statementTimeoutMs: 10,
-      timeoutLabel: "api",
-    }));
+    expect(mockLogger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        alert: "db_query_near_statement_timeout",
+        query: "SELECT slow_success()",
+        statementTimeoutMs: 10,
+        timeoutLabel: "api",
+      })
+    );
   });
 
   it("terminates a deliberately slow query instead of hanging", async () => {
@@ -120,11 +122,13 @@ describe("PostgreSQL pool timeouts", () => {
     await expect(pool.query("SELECT pg_sleep(1)")).rejects.toMatchObject({ code: "57014" });
 
     expect(Date.now() - startedAt).toBeLessThan(250);
-    expect(mockLogger.error).toHaveBeenCalledWith(expect.objectContaining({
-      alert: "db_query_statement_timeout",
-      query: "SELECT pg_sleep(1)",
-      statementTimeoutMs: 10,
-    }));
+    expect(mockLogger.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        alert: "db_query_statement_timeout",
+        query: "SELECT pg_sleep(1)",
+        statementTimeoutMs: 10,
+      })
+    );
   });
 
   it("uses an explicit longer timeout for analytics queries", async () => {
@@ -139,16 +143,13 @@ describe("PostgreSQL pool timeouts", () => {
     expect(createdPool.originalQuery).toHaveBeenCalledWith("BEGIN");
     expect(createdPool.originalQuery).toHaveBeenCalledWith(
       "SELECT set_config('statement_timeout', $1, true)",
-      ["45000ms"],
+      ["45000ms"]
     );
     expect(createdPool.originalQuery).toHaveBeenCalledWith(
       "SELECT set_config('lock_timeout', $1, true)",
-      ["900ms"],
+      ["900ms"]
     );
-    expect(createdPool.originalQuery).toHaveBeenCalledWith(
-      "SELECT analytics_rollup()",
-      undefined,
-    );
+    expect(createdPool.originalQuery).toHaveBeenCalledWith("SELECT analytics_rollup()", undefined);
     expect(createdPool.originalQuery).toHaveBeenCalledWith("COMMIT");
   });
 });

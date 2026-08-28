@@ -39,8 +39,14 @@ const timeoutConfig = Object.freeze({
   statementTimeoutMs: parsePositiveInteger("POSTGRES_STATEMENT_TIMEOUT_MS", 5_000),
   lockTimeoutMs: parsePositiveInteger("POSTGRES_LOCK_TIMEOUT_MS", 1_000),
   // Longer budgets are opt-in only for bounded background analytics and migrations.
-  analyticsStatementTimeoutMs: parsePositiveInteger("POSTGRES_ANALYTICS_STATEMENT_TIMEOUT_MS", 30_000),
-  migrationStatementTimeoutMs: parsePositiveInteger("POSTGRES_MIGRATION_STATEMENT_TIMEOUT_MS", 120_000),
+  analyticsStatementTimeoutMs: parsePositiveInteger(
+    "POSTGRES_ANALYTICS_STATEMENT_TIMEOUT_MS",
+    30_000
+  ),
+  migrationStatementTimeoutMs: parsePositiveInteger(
+    "POSTGRES_MIGRATION_STATEMENT_TIMEOUT_MS",
+    120_000
+  ),
   migrationLockTimeoutMs: parsePositiveInteger("POSTGRES_MIGRATION_LOCK_TIMEOUT_MS", 5_000),
   nearTimeoutRatio: parseRatio("POSTGRES_NEAR_TIMEOUT_RATIO", 0.8),
 });
@@ -77,11 +83,13 @@ function shouldSkipTimingLog(queryText) {
 }
 
 function getTimeoutContext(client) {
-  return client.__marketpayTimeoutContext || {
-    label: "api",
-    statementTimeoutMs: timeoutConfig.statementTimeoutMs,
-    lockTimeoutMs: timeoutConfig.lockTimeoutMs,
-  };
+  return (
+    client.__marketpayTimeoutContext || {
+      label: "api",
+      statementTimeoutMs: timeoutConfig.statementTimeoutMs,
+      lockTimeoutMs: timeoutConfig.lockTimeoutMs,
+    }
+  );
 }
 
 function logQueryTiming(client, queryText, durationMs, err) {
@@ -199,10 +207,12 @@ async function setLocalTimeouts(
     statementTimeoutMs = timeoutConfig.statementTimeoutMs,
     lockTimeoutMs = timeoutConfig.lockTimeoutMs,
     label = "custom",
-  } = {},
+  } = {}
 ) {
   client.__marketpayTimeoutContext = { statementTimeoutMs, lockTimeoutMs, label };
-  await client.query("SELECT set_config('statement_timeout', $1, true)", [pgDuration(statementTimeoutMs)]);
+  await client.query("SELECT set_config('statement_timeout', $1, true)", [
+    pgDuration(statementTimeoutMs),
+  ]);
   await client.query("SELECT set_config('lock_timeout', $1, true)", [pgDuration(lockTimeoutMs)]);
 }
 
