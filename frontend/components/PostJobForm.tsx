@@ -294,7 +294,13 @@ export default function PostJobForm({
     if (isInProgress) return;
 
     setTouched({ title: true, description: true, milestones: true });
-    if (!isFormValid) return;
+    if (!isFormValid) {
+      setTimeout(() => {
+        const firstInvalid = document.querySelector('[aria-invalid="true"]') as HTMLElement;
+        if (firstInvalid) firstInvalid.focus();
+      }, 0);
+      return;
+    }
 
     setStep("posting");
     setErrorMsg(null);
@@ -497,13 +503,26 @@ export default function PostJobForm({
         </div>
       )}
 
+      {/* Error summary */}
+      {!isFormValid && (touched.title || touched.description || touched.milestones) && (
+        <div className="mb-5 rounded-xl bg-red-50 border border-red-200 p-4" role="alert">
+          <p className="text-sm font-semibold text-red-700 mb-2">Please fix the following errors:</p>
+          <ul className="list-disc pl-5 text-sm text-red-600">
+            {fieldErrors.title && <li><a href="#title-input">{fieldErrors.title}</a></li>}
+            {fieldErrors.description && <li><a href="#description-input">{fieldErrors.description}</a></li>}
+            {fieldErrors.milestones && <li><a href="#milestones-section">{fieldErrors.milestones}</a></li>}
+          </ul>
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} className="space-y-5">
         {/* Title */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-amber-300 mb-1">
+          <label className="block text-sm font-medium text-gray-700 dark:text-amber-300 mb-1" htmlFor="title-input">
             Job Title
           </label>
           <input
+            id="title-input"
             name="title"
             value={form.title}
             onChange={handleChange}
@@ -511,18 +530,21 @@ export default function PostJobForm({
             disabled={isInProgress}
             placeholder="e.g. Build a Soroban DEX interface"
             className="w-full rounded-xl border border-gray-200 dark:border-market-500/20 bg-gray-50 dark:bg-ink-700 px-4 py-2.5 text-sm text-gray-900 dark:text-amber-100 placeholder-gray-400 dark:placeholder-amber-900/50 focus:outline-none focus:ring-2 focus:ring-indigo-400 dark:focus:ring-market-500/40 focus:border-transparent disabled:opacity-60"
+            aria-invalid={!!(touched.title && fieldErrors.title)}
+            aria-describedby={touched.title && fieldErrors.title ? "title-error" : undefined}
           />
           {touched.title && fieldErrors.title && (
-            <p className="text-red-400 text-xs mt-1">{fieldErrors.title}</p>
+            <p id="title-error" className="text-red-400 text-xs mt-1"><span className="sr-only">Error: </span>{fieldErrors.title}</p>
           )}
         </div>
 
         {/* Description */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-amber-300 mb-1">
+          <label className="block text-sm font-medium text-gray-700 dark:text-amber-300 mb-1" htmlFor="description-input">
             Description
           </label>
           <textarea
+            id="description-input"
             name="description"
             value={form.description}
             onChange={handleChange}
@@ -531,9 +553,11 @@ export default function PostJobForm({
             disabled={isInProgress}
             placeholder="Describe the work, deliverables, and any context..."
             className="w-full rounded-xl border border-gray-200 dark:border-market-500/20 bg-gray-50 dark:bg-ink-700 px-4 py-2.5 text-sm text-gray-900 dark:text-amber-100 placeholder-gray-400 dark:placeholder-amber-900/50 focus:outline-none focus:ring-2 focus:ring-indigo-400 dark:focus:ring-market-500/40 focus:border-transparent disabled:opacity-60 resize-none"
+            aria-invalid={!!(touched.description && fieldErrors.description)}
+            aria-describedby={touched.description && fieldErrors.description ? "description-error" : undefined}
           />
           {touched.description && fieldErrors.description && (
-            <p className="text-red-400 text-xs mt-1">{fieldErrors.description}</p>
+            <p id="description-error" className="text-red-400 text-xs mt-1"><span className="sr-only">Error: </span>{fieldErrors.description}</p>
           )}
         </div>
 
@@ -593,7 +617,7 @@ export default function PostJobForm({
         </div>
 
         {/* Milestones */}
-        <div className="space-y-3">
+        <div id="milestones-section" className="space-y-3" tabIndex={-1} aria-invalid={!!(touched.milestones && fieldErrors.milestones)} aria-describedby={touched.milestones && fieldErrors.milestones ? "milestones-error" : undefined}>
           <div className="flex items-center justify-between">
             <label className="block text-sm font-medium text-gray-700 dark:text-amber-300">
               Milestones
@@ -678,7 +702,7 @@ export default function PostJobForm({
           ))}
 
           {touched.milestones && fieldErrors.milestones && (
-            <p className="text-red-400 text-xs">{fieldErrors.milestones}</p>
+            <p id="milestones-error" className="text-red-400 text-xs"><span className="sr-only">Error: </span>{fieldErrors.milestones}</p>
           )}
         </div>
 
