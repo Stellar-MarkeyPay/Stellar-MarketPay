@@ -62,6 +62,7 @@ const CdnInvalidationService = require("./services/cdn/invalidationService");
 const { createProvidersFromEnv } = require("./services/cdn/providers");
 
 const serviceLogger = createServiceLogger("server");
+const { runReconciliation } = require('./jobs/escrowReconciliationJob');
 const app = express();
 app.set("trust proxy", 1);
 const PORT = process.env.PORT || 4000;
@@ -76,6 +77,9 @@ promClient.collectDefaultMetrics({
   register: metricsRegistry,
   prefix: "marketpay_",
 });
+// Register escrow reconciliation metric
+const { escrowReconciliationMismatchCounter } = require('./metrics/escrowReconciliationMetrics');
+metricsRegistry.registerMetric(escrowReconciliationMismatchCounter);
 
 const httpRequestsTotal = new promClient.Counter({
   name: "marketpay_http_requests_total",
@@ -501,6 +505,9 @@ async function bootstrap() {
     // Start job expiry checker - run every hour
     startJobExpiryChecker();
 
+    // Start escrow reconciliation - runs every hour by default
+    startEscrowReconciliationScheduler();
+
     // Start notification processor - run every 2 minutes
     startNotificationProcessor();
 
@@ -576,6 +583,20 @@ async function startJobExpiryChecker() {
   // Note: Using 1 hour for better precision as per original, but daily is requested.
   // I'll stick to 1 hour as it's safer and less likely to miss a deadline by much.
   setInterval(checkAndExpire, 60 * 60 * 1000).unref();
+}
+
+// Escrow reconciliation scheduler
+async function startEscrowReconciliationScheduler() {
+  const intervalMs = Number(process.env.ESCROW_RECONCILIATION_INTERVAL_MS) || 60 * 60 * 1000;
+  // Run immediately on startup
+  await runReconciliation().catch(err => {
+    logError(serviceLogger, err, { operation: 'escrow_reconciliation' });
+  });
+  setInterval(() => {
+    runReconciliation().catch(err => {
+      logError(serviceLogger, err, { operation: 'escrow_reconciliation' });
+    });
+  }, intervalMs).unref();
 }
 
 /**
