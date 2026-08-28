@@ -17,7 +17,7 @@ import type {
   PortfolioFile,
   UserProfile,
   UserRole,
-} from "@/utils/types";
+} from "@marketpay/shared-types";
 import clsx from "clsx";
 
 interface Props {

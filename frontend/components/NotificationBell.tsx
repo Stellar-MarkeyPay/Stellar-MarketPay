@@ -9,7 +9,7 @@ import {
   updateNotificationPreferences,
 } from "@/lib/api";
 import { timeAgo } from "@/utils/format";
-import type { NotificationItem } from "@/utils/types";
+import type { NotificationItem } from "@marketpay/shared-types";
 
 interface NotificationBellProps {
   publicKey: string;

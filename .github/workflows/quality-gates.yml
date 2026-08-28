@@ -43,7 +43,7 @@ jobs:
         run: cd backend && npm ci
       - name: Check Code Formatting (Prettier)
         run: npm run format:check
-      - name: Check Frontend Types
+      - name: Check Types
         run: npm run type-check
       - name: Check Linter
         run: npm run lint

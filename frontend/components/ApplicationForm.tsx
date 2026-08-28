@@ -4,7 +4,7 @@
  */
 import { useState, useEffect, useRef } from "react";
 import { submitApplication, fetchProposalTemplates } from "@/lib/api";
-import type { Job } from "@/utils/types";
+import type { Job } from "@marketpay/shared-types";
 import { formatXLM } from "@/utils/format";
 import { useToast } from "./Toast";
 import clsx from "clsx";

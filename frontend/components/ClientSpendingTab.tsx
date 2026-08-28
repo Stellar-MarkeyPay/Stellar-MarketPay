@@ -1,6 +1,6 @@
 import { formatXLM, formatUSDEquivalent, shortenAddress } from "@/utils/format";
 import { SPENDING_STATUS_LABELS, SPENDING_STATUS_ORDER } from "@/constants/spending";
-import type { ClientSpendingAnalytics } from "@/utils/types";
+import type { ClientSpendingAnalytics } from "@marketpay/shared-types";
 
 type Props = {
   analytics: ClientSpendingAnalytics | null;

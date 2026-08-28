@@ -9,7 +9,7 @@
     "lint:fix": "(cd frontend && npm run lint -- --fix) && (cd backend && npm run lint -- --fix)",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "type-check": "(cd frontend && npm run type-check)",
+    "type-check": "(cd frontend && npm run type-check) && (cd backend && npm run type-check)",
     "test": "npm run test:fast",
     "test:fast": "(cd frontend && npm test) && (cd backend && npm run test:unit) && cargo test --manifest-path contracts/marketpay-contract/Cargo.toml --features std",
     "test:frontend": "(cd frontend && npm test)",

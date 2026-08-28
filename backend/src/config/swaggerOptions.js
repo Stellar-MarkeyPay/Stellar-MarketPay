@@ -266,7 +266,7 @@ const swaggerOptions = {
       },
     },
   },
-  apis: ["./src/routes/*.js", "./src/server.js"],
+  apis: ["./src/routes/*.ts", "./src/routes/*.js", "./src/server.ts", "./src/server.js"],
 };
 
 module.exports = { swaggerOptions };

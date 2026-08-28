@@ -3,7 +3,7 @@
  * Visual stepper showing job lifecycle progression.
  */
 import { formatDate } from "@/utils/format";
-import type { Job, JobStatus } from "@/utils/types";
+import type { Job, JobStatus } from "@marketpay/shared-types";
 
 interface JobStatusTimelineProps {
   job: Job;

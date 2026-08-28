@@ -3,7 +3,7 @@
  * Modal for sharing job listings with pre-filled application forms
  */
 import { useState, useEffect, useRef, KeyboardEvent } from "react";
-import type { Job } from "@/utils/types";
+import type { Job } from "@marketpay/shared-types";
 
 interface ShareJobModalProps {
   job: Job;

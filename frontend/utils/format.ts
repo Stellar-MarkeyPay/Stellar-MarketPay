@@ -4,7 +4,7 @@
  */
 
 import { format, formatDistanceToNow } from "date-fns";
-import type { Application, Availability, AvailabilityStatus, Job, JobStatus } from "./types";
+import type { Application, Availability, AvailabilityStatus, Job, JobStatus } from "@marketpay/shared-types";
 
 function escapeCsvCell(value: string): string {
   if (/[",\n\r]/.test(value)) return `"${value.replace(/"/g, '""')}"`;
