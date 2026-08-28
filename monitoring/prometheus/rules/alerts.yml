@@ -27,3 +27,30 @@ groups:
         annotations:
           summary: "PostgreSQL pool is near capacity"
           description: "The shared PostgreSQL pool is using more than 80 connections."
+
+      - alert: BridgeCircuitBreakerTriggered
+        expr: bridge_circuit_breaker_active == 1
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Cross-chain bridge circuit breaker is active"
+          description: "Bridge deposits and withdrawals have been halted due to anomalous conditions."
+
+      - alert: BridgeHighFailureRate
+        expr: rate(bridge_verification_failures_total[10m]) / clamp_min(rate(bridge_verifications_total[10m]), 1) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Bridge verification failure rate is above 5%"
+          description: "More than 5% of bridge proof verifications are failing in the last 10 minutes."
+
+      - alert: BridgeStuckTransfer
+        expr: bridge_transfers_pending > 10
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Multiple bridge transfers are stuck"
+          description: "More than 10 bridge transfers have been pending for over 30 minutes."

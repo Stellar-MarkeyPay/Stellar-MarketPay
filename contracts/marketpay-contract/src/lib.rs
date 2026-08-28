@@ -46,6 +46,7 @@ pub mod multisig;
 pub mod ratings;
 pub mod state_machine;
 pub mod streaming;
+pub mod bridge;
 
 pub use arbitration::{ArbitrationCase, DisputeCase};
 pub use certificates::Certificate;
@@ -60,6 +61,11 @@ pub use milestones::{
 pub use ratings::{FreelancerRatingStats, Rating};
 pub use state_machine::{LifecycleAction, LifecycleState};
 pub use streaming::StreamSchedule;
+
+pub use bridge::{
+    BridgeChain, BridgeFeeConfig, BridgeTransfer, BridgeTransferStatus, EvmProof,
+    assert_finalized, default_fee_config,
+};
 
 pub mod referral;
 use referral::{distribute_tree_rewards, get_children, get_depth, get_parent, register_referral};
@@ -186,6 +192,18 @@ pub enum DataKey {
     ReferralDepth(Address),
     /// Config for milestone-based oracle auto-verification: job_id, milestone_index
     MilestoneOracle(String, u32),
+    /// Cross-chain bridge: transfer_id → BridgeTransfer
+    BridgeTransfer(BytesN<32>),
+    /// Cross-chain bridge: nonce → bool (replay protection)
+    BridgeNonce(u64),
+    /// Cross-chain bridge: chain_id → BytesN<32>
+    BridgeChainId(BytesN<32>),
+    /// Cross-chain bridge: nonce → transfer_id
+    BridgeNonceToTransfer(BytesN<32>),
+    /// Cross-chain bridge: hourly volume tracking
+    BridgeVolume(u32),
+    /// Cross-chain bridge: circuit breaker state
+    BridgeCircuitBreaker,
 }
 
 /// Reveal phase is open for roughly 24 hours after client closes bidding.
@@ -3293,6 +3311,76 @@ impl MarketPayContract {
     pub fn verify_reputation_proof(env: Env, args: ReputationProofArgs) -> bool {
         let now_ms = env.ledger().timestamp().saturating_mul(1000);
         reputation::verify_reputation_proof(&env, &args, now_ms)
+    }
+
+    // ─── Cross-chain bridge ──────────────────────────────────────────────────
+
+    /// Register an EVM deposit on Soroban. Requires relayer authentication.
+    pub fn register_bridge_deposit(env: Env, proof: EvmProof) -> BridgeTransfer {
+        proof.relayer_address.require_auth();
+        bridge::register_deposit(&env, &proof, env.ledger().sequence())
+    }
+
+    /// Initiate a withdrawal from Soroban to EVM.
+    pub fn initiate_bridge_withdrawal(
+        env: Env,
+        transfer_id: BytesN<32>,
+        recipient: Address,
+        amount: i128,
+    ) {
+        let admin: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .expect("Not initialized");
+        admin.require_auth();
+        bridge::initiate_withdrawal(&env, transfer_id, recipient, amount)
+    }
+
+    /// Verify and complete a bridged withdrawal after Soroban finality.
+    pub fn verify_bridge_completion(env: Env, transfer_id: BytesN<32>) {
+        bridge::verify_and_complete_bridge(&env, transfer_id)
+    }
+
+    /// Recover a stuck bridge transfer after the recovery deadline.
+    pub fn recover_bridge_transfer(env: Env, transfer_id: BytesN<32>) {
+        let admin: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .expect("Not initialized");
+        admin.require_auth();
+        bridge::recover_bridge_transfer(&env, transfer_id, admin)
+    }
+
+    /// Set the authorised chain ID for incoming EVM proofs.
+    pub fn set_bridge_chain_id(env: Env, chain_id: BytesN<32>) {
+        let admin: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .expect("Not initialized");
+        admin.require_auth();
+        bridge::set_chain_id(&env, chain_id)
+    }
+
+    /// Update confirmations for an existing bridge transfer.
+    pub fn update_bridge_confirmations(
+        env: Env,
+        transfer_id: BytesN<32>,
+        new_confirmations: u32,
+    ) {
+        bridge::update_bridge_confirmations(&env, transfer_id, new_confirmations)
+    }
+
+    /// Get a bridge transfer by ID.
+    pub fn get_bridge_transfer(env: Env, transfer_id: BytesN<32>) -> Option<BridgeTransfer> {
+        bridge::get_bridge_transfer(&env, transfer_id)
+    }
+
+    /// Verify an EVM proof without executing state changes.
+    pub fn validate_evm_proof(env: Env, proof: EvmProof) -> bool {
+        bridge::verify_evm_proof(&env, &proof)
     }
 }
 
