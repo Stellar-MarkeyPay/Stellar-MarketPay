@@ -105,6 +105,46 @@ npm run dev
 # → http://localhost:4000
 ```
 
+### Docker Compose local stack
+
+The repository includes a local Compose stack for the shared services that the app depends on:
+
+```bash
+docker compose up -d postgres redis
+```
+
+This starts PostgreSQL on `localhost:5432` and Redis on `localhost:6379`. The app can then run locally against those services:
+
+```bash
+# terminal 1
+cd backend
+DATABASE_URL=postgresql://stellarwork:stellarwork_dev@localhost:5432/stellarwork \
+REDIS_URL=redis://localhost:6379 \
+npm run dev
+
+# terminal 2
+cd frontend
+NEXT_PUBLIC_API_URL=http://localhost:4000 \
+NEXT_PUBLIC_USE_CONTRACT_MOCK=true \
+npm run dev
+```
+
+To bring up the full compose stack with the built app images instead:
+
+```bash
+docker compose up --build
+```
+
+The stack includes:
+- frontend on `http://localhost:3000`
+- backend on `http://localhost:4000`
+- Postgres on `localhost:5432`
+- Redis on `localhost:6379`
+- Prometheus on `http://localhost:9090` in the production compose file
+- Grafana on `http://localhost:3001` in the production compose file
+
+For the complete service-by-service reference, see [docs/local-development.md](docs/local-development.md).
+
 ---
 
 ## 🔑 Environment Variables
