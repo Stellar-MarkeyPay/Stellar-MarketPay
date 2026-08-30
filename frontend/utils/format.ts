@@ -195,6 +195,13 @@ export async function copyToClipboard(text: string): Promise<boolean> {
 }
 
 export function statusLabel(status: JobStatus): string {
+<<<<<<< add-bulk-actions-to-the-client-dashboard
+  return { open: "Open", in_progress: "In Progress", completed: "Completed", cancelled: "Cancelled", disputed: "Disputed", archived: "Archived" }[status];
+}
+
+export function statusClass(status: JobStatus): string {
+  return { open: "badge-open", in_progress: "badge-progress", completed: "badge-complete", cancelled: "badge-cancelled", disputed: "badge-disputed", archived: "badge-cancelled" }[status];
+=======
   return {
     open: "Open",
     in_progress: "In Progress",
@@ -212,6 +219,7 @@ export function statusClass(status: JobStatus): string {
     cancelled: "badge-cancelled",
     disputed: "badge-disputed",
   }[status];
+>>>>>>> main
 }
 
 export const JOB_CATEGORIES = [

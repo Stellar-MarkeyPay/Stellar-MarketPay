@@ -3,6 +3,13 @@
  * Shared TypeScript types for Stellar MarketPay.
  */
 
+export type JobStatus =
+  | "open"
+  | "in_progress"
+  | "completed"
+  | "cancelled"
+  | "disputed"
+  | "archived";
 export type JobStatus = "open" | "in_progress" | "completed" | "cancelled" | "disputed";
 export type UserRole = "client" | "freelancer" | "both";
 export type Currency = "XLM" | "USDC";

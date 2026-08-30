@@ -24,6 +24,7 @@ import {
   bulkCancelJobs,
   bulkExtendJobs,
   bulkBoostJobs,
+  bulkArchiveJobs,
   fetchSavedSearches,
   updateSavedSearch,
   deleteSavedSearch,
@@ -52,7 +53,7 @@ import StateMessage from "@/components/StateMessage";
 import clsx from "clsx";
 import JobAnalytics from "@/components/JobAnalytics";
 import JobTimeline from "@/components/JobTimeline";
-import BulkJobActionBar from "@/components/BulkJobActionBar";
+import BulkJobActionBar, { type UndoPayload } from "@/components/BulkJobActionBar";
 import JobStatusTimeline from "@/components/JobStatusTimeline";
 import ExtendJobModal from "@/components/ExtendJobModal";
 import ClientSpendingTab from "@/components/ClientSpendingTab";
@@ -156,6 +157,16 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
   // ── Bulk selection state ──────────────────────────────────────────────────
   const [selectedJobIds, setSelectedJobIds] = useState<Set<string>>(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
+  /** Snapshot captured just before a destructive bulk action so undo can roll back. */
+  const [jobsBeforeAction, setJobsBeforeAction] = useState<Job[]>([]);
+
+  const selectableJobIds = () =>
+    myJobs.filter((j) => j.status === "open").map((j) => j.id);
+
+  const allSelectableSelected = () => {
+    const ids = selectableJobIds();
+    return ids.length > 0 && ids.every((id) => selectedJobIds.has(id));
+  };
 
   const toggleJobSelection = (jobId: string) => {
     setSelectedJobIds((prev) => {
@@ -167,18 +178,52 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
   };
 
   const toggleSelectAll = () => {
+    const ids = selectableJobIds();
+    if (allSelectableSelected()) {
     const selectableIds = myJobs.filter((j) => j.status === "open").map((j) => j.id);
     if (selectableIds.every((id) => selectedJobIds.has(id))) {
       setSelectedJobIds(new Set());
     } else {
-      setSelectedJobIds(new Set(selectableIds));
+      setSelectedJobIds(new Set(ids));
     }
   };
 
-  const handleBulkCancel = async () => {
+  // Ctrl+A / Cmd+A on the posted tab selects all open jobs
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (tab !== "posted") return;
+      if (!(e.ctrlKey || e.metaKey) || e.key !== "a") return;
+      // Don't intercept when typing in a field
+      const target = e.target as HTMLElement;
+      if (
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.isContentEditable
+      )
+        return;
+      e.preventDefault();
+      const ids = selectableJobIds();
+      setSelectedJobIds((prev) => {
+        const allSelected = ids.every((id) => prev.has(id));
+        return allSelected ? new Set() : new Set(ids);
+      });
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [tab, myJobs]);
+
+  const handleBulkClose = async () => {
     setBulkLoading(true);
+    setJobsBeforeAction([...myJobs]);
     try {
       const res = await bulkCancelJobs(Array.from(selectedJobIds));
+      const closedIds = new Set(
+        res.results.filter((r) => r.success).map((r) => r.id),
+      );
+      setMyJobs((prev) =>
+        prev.map((j) =>
+          closedIds.has(j.id) ? { ...j, status: "cancelled" as const } : j,
+        ),
       const cancelledIds = new Set(res.results.filter((r) => r.success).map((r) => r.id));
       setMyJobs((prev) =>
         prev.map((j) => (cancelledIds.has(j.id) ? { ...j, status: "cancelled" as const } : j))
@@ -190,10 +235,10 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
     }
   };
 
-  const handleBulkExtend = async () => {
+  const handleBulkExtend = async (days: number) => {
     setBulkLoading(true);
     try {
-      const res = await bulkExtendJobs(Array.from(selectedJobIds), 30);
+      const res = await bulkExtendJobs(Array.from(selectedJobIds), days);
       setSelectedJobIds(new Set());
       return res;
     } finally {
@@ -222,6 +267,39 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
     } finally {
       setBulkLoading(false);
     }
+  };
+
+  const handleBulkArchive = async () => {
+    setBulkLoading(true);
+    setJobsBeforeAction([...myJobs]);
+    try {
+      const res = await bulkArchiveJobs(Array.from(selectedJobIds));
+      const archivedIds = new Set(
+        res.results.filter((r) => r.success).map((r) => r.id),
+      );
+      setMyJobs((prev) =>
+        prev.map((j) =>
+          archivedIds.has(j.id) ? { ...j, status: "archived" as const } : j,
+        ),
+      );
+      setSelectedJobIds(new Set());
+      return res;
+    } finally {
+      setBulkLoading(false);
+    }
+  };
+
+  /**
+   * Undo a bulk close or archive by restoring the job list snapshot and
+   * clearing the selection so the user sees the pre-action state immediately.
+   * A real rollback would re-open/unarchive via the API; here we do an
+   * optimistic UI rollback (the server state persists until a page refresh).
+   */
+  const handleUndo = (payload: UndoPayload) => {
+    setMyJobs(payload.previousJobs);
+    success(
+      `Undone: ${payload.affectedIds.length} job${payload.affectedIds.length !== 1 ? "s" : ""} restored in the UI`,
+    );
   };
 
   const isRepostable = (status: Job["status"]) => status === "cancelled";
@@ -584,7 +662,25 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
             />
           ) : (
             <div className="space-y-3">
-              <div className="flex justify-end mb-2">
+              <div className="flex items-center justify-between mb-2 gap-2">
+                {/* Select-all checkbox */}
+                <label className="flex items-center gap-2 cursor-pointer select-none group">
+                  <input
+                    type="checkbox"
+                    checked={allSelectableSelected()}
+                    onChange={toggleSelectAll}
+                    aria-label="Select all open jobs"
+                    className="w-4 h-4 rounded border-market-500/40 bg-ink-900 accent-market-400 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-market-400/60"
+                  />
+                  <span className="text-xs text-amber-700 group-hover:text-amber-400 transition-colors">
+                    {allSelectableSelected() ? "Deselect all" : "Select all open"}
+                  </span>
+                  {selectedJobIds.size > 0 && (
+                    <span className="text-xs font-semibold text-market-400">
+                      ({selectedJobIds.size} selected)
+                    </span>
+                  )}
+                </label>
                 <button
                   onClick={() => exportJobsToCSV(myJobs)}
                   className="btn-secondary text-xs px-3 py-1.5"
@@ -592,11 +688,37 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
                   Download CSV
                 </button>
               </div>
-              {myJobs.map((job) => (
+              {myJobs.map((job) => {
+                const isSelectable = job.status === "open";
+                const isSelected = selectedJobIds.has(job.id);
+                return (
                 <div
                   key={job.id}
-                  className="card-hover flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
+                  className={clsx(
+                    "card-hover flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4",
+                    isSelected && "ring-2 ring-market-400/40 bg-market-500/5",
+                  )}
                 >
+                  {/* Checkbox column */}
+                  <div className="flex items-start gap-3 flex-1 min-w-0">
+                    <div className="pt-1 flex-shrink-0">
+                      {isSelectable ? (
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleJobSelection(job.id)}
+                          aria-label={`Select job: ${job.title}`}
+                          className="w-4 h-4 rounded border-market-500/40 bg-ink-900 accent-market-400 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-market-400/60"
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      ) : (
+                        <span className="w-4 h-4 block" aria-hidden="true" />
+                      )}
+                    </div>
+                  <Link
+                    href={`/jobs/${job.id}`}
+                    className="flex-1 min-w-0 block"
+                  >
                   <Link href={`/jobs/${job.id}`} className="flex-1 min-w-0 block">
                     <div className="flex items-center gap-2 mb-1">
                       <span className={statusClass(job.status)}>{statusLabel(job.status)}</span>
@@ -611,6 +733,7 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
                     </p>
                     <JobStatusTimeline job={job} compact />
                   </Link>
+                  </div>
                   <div className="text-right flex-shrink-0">
                     <p className="font-mono font-semibold text-market-400">
                       {formatXLM(job.budget)}
@@ -648,7 +771,8 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
                     </div>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )
         ) : tab === "applied" ? (
@@ -1052,11 +1176,14 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
 
       <BulkJobActionBar
         selectedCount={selectedJobIds.size}
-        onCancel={handleBulkCancel}
+        jobs={myJobs}
+        onClose={handleBulkClose}
         onExtend={handleBulkExtend}
-        onBoost={handleBulkBoost}
+        onArchive={handleBulkArchive}
         onClearSelection={() => setSelectedJobIds(new Set())}
         loading={bulkLoading}
+        onUndo={handleUndo}
+        jobsBeforeAction={jobsBeforeAction}
       />
 
       {extendModalJob && (

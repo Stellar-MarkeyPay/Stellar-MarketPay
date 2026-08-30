@@ -1187,6 +1187,39 @@ async function bulkExtendJobs(jobIds, clientAddress, days = 30) {
 }
 
 /**
+ * Bulk archive multiple jobs owned by a client.
+ * Only open or cancelled jobs can be archived.
+ * @param {string[]} jobIds
+ * @param {string} clientAddress
+ * @returns {Promise<Object[]>}
+ */
+async function bulkArchiveJobs(jobIds, clientAddress) {
+  const results = [];
+  for (const id of jobIds) {
+    try {
+      const { rows } = await pool.query(
+        `UPDATE jobs SET status = 'archived', updated_at = NOW()
+         WHERE id = $1 AND client_address = $2 AND status IN ('open', 'cancelled')
+         RETURNING id`,
+        [id, clientAddress],
+      );
+      if (rows.length === 0) {
+        results.push({
+          id,
+          success: false,
+          error: "Job not found, not owned by you, or not archivable in its current state",
+        });
+      } else {
+        results.push({ id, success: true });
+      }
+    } catch (err) {
+      results.push({ id, success: false, error: err.message || "Unknown error" });
+    }
+  }
+  return results;
+}
+
+/**
  * Bulk boost multiple jobs.
  * @param {string[]} jobIds
  * @param {string} clientAddress
@@ -1311,6 +1344,7 @@ module.exports = {
   bulkCancelJobs,
   bulkExtendJobs,
   bulkBoostJobs,
+  bulkArchiveJobs,
   getRecommendedJobs,
   getSuggestions,
 };
