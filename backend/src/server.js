@@ -56,6 +56,8 @@ const retainerRoutes = require("./routes/retainers");
 const fraudRoutes = require("./routes/fraud");
 const complianceRoutes = require("./routes/compliance");
 const sep12Routes = require("./routes/sep12");
+const flagRoutes = require("./routes/flags");
+const adminFlagRoutes = require("./routes/adminFlags");
 
 const pool = require("./db/pool");
 const { migrate } = require("./db/migrate");
@@ -369,6 +371,8 @@ app.use("/api/retainers", retainerRoutes);
 app.use("/api/fraud", fraudRoutes);
 app.use("/api/compliance", complianceRoutes);
 app.use("/api/sep12", sep12Routes);
+app.use("/api/flags", flagRoutes);
+app.use("/api/admin/flags", adminFlagRoutes);
 
 app.use((err, req, res, next) => {
   void next;
