@@ -20,9 +20,10 @@ Welcome to Stellar MarketPay documentation. This index helps you find what you n
 
 - **[Architecture Overview](./architecture.md)** - System design and components
 - **[Deployment Guide](./deployment.md)** - How to deploy Stellar MarketPay
-- **[Multi-cluster DR Architecture](./dr/architecture.md)** - Active-passive topology, RTO/RPO, and state replication (decision recorded in [ADR-008](./ADR-008-multi-cluster-kubernetes-dr.md))
-- **[DR and Blue-Green Runbook](./dr/runbook.md)** - Failover, deployment rollback, failback, and game-day procedures
-- **[Latest DR Game-Day Report](./dr/game-day-report.md)** - Measured recovery evidence and qualification
+- **[Multi-Region Active-Active Architecture](./dr/architecture.md)** - Active-active multi-region topology, consistency matrix, fencing, and RTO/RPO targets (decision recorded in [ADR-013](./ADR-013-multi-region-active-active-postgres.md))
+- **[DR and Replication Runbook](./dr/runbook.md)** - Failover, fencing inspection, planned switchover, deliberate failback, and game-day procedures
+- **[Active-Active Game-Day Report](./dr/active-active-game-day-report.md)** - Measured partition recovery evidence, split-brain prevention, and RTO/RPO verification
+- **[Legacy Multi-Cluster DR](./dr/game-day-report.md)** - Legacy active-passive baseline report (ADR-008)
 - **[Soroban Contract Deployment](./contract-deployment.md)** - Build, deploy, and configure the escrow contract
 - **[Contract Contributor Guide](./contract-contributor-guide.md)** - Local setup, test snapshots, fund-moving review bar, storage compatibility, and a worked entrypoint example
 - **[Environment Variables](./environment-variables.md)** - Single source of truth for runtime config
@@ -202,6 +203,22 @@ Decisions that shaped Stellar MarketPay's architecture:
 
 ---
 
+### ADR-011: Sandboxed Plugin Platform for Third-Party Marketplace Extensions
+
+**File**: [ADR-011-plugin-platform.md](./ADR-011-plugin-platform.md)
+
+**Decision**: Isolated V8 execution sandboxes with scoped API brokers and SHA-256 integrity verification
+
+**Key Points**:
+
+- Manifest-driven permission system
+- Sandboxed IPC broker with fine-grained capability checks
+- Multi-tier plugin isolation and resource limits
+
+**Status**: ✅ Accepted
+
+---
+
 ### ADR-012: Enterprise Federation and Transaction Authority Separation
 
 **File**: [ADR-012-enterprise-federation.md](./ADR-012-enterprise-federation.md)
@@ -218,6 +235,23 @@ every escrow-sensitive transaction.
 - Additive six-PR migration plan that leaves existing wallet users unchanged
 
 **Status**: ✅ Accepted for phased delivery
+
+---
+
+### ADR-013: Multi-Region Active-Active PostgreSQL with Conflict Resolution and Fencing
+
+**File**: [ADR-013-multi-region-active-active-postgres.md](./ADR-013-multi-region-active-active-postgres.md)
+
+**Decision**: Active-active multi-region topology with table-by-table consistency tiers, ULID/CRDT conflict-free models, distributed generation-token lease fencing, and on-chain Soroban escrow reconciliation
+
+**Key Points**:
+
+- Formal CAP position: CP with hard fencing for financial records (Class 1); Causal for marketplace state (Class 2); AP with CRDTs for analytics/notifications (Class 3)
+- Monotonic ULIDs and Positive-Negative (PN) Counter CRDTs eliminating coordinate locks and write collisions
+- Distributed generation-token lease fencing preventing split-brain during regional partitions
+- Post-failover on-chain Soroban escrow reconciliation guaranteeing zero financial divergence
+
+**Status**: ✅ Accepted
 
 ---
 

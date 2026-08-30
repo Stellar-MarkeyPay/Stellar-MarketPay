@@ -51,6 +51,7 @@ const cdnRoutes = require("./routes/cdn");
 const rankingRoutes = require("./routes/ranking");
 const savedSearchesRoutes = require("./routes/savedSearches");
 const reputationRoutes = require("./routes/reputation");
+const replicationRoutes = require("./routes/replication");
 const retainerRoutes = require("./routes/retainers");
 const fraudRoutes = require("./routes/fraud");
 const complianceRoutes = require("./routes/compliance");
@@ -63,6 +64,8 @@ const PriceAlertService = require("./services/priceAlertService");
 const CdnService = require("./services/cdn/cdnService");
 const CdnInvalidationService = require("./services/cdn/invalidationService");
 const { createProvidersFromEnv } = require("./services/cdn/providers");
+const { defaultFencingService } = require("./services/fencingService");
+const { defaultReplicationMonitor } = require("./services/replicationMonitor");
 
 const serviceLogger = createServiceLogger("server");
 const { runReconciliation } = require("./jobs/escrowReconciliationJob");
@@ -361,6 +364,7 @@ app.use("/api/cdn", cdnRoutes);
 app.use("/api/ranking", rankingRoutes);
 app.use("/api/saved-searches", savedSearchesRoutes);
 app.use("/api/reputation", reputationRoutes);
+app.use("/api/replication", replicationRoutes);
 app.use("/api/retainers", retainerRoutes);
 app.use("/api/fraud", fraudRoutes);
 app.use("/api/compliance", complianceRoutes);
@@ -516,6 +520,8 @@ async function bootstrap() {
 
     await indexerService.start();
     priceAlertService.start();
+    defaultFencingService.start();
+    defaultReplicationMonitor.start();
 
     // Start job expiry checker - run every hour
     startJobExpiryChecker();
