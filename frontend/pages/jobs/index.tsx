@@ -100,6 +100,19 @@ export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
   const [savingSearch, setSavingSearch] = useState(false);
   const [saveSearchMsg, setSaveSearchMsg] = useState<string | null>(null);
 
+  // Sync state from URL
+  useEffect(() => {
+    if (router.isReady) {
+      setSearch((router.query.search as string) || "");
+      if (router.query.timezone) {
+        setManualTimezone(router.query.timezone as string);
+        setUseGeolocation(false);
+      } else {
+        setManualTimezone("");
+      }
+    }
+  }, [router.query.search, router.query.timezone, router.isReady]);
+
   // Sync alertedCategories from localStorage on mount
   useEffect(() => {
     setAlertedCategories(getAlerts());
@@ -228,7 +241,7 @@ export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
     maxApplications: (router.query.maxApplications as string) || undefined,
   };
 
-  const updateFilters = (patch: Partial<JobFilterQuery>, removeKeys?: string[]) => {
+  const updateFilters = (patch: Record<string, any>, removeKeys?: string[]) => {
     const next: Record<string, any> = { ...router.query, ...patch, page: undefined };
     for (const key of removeKeys || []) {
       delete next[key];
@@ -286,6 +299,7 @@ export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
     setUserTimezone(detectedTz);
     setUseGeolocation(true);
     setGeoLoading(false);
+    updateFilters({ timezone: detectedTz });
   };
 
   // Check if job timezone is within ±3 hours of user timezone
@@ -326,6 +340,7 @@ export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
             category: category || undefined,
             status: status || undefined,
             limit: 20,
+            search: (router.query.search as string) || undefined,
             cursor,
             timezone: activeTimezone || undefined,
             viewerAddress: viewerAddress || undefined,
@@ -368,6 +383,7 @@ export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
   }, [
     category,
     status,
+    router.query.search,
     pageFromQuery,
     router.isReady,
     manualTimezone,
@@ -423,6 +439,7 @@ export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
 
     debounceTimer.current = setTimeout(() => {
       fetchSuggestions(value);
+      updateFilters({ search: value || undefined });
     }, 300);
   };
 
@@ -431,10 +448,18 @@ export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
     setShowSuggestions(false);
     if (suggestion.type === "category") {
       router.push(`/jobs/category/${categoryToSlug(suggestion.value)}`);
+    } else {
+      updateFilters({ search: suggestion.value || undefined });
     }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" && !showSuggestions) {
+      e.preventDefault();
+      updateFilters({ search: search || undefined });
+      return;
+    }
+
     if (!showSuggestions) return;
 
     switch (e.key) {
@@ -509,6 +534,7 @@ export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
         category: category || undefined,
         status: status || undefined,
         limit: 20,
+        search: (router.query.search as string) || undefined,
         cursor: nextCursor,
         timezone: activeTimezone || undefined,
         viewerAddress: viewerAddress || undefined,
@@ -1111,8 +1137,10 @@ export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
                 value={manualTimezone}
                 aria-label={t("jobs.timezone")}
                 onChange={(e) => {
-                  setManualTimezone(e.target.value);
+                  const tz = e.target.value;
+                  setManualTimezone(tz);
                   setUseGeolocation(false);
+                  updateFilters({ timezone: tz || undefined });
                 }}
                 className="w-full bg-market-900/40 border border-amber-900/30 rounded px-2 py-1.5 text-xs text-amber-100 appearance-none cursor-pointer"
               >
@@ -1137,6 +1165,7 @@ export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
                   onClick={() => {
                     setManualTimezone("");
                     setUseGeolocation(false);
+                    updateFilters({ timezone: undefined });
                   }}
                   className="text-[10px] py-1.5 rounded bg-market-900/40 border border-market-500/30 text-market-400 hover:text-market-300 font-bold w-full"
                 >

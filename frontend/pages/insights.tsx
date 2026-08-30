@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import Head from "next/head";
-import { format } from "date-fns";
+import { formatChartDate } from "@/utils/format";
 import { Line } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -148,7 +148,7 @@ export default function InsightsPage() {
 
   const topTrendCategories = categories.slice(0, 5).map((entry) => entry.category);
   const trendDates = Array.from(new Set(payTrends.map((entry) => entry.date))).sort();
-  const trendLabels = trendDates.map((date) => format(new Date(date), "MMM d"));
+  const trendLabels = trendDates.map((date) => formatChartDate(date));
   const trendDatasets = topTrendCategories.map((category, index) => {
     const palette = [
       "rgb(245, 158, 11)",

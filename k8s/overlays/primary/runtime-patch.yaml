@@ -5,3 +5,6 @@ metadata:
 data:
   CLUSTER_ROLE: active
   REGION: primary-cluster
+  PRIMARY_REGION: primary-cluster
+  ENABLE_ACTIVE_ACTIVE: "true"
+  FENCING_LEASE_KEY: global_financial_authority

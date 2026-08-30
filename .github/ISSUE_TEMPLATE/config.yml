@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability privately
+    url: https://github.com/Stellar-MarkeyPay/Stellar-MarketPay/security/advisories/new
+    about: Please do not disclose security vulnerabilities in a public issue. Use GitHub’s private security advisory flow.
+  - name: Read the contributing guide
+    url: https://github.com/Stellar-MarkeyPay/Stellar-MarketPay/blob/main/CONTRIBUTING.md
+    about: Review setup, testing, branch, and pull request guidance before opening an issue.

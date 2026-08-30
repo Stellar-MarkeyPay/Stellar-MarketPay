@@ -4,7 +4,28 @@
  */
 
 import { format, formatDistanceToNow } from "date-fns";
+import { enUS, es, fr, pt } from "date-fns/locale";
+import i18next from "../lib/i18n";
 import type { Application, Availability, AvailabilityStatus, Job, JobStatus } from "./types";
+
+function getDateLocale() {
+  const lng = i18next?.language?.split("-")[0] || "en";
+  switch (lng) {
+    case "es":
+      return es;
+    case "fr":
+      return fr;
+    case "pt":
+      return pt;
+    case "en":
+    default:
+      return enUS;
+  }
+}
+
+function getActiveLocaleString() {
+  return i18next?.language || "en-US";
+}
 
 function escapeCsvCell(value: string): string {
   if (/[",\n\r]/.test(value)) return `"${value.replace(/"/g, '""')}"`;
@@ -60,15 +81,25 @@ export function exportApplicationsToCSV(applications: Application[]): void {
   downloadCsv(`marketpay-applications-${new Date().toISOString().slice(0, 10)}.csv`, rows);
 }
 
+/**
+ * Formats XLM amounts consistently across the application.
+ * Presentation rules:
+ * - Uses the active user locale for number formatting (e.g., thousands separators and decimal points).
+ * - Precision: Defaults to a maximum of 4 decimal places unless specified otherwise.
+ * - Always appends " XLM" suffix.
+ */
 export function formatXLM(amount: string | number, decimals = 4): string {
   const num = typeof amount === "string" ? parseFloat(amount) : amount;
   if (isNaN(num)) return "0 XLM";
-  return `${num.toLocaleString("en-US", { maximumFractionDigits: decimals })} XLM`;
+  return `${new Intl.NumberFormat(getActiveLocaleString(), {
+    maximumFractionDigits: decimals,
+    useGrouping: true,
+  }).format(num)} XLM`;
 }
 
 export function timeAgo(dateString: string): string {
   try {
-    return formatDistanceToNow(new Date(dateString), { addSuffix: true });
+    return formatDistanceToNow(new Date(dateString), { addSuffix: true, locale: getDateLocale() });
   } catch {
     return dateString;
   }
@@ -76,7 +107,7 @@ export function timeAgo(dateString: string): string {
 
 export function formatDate(dateString: string): string {
   try {
-    return format(new Date(dateString), "MMM d, yyyy");
+    return format(new Date(dateString), "PP", { locale: getDateLocale() });
   } catch {
     return dateString;
   }
@@ -87,9 +118,17 @@ export function formatDeadline(dateString: string): string {
   if (Number.isNaN(date.getTime())) return "";
 
   try {
-    return format(date, "MMM d, yyyy");
+    return format(date, "PP", { locale: getDateLocale() });
   } catch {
     return "";
+  }
+}
+
+export function formatChartDate(dateValue: string | number | Date): string {
+  try {
+    return format(new Date(dateValue), "MMM dd", { locale: getDateLocale() });
+  } catch {
+    return String(dateValue);
   }
 }
 
@@ -301,7 +340,10 @@ export const SKILL_SUGGESTIONS = [
 export function formatMoney(amount: string | number, currency: string = "XLM"): string {
   const num = typeof amount === "string" ? parseFloat(amount) : amount;
   if (isNaN(num)) return `0 ${currency}`;
-  const formatted = num.toLocaleString("en-US", { maximumFractionDigits: 4 });
+  const formatted = new Intl.NumberFormat(getActiveLocaleString(), {
+    maximumFractionDigits: 4,
+    useGrouping: true,
+  }).format(num);
   return `${formatted} ${currency}`;
 }
 
@@ -312,12 +354,17 @@ export function formatUSDEquivalent(
 ): string | null {
   const num = typeof amount === "string" ? parseFloat(amount) : amount;
   if (isNaN(num)) return null;
+  const usdFormatter = new Intl.NumberFormat(getActiveLocaleString(), {
+    style: "currency",
+    currency: "USD",
+    currencyDisplay: "narrowSymbol",
+  });
   if (currency.toUpperCase() === "USDC") {
-    return `≈ $${num.toFixed(2)} USD`;
+    return `≈ ${usdFormatter.format(num)} USD`;
   }
   if (xlmPriceUsd === null) return null;
-  const usd = (num * xlmPriceUsd).toFixed(2);
-  return `≈ $${usd} USD`;
+  const usdAmount = num * xlmPriceUsd;
+  return `≈ ${usdFormatter.format(usdAmount)} USD`;
 }
 
 /**
@@ -332,21 +379,28 @@ export function formatPrice(
   const num = typeof xlmAmount === "string" ? parseFloat(xlmAmount) : xlmAmount;
   if (isNaN(num)) return { display: "0 XLM", usdEquiv: null };
 
-  const usdEquiv =
-    xlmPriceUsd !== null
-      ? `$${(num * xlmPriceUsd).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-      : null;
+  const locale = getActiveLocaleString();
+  const usdFormatter = new Intl.NumberFormat(locale, {
+    style: "currency",
+    currency: "USD",
+    currencyDisplay: "narrowSymbol",
+  });
+  const xlmFormatter = new Intl.NumberFormat(locale, {
+    maximumFractionDigits: 4,
+    useGrouping: true,
+  });
+
+  const usdEquiv = xlmPriceUsd !== null ? usdFormatter.format(num * xlmPriceUsd) : null;
 
   if (currencyMode === "USD" && xlmPriceUsd !== null) {
-    const usd = num * xlmPriceUsd;
     return {
-      display: `$${usd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      display: usdFormatter.format(num * xlmPriceUsd),
       usdEquiv: null,
     };
   }
 
   return {
-    display: `${num.toLocaleString("en-US", { maximumFractionDigits: 4 })} XLM`,
+    display: `${xlmFormatter.format(num)} XLM`,
     usdEquiv,
   };
 }
@@ -362,8 +416,13 @@ export function getMonthlyEstimate(
   if (xlmPriceUsd === null) return null;
   const num = typeof xlmAmount === "string" ? parseFloat(xlmAmount) : xlmAmount;
   if (isNaN(num)) return null;
-  const monthlyUsd = (num * xlmPriceUsd).toFixed(2);
-  return `$${monthlyUsd}/mo est.`;
+  const locale = getActiveLocaleString();
+  const usdFormatter = new Intl.NumberFormat(locale, {
+    style: "currency",
+    currency: "USD",
+    currencyDisplay: "narrowSymbol",
+  });
+  return `${usdFormatter.format(num * xlmPriceUsd)}/mo est.`;
 }
 
 export interface ProgressData {

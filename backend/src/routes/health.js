@@ -62,11 +62,15 @@ async function checkDatabase() {
       row.replay_lag_seconds === null || row.replay_lag_seconds === undefined
         ? Number.NaN
         : Number(row.replay_lag_seconds);
+    const poolStats = typeof pool.getStats === "function" ? pool.getStats() : {};
+    const isFenced = poolStats.isFenced === true;
     return {
       status: "ok",
       latency_ms: Date.now() - start,
       role: inRecovery ? "replica" : "primary",
-      writable: !inRecovery,
+      writable: !inRecovery && !isFenced,
+      fenced: isFenced,
+      generation_token: poolStats.fencingGeneration || 1,
       replay_lag_seconds: Number.isFinite(replayLag) ? replayLag : null,
     };
   } catch (err) {
@@ -121,8 +125,12 @@ async function checkStellar() {
  *     summary: Enhanced health check
  *     description: >
  *       Checks database connectivity (SELECT 1) and Stellar Horizon reachability.
- *       Returns 200 when healthy, 503 when any critical dependency is down.
+ *       Returns 200 when healthy, 503 when any critical dependency is down. Alias of
+ *       `/health/ready`, kept for backwards compatibility with existing clients/manifests.
  *     tags: [Health]
+ *     x-rate-limit:
+ *       limit: 120
+ *       windowMinutes: 1
  *     responses:
  *       200:
  *         description: All dependencies healthy
@@ -134,11 +142,16 @@ async function checkStellar() {
  *                 status:
  *                   type: string
  *                   example: healthy
+ *                 region: { type: string, example: primary-cluster }
+ *                 cluster_role: { type: string, example: active }
  *                 database:
  *                   type: object
  *                   properties:
  *                     status: { type: string, example: ok }
  *                     latency_ms: { type: number, example: 12 }
+ *                     role: { type: string, enum: [primary, replica], example: primary }
+ *                     writable: { type: boolean, example: true }
+ *                     replay_lag_seconds: { type: number, nullable: true, example: 0 }
  *                 stellar:
  *                   type: object
  *                   properties:
@@ -147,8 +160,36 @@ async function checkStellar() {
  *                     ledger: { type: number, example: 12345678 }
  *                 uptime_seconds: { type: number, example: 3600 }
  *                 version: { type: string, example: "1.0.0" }
+ *                 indexer:
+ *                   type: object
+ *                   nullable: true
+ *                   description: Present only when the in-process indexer service is registered on app.locals; null otherwise
  *       503:
- *         description: One or more dependencies are down
+ *         description: One or more dependencies are down (database unreachable/read-only, or Horizon unreachable)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status: { type: string, example: degraded }
+ *                 region: { type: string, example: primary-cluster }
+ *                 cluster_role: { type: string, example: active }
+ *                 database:
+ *                   type: object
+ *                   properties:
+ *                     status: { type: string, example: error }
+ *                     message: { type: string, example: connection refused }
+ *                 stellar:
+ *                   type: object
+ *                   properties:
+ *                     status: { type: string, example: ok }
+ *                     network: { type: string, example: testnet }
+ *                     ledger: { type: number, example: 12345678 }
+ *                 uptime_seconds: { type: number, example: 3600 }
+ *                 version: { type: string, example: "1.0.0" }
+ *                 indexer: { type: object, nullable: true }
+ *       429:
+ *         $ref: '#/components/responses/TooManyRequests'
  */
 function liveHandler(req, res) {
   res
@@ -188,8 +229,184 @@ async function dependencyHealthHandler(req, res, requireWritable) {
     .json(body);
 }
 
+/**
+ * @swagger
+ * /health/live:
+ *   get:
+ *     summary: Liveness probe
+ *     description: >
+ *       Always returns 200 without checking any external dependency (database, Stellar Horizon).
+ *       Used by orchestrators to decide whether to restart the process. Response is sent with
+ *       `Cache-Control: no-store`.
+ *     tags: [Health]
+ *     responses:
+ *       200:
+ *         description: Process is alive
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status: { type: string, example: alive }
+ *                 region: { type: string, example: primary-cluster }
+ *                 cluster_role: { type: string, example: active }
+ *                 uptime_seconds: { type: number, example: 3600 }
+ *                 version: { type: string, example: "1.0.0" }
+ */
 router.get("/live", liveHandler);
+/**
+ * @swagger
+ * /health/standby:
+ *   get:
+ *     summary: Warm-standby readiness probe
+ *     description: >
+ *       Checks database connectivity/replication state and Stellar Horizon reachability.
+ *       Unlike `/health/ready`, this endpoint does NOT require the database to be writable, so a
+ *       read-only disaster-recovery replica is reported healthy (200) as long as it can serve
+ *       reads and Horizon is reachable. Returns 503 when the database check fails/times out or
+ *       Horizon is unreachable/erroring. Response is sent with `Cache-Control: no-store`.
+ *     tags: [Health]
+ *     x-rate-limit:
+ *       limit: 120
+ *       windowMinutes: 1
+ *     responses:
+ *       200:
+ *         description: Standby node is healthy (may be a read-only replica)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status: { type: string, example: healthy }
+ *                 region: { type: string, example: primary-cluster }
+ *                 cluster_role: { type: string, example: active }
+ *                 database:
+ *                   type: object
+ *                   properties:
+ *                     status: { type: string, example: ok }
+ *                     latency_ms: { type: number, example: 12 }
+ *                     role: { type: string, enum: [primary, replica], example: replica }
+ *                     writable: { type: boolean, example: false }
+ *                     replay_lag_seconds: { type: number, nullable: true, example: 8 }
+ *                 stellar:
+ *                   type: object
+ *                   properties:
+ *                     status: { type: string, example: ok }
+ *                     network: { type: string, example: testnet }
+ *                     ledger: { type: number, example: 12345678 }
+ *                 uptime_seconds: { type: number, example: 3600 }
+ *                 version: { type: string, example: "1.0.0" }
+ *                 indexer:
+ *                   type: object
+ *                   nullable: true
+ *                   description: Present only when the in-process indexer service is registered on app.locals; null otherwise
+ *       503:
+ *         description: The database check failed/timed out, or the Stellar Horizon check failed/timed out
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status: { type: string, example: degraded }
+ *                 region: { type: string, example: primary-cluster }
+ *                 cluster_role: { type: string, example: active }
+ *                 database:
+ *                   type: object
+ *                   properties:
+ *                     status: { type: string, example: error }
+ *                     message: { type: string, example: "Database check timed out" }
+ *                 stellar:
+ *                   type: object
+ *                   properties:
+ *                     status: { type: string, example: ok }
+ *                     network: { type: string, example: testnet }
+ *                     ledger: { type: number, example: 12345678 }
+ *                 uptime_seconds: { type: number, example: 3600 }
+ *                 version: { type: string, example: "1.0.0" }
+ *                 indexer: { type: object, nullable: true }
+ *       429:
+ *         $ref: '#/components/responses/TooManyRequests'
+ */
 router.get("/standby", healthRateLimiter, (req, res) => dependencyHealthHandler(req, res, false));
+/**
+ * @swagger
+ * /health/ready:
+ *   get:
+ *     summary: Readiness probe
+ *     description: >
+ *       Checks database connectivity and Stellar Horizon reachability, same as `/health/standby`.
+ *       If the `REQUIRE_WRITABLE_DB` environment variable is `"true"`, the database must also be
+ *       writable (i.e. not a replica in recovery) for the node to be considered ready — a
+ *       read-only replica then reports 503 `degraded`. If `REQUIRE_WRITABLE_DB` is unset/false, a
+ *       read-only replica can pass, same as `/health/standby`. Response is sent with
+ *       `Cache-Control: no-store`.
+ *     tags: [Health]
+ *     x-rate-limit:
+ *       limit: 120
+ *       windowMinutes: 1
+ *     responses:
+ *       200:
+ *         description: Node is healthy and ready to receive traffic
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status: { type: string, example: healthy }
+ *                 region: { type: string, example: primary-cluster }
+ *                 cluster_role: { type: string, example: active }
+ *                 database:
+ *                   type: object
+ *                   properties:
+ *                     status: { type: string, example: ok }
+ *                     latency_ms: { type: number, example: 12 }
+ *                     role: { type: string, enum: [primary, replica], example: primary }
+ *                     writable: { type: boolean, example: true }
+ *                     replay_lag_seconds: { type: number, nullable: true, example: 0 }
+ *                 stellar:
+ *                   type: object
+ *                   properties:
+ *                     status: { type: string, example: ok }
+ *                     network: { type: string, example: testnet }
+ *                     ledger: { type: number, example: 12345678 }
+ *                 uptime_seconds: { type: number, example: 3600 }
+ *                 version: { type: string, example: "1.0.0" }
+ *                 indexer:
+ *                   type: object
+ *                   nullable: true
+ *                   description: Present only when the in-process indexer service is registered on app.locals; null otherwise
+ *       503:
+ *         description: >
+ *           The database or Stellar Horizon check failed/timed out, or (when
+ *           REQUIRE_WRITABLE_DB=true) the database is a read-only replica
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status: { type: string, example: degraded }
+ *                 region: { type: string, example: primary-cluster }
+ *                 cluster_role: { type: string, example: active }
+ *                 database:
+ *                   type: object
+ *                   properties:
+ *                     status: { type: string, example: ok }
+ *                     latency_ms: { type: number, example: 10 }
+ *                     role: { type: string, example: replica }
+ *                     writable: { type: boolean, example: false }
+ *                     replay_lag_seconds: { type: number, nullable: true, example: 12.5 }
+ *                 stellar:
+ *                   type: object
+ *                   properties:
+ *                     status: { type: string, example: ok }
+ *                     network: { type: string, example: testnet }
+ *                     ledger: { type: number, example: 12345678 }
+ *                 uptime_seconds: { type: number, example: 3600 }
+ *                 version: { type: string, example: "1.0.0" }
+ *                 indexer: { type: object, nullable: true }
+ *       429:
+ *         $ref: '#/components/responses/TooManyRequests'
+ */
 router.get("/ready", healthRateLimiter, (req, res) =>
   dependencyHealthHandler(req, res, process.env.REQUIRE_WRITABLE_DB === "true")
 );

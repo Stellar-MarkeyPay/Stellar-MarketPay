@@ -1,0 +1,30 @@
+[package]
+name = "marketpay-spec"
+version = "0.1.0"
+edition = "2021"
+description = "Formal specification, reference model and verification harnesses for the Stellar MarketPay escrow contract"
+license = "MIT"
+
+# Deliberately dependency-free.
+#
+# This crate states what the escrow is supposed to do. It is consumed by three
+# things with three different constraints: the contract's differential tests
+# (which need it to be `no_std`-compatible, because the contract is), the
+# bounded model checker (which needs it to run under a stock stable
+# toolchain so CI can gate on it), and Kani (which needs it to contain no
+# host-function boundary it cannot see through). Depending on `soroban-sdk`
+# would break the third and slow the first two down for no gain — see
+# `docs/VERIFICATION.md` §2.
+[dependencies]
+
+[features]
+default = ["std"]
+# Enables the counterexample renderer's owned `String` output. The core
+# specification, model and checker are all `no_std`.
+std = []
+
+# `cfg(kani)` is set by the Kani driver, not by Cargo. Declaring it here keeps
+# `cargo build` from warning about a cfg it has never heard of, without
+# reaching for a build script.
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(kani)'] }

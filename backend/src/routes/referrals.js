@@ -28,10 +28,52 @@ const generalRateLimiter = createRateLimiter(60, 1);
  * /api/referrals/info:
  *   get:
  *     summary: Get referral bonus tier information
+ *     description: Public endpoint describing the multi-level referral bonus structure.
  *     tags: [Referrals]
  *     responses:
  *       200:
  *         description: Bonus tier details
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     bonusBps: { type: integer }
+ *                     bonusPercent: { type: string }
+ *                     levelBps:
+ *                       type: array
+ *                       items: { type: integer }
+ *                     levels:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           level: { type: integer }
+ *                           bps: { type: integer }
+ *                           percent: { type: string }
+ *                           description: { type: string }
+ *                     description: { type: string }
+ *                     platformFeeBps: { type: integer }
+ *                     platformFeePercent: { type: string }
+ *             example:
+ *               success: true
+ *               data:
+ *                 bonusBps: 500
+ *                 bonusPercent: "5"
+ *                 levelBps: [500, 200, 100]
+ *                 levels:
+ *                   - { level: 1, bps: 500, percent: "5.00", description: Direct referral }
+ *                   - { level: 2, bps: 200, percent: "2.00", description: Referral of your referral }
+ *                   - { level: 3, bps: 100, percent: "1.00", description: 3rd-degree referral }
+ *                 description: Earn up to 8% in multi-level referral bonuses
+ *                 platformFeeBps: 100
+ *                 platformFeePercent: "1"
  */
 router.get("/info", (req, res) => {
   res.json({
@@ -66,14 +108,66 @@ router.get("/info", (req, res) => {
  * /api/referrals/{publicKey}:
  *   get:
  *     summary: Get flat referral stats and history for a user
+ *     description: >
+ *       Returns referral stats for the given Stellar public key. The
+ *       authenticated caller may only fetch their own stats.
  *     tags: [Referrals]
  *     security:
  *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     x-rate-limit:
+ *       limit: 60
+ *       windowMinutes: 1
  *     parameters:
  *       - in: path
  *         name: publicKey
  *         required: true
- *         schema: { type: string }
+ *         schema:
+ *           type: string
+ *         description: Stellar public key to fetch referral stats for
+ *         example: GREFERRER123456789012345678901234567890123456789012345
+ *     responses:
+ *       200:
+ *         description: Referral stats retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   description: Referral stats as returned by getReferralStats
+ *             example:
+ *               success: true
+ *               data: { totalReferrals: 3, totalBonusEarnedBps: 150 }
+ *       400:
+ *         description: Invalid public key format
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: false }
+ *                 error: { type: string }
+ *             example:
+ *               success: false
+ *               error: Invalid public key
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         description: Forbidden - caller does not match the requested publicKey
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: false }
+ *                 error: { type: string, example: Forbidden }
+ *       429:
+ *         $ref: '#/components/responses/TooManyRequests'
  */
 router.get("/:publicKey", verifyJWT, generalRateLimiter, async (req, res, next) => {
   try {
@@ -98,14 +192,66 @@ router.get("/:publicKey", verifyJWT, generalRateLimiter, async (req, res, next) 
  * /api/referrals/{publicKey}/tree:
  *   get:
  *     summary: Get the full referral tree rooted at publicKey (for visualization)
+ *     description: >
+ *       Returns the full multi-level referral tree for the given Stellar
+ *       public key. The authenticated caller may only fetch their own tree.
  *     tags: [Referrals]
  *     security:
  *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     x-rate-limit:
+ *       limit: 60
+ *       windowMinutes: 1
  *     parameters:
  *       - in: path
  *         name: publicKey
  *         required: true
- *         schema: { type: string }
+ *         schema:
+ *           type: string
+ *         description: Stellar public key to fetch the referral tree for
+ *         example: GREFERRER123456789012345678901234567890123456789012345
+ *     responses:
+ *       200:
+ *         description: Referral tree retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   description: Referral tree as returned by getReferralTree
+ *             example:
+ *               success: true
+ *               data: { publicKey: "GREFERRER123456789012345678901234567890123456789012345", children: [] }
+ *       400:
+ *         description: Invalid public key format
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: false }
+ *                 error: { type: string }
+ *             example:
+ *               success: false
+ *               error: Invalid public key
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         description: Forbidden - caller does not match the requested publicKey
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: false }
+ *                 error: { type: string, example: Forbidden }
+ *       429:
+ *         $ref: '#/components/responses/TooManyRequests'
  */
 router.get("/:publicKey/tree", verifyJWT, generalRateLimiter, async (req, res, next) => {
   try {
@@ -130,7 +276,11 @@ router.get("/:publicKey/tree", verifyJWT, generalRateLimiter, async (req, res, n
  * /api/referrals/register:
  *   post:
  *     summary: Record a new referral relationship
+ *     description: Registers that refereeAddress was referred by referrerAddress, idempotently.
  *     tags: [Referrals]
+ *     x-rate-limit:
+ *       limit: 60
+ *       windowMinutes: 1
  *     requestBody:
  *       required: true
  *       content:
@@ -139,8 +289,47 @@ router.get("/:publicKey/tree", verifyJWT, generalRateLimiter, async (req, res, n
  *             type: object
  *             required: [referrerAddress, refereeAddress]
  *             properties:
- *               referrerAddress: { type: string }
- *               refereeAddress:  { type: string }
+ *               referrerAddress:
+ *                 type: string
+ *                 description: Stellar address of the referrer
+ *               refereeAddress:
+ *                 type: string
+ *                 description: Stellar address of the newly-referred user
+ *           example:
+ *             referrerAddress: GREFERRER123456789012345678901234567890123456789012345
+ *             refereeAddress: GREFEREE1234567890123456789012345678901234567890123456
+ *     responses:
+ *       200:
+ *         description: Referral registered (or already existed)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   nullable: true
+ *                   description: The created referral record, or null if it already existed
+ *                 message:
+ *                   type: string
+ *             example:
+ *               success: true
+ *               data: { referrerAddress: "GREFERRER123456789012345678901234567890123456789012345", refereeAddress: "GREFEREE1234567890123456789012345678901234567890123456" }
+ *               message: Referral registered
+ *       400:
+ *         description: Missing referrerAddress or refereeAddress
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: false }
+ *                 error: { type: string, example: referrerAddress and refereeAddress are required }
+ *       429:
+ *         $ref: '#/components/responses/TooManyRequests'
  */
 router.post("/register", generalRateLimiter, async (req, res, next) => {
   try {

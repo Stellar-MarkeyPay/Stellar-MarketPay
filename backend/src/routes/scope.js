@@ -12,8 +12,53 @@ const { createRateLimiter } = require("../middleware/rateLimiter");
 const renewRateLimiter = createRateLimiter(5, 1);
 
 /**
- * POST /api/scope/:sessionId/renew
- * Extend a scope session by 24 hours
+ * @swagger
+ * /api/scope/{sessionId}/renew:
+ *   post:
+ *     summary: Renew a scope session
+ *     description: >
+ *       Extends an active (not-yet-expired) scope session's expiry by 24 hours from now. No
+ *       request body is read; the session is identified purely by the `sessionId` path
+ *       parameter, and no authentication is required.
+ *     tags: [Scope]
+ *     x-rate-limit:
+ *       limit: 5
+ *       windowMinutes: 1
+ *     parameters:
+ *       - in: path
+ *         name: sessionId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Scope session identifier
+ *         example: "3f1b2c4d-5678-90ab-cdef-1234567890ab"
+ *     responses:
+ *       200:
+ *         description: Session renewed
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 sessionId: { type: string, example: "3f1b2c4d-5678-90ab-cdef-1234567890ab" }
+ *                 expiresAt: { type: string, format: date-time, example: "2026-08-22T12:00:00.000Z" }
+ *       404:
+ *         description: Session does not exist or has already expired
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: Session not found or already expired
+ *       429:
+ *         $ref: '#/components/responses/TooManyRequests'
+ *       500:
+ *         description: Unexpected error while renewing the session
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
 router.post("/:sessionId/renew", renewRateLimiter, async (req, res, next) => {
   try {

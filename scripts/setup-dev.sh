@@ -42,6 +42,22 @@ else
   echo "   Install: https://rustup.rs"
 fi
 
+# Seed database
+echo ""
+if command -v python3 &>/dev/null && command -v psql &>/dev/null; then
+  echo "🌱 Seeding database with realistic test data..."
+  cd "$ROOT"
+  chmod +x scripts/db/seed.sh
+  if scripts/db/seed.sh --scale small --seed 42; then
+    echo "   ✅ Database seeded (small scale, seed=42)"
+  else
+    echo "   ⚠️  Seeding failed — database may be unreachable."
+  fi
+else
+  echo "⚠️  Python3 or psql not found — skipping database seed."
+  echo "   Run manually later: scripts/db/seed.sh --scale small --seed 42"
+fi
+
 echo ""
 echo "  ──────────────────────────────────"
 echo "  ✅ Setup complete!"

@@ -5,6 +5,9 @@ on:
     branches: [main, develop]
   pull_request:
     branches: [main]
+  # Required checks must also report inside the merge queue, or a queued
+  # entry never satisfies branch protection and the queue stalls.
+  merge_group:
 
 jobs:
   frontend:
@@ -22,6 +25,7 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
       - run: npm test
+      - run: npm run test:a11y
       - run: npm run type-check
       - run: npm run lint
       - run: npm run build
@@ -32,8 +36,21 @@ jobs:
           NEXT_PUBLIC_USE_CONTRACT_MOCK: "true"
           NEXT_PUBLIC_CONTRACT_ID: "CMOCKCONTRACTID"
           SKIP_API_CALLS: "true"
+      - run: npm run build-storybook
+      - uses: actions/upload-artifact@v4
+        with:
+          name: storybook-static
+          path: frontend/storybook-static/
+          retention-days: 7
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
+        env:
+          NEXT_PUBLIC_STELLAR_NETWORK: testnet
+          NEXT_PUBLIC_HORIZON_URL: https://horizon-testnet.stellar.org
+          NEXT_PUBLIC_API_URL: http://localhost:4000
+          NEXT_PUBLIC_USE_CONTRACT_MOCK: "true"
+          NEXT_PUBLIC_CONTRACT_ID: CMOCKCONTRACTID
+      - run: npm run test:visual
         env:
           NEXT_PUBLIC_STELLAR_NETWORK: testnet
           NEXT_PUBLIC_HORIZON_URL: https://horizon-testnet.stellar.org
@@ -53,25 +70,65 @@ jobs:
     defaults:
       run:
         working-directory: backend
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: marketpay_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Schema compatibility is checked against the pull request base.
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
           cache: "npm"
           cache-dependency-path: backend/package-lock.json
       - run: npm ci
+      - name: Check GraphQL schema registry snapshot
+        run: npm run graphql:schema:check
+      - name: Reject breaking GraphQL schema changes
+        if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
+        env:
+          GRAPHQL_SCHEMA_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+        run: npm run graphql:schema:breaking -- --base "$GRAPHQL_SCHEMA_BASE_SHA"
       - run: npm test
         env:
           DATABASE_URL: postgresql://test:test@localhost:5432/marketpay_test
           JWT_SECRET: ci-test-jwt-secret-with-sufficient-length
+          REDIS_URL: redis://localhost:6379
       - run: npm run lint
+      - run: npm run build
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: backend-coverage
           path: backend/coverage/
           retention-days: 7
+      - uses: actions/upload-artifact@v4
+        with:
+          name: openapi-spec
+          path: backend/docs/openapi.json
+          retention-days: 30
 
   contracts:
     name: Soroban Contract (Rust)
@@ -92,8 +149,14 @@ jobs:
             target
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
       - run: cargo check --target wasm32-unknown-unknown
+      # Runs the unit tests in `src/lib.rs` and the verification suites in
+      # `tests/` — differential, regressions and invariant fuzzing. See
+      # docs/VERIFICATION.md.
       - run: cargo test --features std
-      - run: cargo clippy -- -D warnings
+      # `--all-targets --features std` rather than the bare invocation: without
+      # it clippy only sees the library, and the eleven lints living in the
+      # test code never failed the build.
+      - run: cargo clippy --all-targets --features std -- -D warnings
       - run: cargo install cargo-audit --locked
       - run: cargo audit --ignore RUSTSEC-2020-0071
       - run: cargo build --target wasm32-unknown-unknown --release

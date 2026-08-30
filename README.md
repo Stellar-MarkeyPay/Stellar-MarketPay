@@ -4,6 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+[![Storybook](https://img.shields.io/badge/Storybook-Component%20Library-ff4785.svg)](frontend/stories)
 [![Stellar](https://img.shields.io/badge/Stellar-Testnet-blue)](https://stellar.org)
 [![Soroban](https://img.shields.io/badge/Soroban-Smart%20Contracts-purple)](https://soroban.stellar.org)
 [![Backend Coverage](https://img.shields.io/badge/backend%20coverage-60%25%2B-brightgreen)](#testing)
@@ -20,6 +21,8 @@ Stellar MarketPay is an open-source decentralised freelance marketplace where cl
 - 🔒 **Escrow Payments** — Funds held in Soroban contract until work approved
 - ✅ **Release & Complete** — Client approves → funds released to freelancer instantly
 - 📜 **Job History** — Track all your jobs and earnings on-chain
+- 🎨 **Component Library & Storybook** — 48+ isolated components, theme & i18n decorators, design tokens, and visual regression testing ([docs/design-tokens.md](docs/design-tokens.md))
+- 🛡️ **Compliance Core** — Tiered individual/corporate KYC, SEP-12, continuous screening, transaction monitoring, Travel Rule exchange, human case decisions, jurisdiction policies, regulatory reports, and auditable encrypted data handling ([design](docs/COMPLIANCE_DESIGN_COMMENT.md), [operations](docs/COMPLIANCE_OPERATIONS.md))
 
 ---
 
@@ -48,6 +51,8 @@ stellar-marketpay/
 | ---------------- | ---------------------- |
 | Node.js          | ≥ 18.x                 |
 | npm              | Latest                 |
+| Python 3         | ≥ 3.9 (for seeding)    |
+| psql             | PostgreSQL client      |
 | Rust + Cargo     | ≥ 1.74 (for contracts) |
 | Freighter Wallet | Browser extension      |
 
@@ -64,6 +69,25 @@ cd stellar-marketpay
 chmod +x scripts/setup-dev.sh
 ./scripts/setup-dev.sh
 ```
+
+This installs dependencies, runs migrations, and seeds the database with a realistic
+development dataset (50 users, 20 jobs, applications, escrows, messages, and ratings).
+
+### 3. Seed the database manually
+
+```bash
+# Small dataset (default, ~50 users / 20 jobs)
+scripts/db/seed.sh --seed 42
+
+# Medium performance dataset (~200 users / 100 jobs)
+scripts/db/seed.sh --scale medium --seed 42
+
+# Large dataset (~1000 users / 500 jobs)
+scripts/db/seed.sh --scale large --seed 42
+```
+
+The seed script is deterministic: the same `--seed` always produces the same data.
+All data is synthetic and contains no real personal information.
 
 ### 3. Start Frontend
 

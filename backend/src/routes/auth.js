@@ -14,6 +14,8 @@ const {
   rotateRefreshToken,
   setAuthCookies,
 } = require("../services/authTokens");
+const { createSensitiveRateLimiters } = require("../middleware/rateLimiter");
+const { createPrincipalBackoff } = require("../middleware/principalBackoff");
 
 const router = express.Router();
 
@@ -31,6 +33,45 @@ const NETWORK_PASSPHRASE =
   process.env.STELLAR_NETWORK === "mainnet"
     ? "Public Global Stellar Network ; September 2015"
     : "Test SDF Network ; September 2015";
+
+function getAuthPrincipal(req) {
+  const queryAccount = req.query?.account;
+  if (queryAccount) return queryAccount;
+
+  const challengeTx = req.body?.transaction;
+  if (!challengeTx) return null;
+
+  try {
+    const details = Utils.readChallengeTx(
+      challengeTx,
+      getServerKeypair().publicKey(),
+      NETWORK_PASSPHRASE,
+      HOME_DOMAIN,
+      ""
+    );
+    return details.clientAccountID || details.clientAccountId || null;
+  } catch {
+    return null;
+  }
+}
+
+const [authIpLimiter, authPrincipalLimiter] = createSensitiveRateLimiters({
+  namespace: "auth",
+  windowMinutes: 5,
+  maxRequestsPerIp: 20,
+  maxRequestsPerPrincipal: 8,
+  principalKeyGenerator: getAuthPrincipal,
+});
+
+const authFailureBackoff = createPrincipalBackoff({
+  namespace: "auth-login",
+  principalKeyGenerator: getAuthPrincipal,
+  threshold: 5,
+  historyWindowMinutes: 15,
+  baseDelaySeconds: 5,
+  maxDelaySeconds: 300,
+  failureStatusCodes: [400, 401],
+});
 
 /**
  * @swagger
@@ -64,7 +105,7 @@ const NETWORK_PASSPHRASE =
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.get("/", (req, res) => {
+router.get("/", authIpLimiter, authPrincipalLimiter, (req, res) => {
   try {
     const accountId = req.query.account;
     if (!accountId) {
@@ -132,7 +173,7 @@ router.get("/", (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.post("/", async (req, res) => {
+router.post("/", authIpLimiter, authPrincipalLimiter, authFailureBackoff, async (req, res) => {
   try {
     const { transaction } = req.body;
     if (!transaction) {
@@ -182,6 +223,55 @@ router.post("/", async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/auth/refresh:
+ *   post:
+ *     summary: Rotate an access token using the refresh-token cookie
+ *     description: >
+ *       Reads the httpOnly `refreshToken` cookie, and if it corresponds to a valid, unexpired
+ *       refresh session, issues a brand new access/refresh token pair (rotating the refresh
+ *       token so the old one can no longer be reused) and sets them as the `jwt` and
+ *       `refreshToken` httpOnly cookies. Does not require an `Authorization` header.
+ *     tags: [Authentication]
+ *     parameters:
+ *       - in: cookie
+ *         name: refreshToken
+ *         required: false
+ *         schema:
+ *           type: string
+ *         description: >
+ *           Opaque refresh token previously set by POST /api/auth or a prior call to this
+ *           endpoint. Missing, unknown, or expired/already-rotated tokens result in a 401.
+ *         example: "3q2-7w15QmN2K8x9pL0vR1sT4uY6zA8bC0dE2fG4hI6j"
+ *     responses:
+ *       200:
+ *         description: >
+ *           New access token issued. A new `jwt` cookie and a rotated `refreshToken` cookie are
+ *           also set on the response.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 token:
+ *                   type: string
+ *                   description: New JWT access token (same claims as the original session).
+ *             example:
+ *               success: true
+ *               token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+ *       401:
+ *         description: Missing, invalid, expired, or already-rotated refresh token. Auth cookies are cleared.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: "Unauthorized: Invalid refresh token"
+ */
 router.post("/refresh", (req, res) => {
   const refreshToken = getRefreshTokenFromRequest(req);
   const rotated = rotateRefreshToken(refreshToken);
@@ -195,6 +285,34 @@ router.post("/refresh", (req, res) => {
   return res.json({ success: true, token: rotated.accessToken });
 });
 
+/**
+ * @swagger
+ * /api/auth/logout:
+ *   post:
+ *     summary: Log out and revoke the current refresh session
+ *     description: >
+ *       Revokes the refresh session identified by the httpOnly `refreshToken` cookie (a no-op
+ *       if it is missing or already invalid) and clears both the `jwt` and `refreshToken`
+ *       cookies. Always succeeds. Does not require an `Authorization` header.
+ *     tags: [Authentication]
+ *     parameters:
+ *       - in: cookie
+ *         name: refreshToken
+ *         required: false
+ *         schema:
+ *           type: string
+ *         description: Opaque refresh token to revoke, previously set by POST /api/auth or POST /api/auth/refresh.
+ *         example: "3q2-7w15QmN2K8x9pL0vR1sT4uY6zA8bC0dE2fG4hI6j"
+ *     responses:
+ *       200:
+ *         description: Logout succeeded. Auth cookies are cleared on the response.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Success'
+ *             example:
+ *               success: true
+ */
 router.post("/logout", (req, res) => {
   revokeRefreshToken(getRefreshTokenFromRequest(req));
   clearAuthCookies(res);

@@ -1,0 +1,71 @@
+# application.graphql — a freelancer's bid on a job.
+#
+# Applications carry the most sensitive field in the marketplace: the bid
+# amount on a sealed-bid job. `bidAmount` is therefore guarded twice — by
+# `@auth` for who may read it, and by the resolver for *when*, because before
+# `biddingClosedAt` not even the client may see it.
+
+type Application implements Node @cacheControl(maxAge: 0, scope: PRIVATE) {
+  id: ID!
+  jobId: ID!
+  freelancerAddress: PublicKey!
+  status: ApplicationStatus!
+  coverLetter: String
+  estimatedDays: Int
+  createdAt: DateTime!
+  updatedAt: DateTime
+
+  """
+  The bid.
+
+  Null while a sealed-bid job is still open, for everyone including the
+  client — the commitment is on-chain and the reveal has not happened yet.
+  Modelled as nullable rather than as an error because "not yet revealed" is
+  an ordinary state of the auction, not a failure.
+  """
+  bidAmount: Decimal @auth(requires: PARTICIPANT)
+
+  "Whether this is a sealed bid awaiting reveal."
+  isSealed: Boolean!
+
+  "The on-chain commitment hash, for a sealed bid."
+  commitmentHash: String @auth(requires: PARTICIPANT)
+
+  "Answers to the job's screening questions, in the job's question order."
+  screeningAnswers: [String!]! @auth(requires: PARTICIPANT)
+
+  # --- edges ----------------------------------------------------------------
+
+  "The freelancer who applied."
+  applicant: Profile @cost(complexity: 2)
+
+  "The job applied to."
+  job: Job @cost(complexity: 2)
+
+  """
+  The viewer's own reputation proof attached to this application, when one
+  was submitted. Owner only — it is a zero-knowledge claim about the
+  applicant's history.
+  """
+  reputationProof: JSON @auth(requires: SELF)
+}
+
+enum ApplicationStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  WITHDRAWN
+}
+
+type ApplicationEdge {
+  node: Application!
+  cursor: Cursor!
+}
+
+type ApplicationConnection {
+  edges: [ApplicationEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+union ApplicationResult = Application | NotFoundError | ForbiddenError | UnauthorizedError

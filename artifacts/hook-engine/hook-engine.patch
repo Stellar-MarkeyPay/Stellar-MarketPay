@@ -1,0 +1,2573 @@
+diff --git a/.gitattributes b/.gitattributes
+new file mode 100644
+index 0000000..031a39f
+--- /dev/null
++++ b/.gitattributes
+@@ -0,0 +1,17 @@
++* text=auto
++
++# Hooks are launched by POSIX sh under Linux, macOS, Git Bash, and WSL.
++.husky/* text eol=lf
++*.sh text eol=lf
++*.mjs text eol=lf
++*.js text eol=lf
++*.ts text eol=lf
++*.tsx text eol=lf
++
++# Stored Git patches contain diff marker whitespace by design.
++artifacts/**/*.patch -whitespace
++
++# Native Windows scripts keep their platform line endings.
++*.bat text eol=crlf
++*.cmd text eol=crlf
++*.ps1 text eol=crlf
+diff --git a/.github/workflows/quality-gates.yml b/.github/workflows/quality-gates.yml
+index 522931a..c84d7b5 100644
+--- a/.github/workflows/quality-gates.yml
++++ b/.github/workflows/quality-gates.yml
+@@ -7,6 +7,31 @@ on:
+     branches: [main, develop]
+ 
+ jobs:
++  hook-engine:
++    name: Hook Engine (${{ matrix.os }})
++    runs-on: ${{ matrix.os }}
++    strategy:
++      fail-fast: false
++      matrix:
++        os: [ubuntu-latest, macos-latest, windows-latest]
++    steps:
++      - uses: actions/checkout@v4
++        with:
++          fetch-depth: 0
++      - uses: actions/setup-node@v4
++        with:
++          node-version: "24"
++          cache: "npm"
++      - uses: dtolnay/rust-toolchain@stable
++        with:
++          components: rustfmt
++      - run: npm ci
++      - run: npm run hooks:doctor
++      - name: Test staged isolation, routing, portability, cache, and budget
++        run: npm run test:hooks
++        env:
++          MARKETPAY_HOOK_ENFORCE_BUDGET: "1"
++
+   commitlint:
+     name: Commit Lint Compliance
+     runs-on: ubuntu-latest
+diff --git a/.husky/commit-msg b/.husky/commit-msg
+index 71adc5b..f3c68e1 100755
+--- a/.husky/commit-msg
++++ b/.husky/commit-msg
+@@ -1,2 +1,5 @@
+-export PATH=$PATH:$HOME/.nvm/versions/node/v24.18.0/bin
+-npx --no -- commitlint --edit "$1"
++#!/usr/bin/env sh
++set -eu
++
++ROOT=$(git rev-parse --show-toplevel)
++exec "$ROOT/scripts/hooks/launch.sh" commit-msg "$1"
+diff --git a/.husky/pre-commit b/.husky/pre-commit
+index d1d9763..c17d51c 100755
+--- a/.husky/pre-commit
++++ b/.husky/pre-commit
+@@ -1,2 +1,5 @@
+-export PATH=$PATH:$HOME/.nvm/versions/node/v24.18.0/bin
+-npx lint-staged
++#!/usr/bin/env sh
++set -eu
++
++ROOT=$(git rev-parse --show-toplevel)
++exec "$ROOT/scripts/hooks/launch.sh" pre-commit
+diff --git a/.husky/pre-push b/.husky/pre-push
+index 3bf3f96..ee4776d 100755
+--- a/.husky/pre-push
++++ b/.husky/pre-push
+@@ -1,2 +1,5 @@
+-export PATH=$PATH:$HOME/.nvm/versions/node/v24.18.0/bin:$HOME/.cargo/bin
+-npm run test:fast
++#!/usr/bin/env sh
++set -eu
++
++ROOT=$(git rev-parse --show-toplevel)
++exec "$ROOT/scripts/hooks/launch.sh" pre-push "$@"
+diff --git a/.lintstagedrc.json b/.lintstagedrc.json
+deleted file mode 100644
+index d58f822..0000000
+--- a/.lintstagedrc.json
++++ /dev/null
+@@ -1,12 +0,0 @@
+-{
+-  "frontend/**/*.{js,jsx,ts,tsx}": [
+-    "sh -c 'cd frontend && npm run lint -- --fix'",
+-    "prettier --write"
+-  ],
+-  "backend/**/*.js": ["sh -c 'cd backend && npm run lint -- --fix'", "prettier --write"],
+-  "contracts/marketpay-contract/**/*.rs": [
+-    "cargo fmt --manifest-path contracts/marketpay-contract/Cargo.toml --",
+-    "cargo clippy --manifest-path contracts/marketpay-contract/Cargo.toml -- -D warnings"
+-  ],
+-  "*.{json,md,yml,yaml}": ["prettier --write"]
+-}
+diff --git a/CONTRIBUTING.md b/CONTRIBUTING.md
+index a4c8c7c..b855ebd 100644
+--- a/CONTRIBUTING.md
++++ b/CONTRIBUTING.md
+@@ -51,7 +51,9 @@ To use an interactive commit prompt:
+ npm run commit
+ ```
+ 
+-Local git hooks automatically run `lint-staged` on `pre-commit`, `commitlint` on `commit-msg`, and fast unit test suites on `pre-push`.
++Local Git hooks validate staged-index snapshots on `pre-commit`, run `commitlint` on ordinary
++messages, and execute only affected project suites on `pre-push`. Diagnose setup with
++`npm run hooks:doctor`.
+ 
+ > For complete hook guidelines, escape hatch documentation (`--no-verify`), and benchmark details, see [docs/GIT_HOOKS_AND_COMMITS.md](./docs/GIT_HOOKS_AND_COMMITS.md).
+ 
+diff --git a/docs/GIT_HOOKS_AND_COMMITS.md b/docs/GIT_HOOKS_AND_COMMITS.md
+index 6e83607..b9425eb 100644
+--- a/docs/GIT_HOOKS_AND_COMMITS.md
++++ b/docs/GIT_HOOKS_AND_COMMITS.md
+@@ -1,98 +1,211 @@
+-# 🛠️ Git Hooks, Commit Conventions & Release Automation
++# Git hooks, commit conventions, and budgets
+ 
+-Stellar MarketPay enforces consistent quality gates locally using **Husky**, **lint-staged**, **commitlint**, and **Prettier**, and automatically manages releases with **commit-and-tag-version**.
++Husky is only the portable Git entry point. The hook engine in `scripts/hooks/` owns staged-content
++isolation, project routing, caching, lifecycle handling, and timing. It deliberately does not use
++`lint-staged`.
+ 
+----
++## Setup and diagnosis
+ 
+-## ⚡ Quick Setup
+-
+-Hooks are automatically installed when running `npm install` (via the `prepare` script):
++Install the root tools and the dependency trees you plan to edit:
+ 
+ ```bash
+-npm install
++npm ci
++npm --prefix frontend ci
++npm --prefix backend ci
++npm run hooks:doctor
+ ```
+ 
+----
+-
+-## 💬 Conventional Commits & Interactive Prompt
+-
+-All commit messages must follow the [Conventional Commits](https://www.conventionalcommits.org/) format:
++`npm ci --ignore-scripts` skips Husky's `prepare` lifecycle. The checkout then looks healthy but
++has no active hooks. `npm run hooks:doctor` reports this case, a missing generated Husky runtime,
++CRLF or non-executable hook files, missing per-project tools, and a `core.hooksPath` claimed by
++another hook manager. It prints a command for each repair.
++
++The launchers contain no developer-specific NVM, Cargo, or Python path. The shared launcher accepts
++`NODE_BINARY`, then checks `PATH`, Volta, asdf, and installed NVM versions for Node 22.12 or newer.
++JavaScript tools resolve from the owning project's `node_modules`; Cargo is also searched in
++rustup's standard directory. This matters in GUI Git clients, whose `PATH` is commonly smaller than
++a terminal session's.
++
++## Architecture and trade-offs
++
++### Pre-commit: check the index and never rewrite the worktree
++
++The pre-commit budget is **2 seconds** for a typical warm, single-project commit.
++
++The engine exports the Git index into a temporary directory with `git checkout-index`. ESLint,
++Prettier, rustfmt, and Python syntax checks run there, so `git add -p` is handled correctly: tools
++see the staged blob, not an unstaged working-tree version of the same file. Paths containing spaces
++or non-ASCII characters remain individual process arguments instead of being interpolated into a
++shell command.
++
++Formatters are check-only. They never use `--write`, stash, or re-stage. A formatting failure asks
++the contributor to format and select the hunks again. This is less automatic than rewriting a file,
++but it cannot accidentally include an unstaged hunk. It also provides a strong interruption
++guarantee: the hook has no operation that changes the index, working tree, or stash. A SIGINT test
++records all three, interrupts a live hook, and requires byte-for-byte equality afterward.
++
++| Staged path                                         | Check                                   |
++| --------------------------------------------------- | --------------------------------------- |
++| Supported text (`js`, `ts`, `json`, Markdown, YAML) | Root Prettier `--check`                 |
++| Frontend JS/TS                                      | Frontend ESLint                         |
++| Backend `src/` or `tests/` JS                       | Backend ESLint                          |
++| Rust                                                | `rustfmt --check` on owning-crate paths |
++| Python                                              | `python -m py_compile`                  |
++
++The engine reads the owning `Cargo.toml` edition and invokes `rustfmt` on the staged Rust paths with
++that edition and the crate directory as its configuration search path. This includes a newly added,
++not-yet-referenced module without applying the wrong edition or ignoring `rustfmt.toml`. Rust tools
++resolve only when a staged Rust path needs them; a frontend-only contributor does not need Rust.
++
++### Why Clippy is not pre-commit
++
++The baseline that motivated this design was:
++
++| Check                         |               Cold |        Warm |
++| ----------------------------- | -----------------: | ----------: |
++| `cargo clippy -- -D warnings` |               54 s | about 1.9 s |
++| `cargo test --features std`   | about 20 s compile |       0.3 s |
++| Backend Jest with coverage    |         about 20 s |  about 20 s |
++| Frontend Jest                 |                  — | about 2.6 s |
++| Next build                    |                  — |  about 55 s |
++
++Clippy is whole-crate work. A one-line staged change still lints the full contract, and the first
++commit after a clone, `cargo clean`, or dependency invalidation pays the 54-second cold path. That
++cannot meet the pre-commit budget. Pre-commit therefore runs rustfmt, pre-push runs contract tests,
++and CI runs `cargo clippy --all-targets --features std -- -D warnings` with a controlled runner
++cache.
++
++Contract tests use `.git/marketpay-hooks/cargo-target` rather than a temporary snapshot's `target/`.
++Pre-push also reuses a detached, hard-reset worktree at a repository-specific stable path below the
++platform temporary directory, so Cargo sees a stable source path while staged future work and the
++contributor's checkout remain isolated. It lives outside `.git` because Jest intentionally ignores
++source trees nested inside Git metadata. The worktree and `.git/marketpay-hooks/cargo-target`
++survive hook runs. If `sccache` is installed, the engine selects it as `RUSTC_WRAPPER`; otherwise
++Cargo's persistent incremental artifacts still reduce repeat builds. Compiler and wrapper versions
++are included in the result key.
++
++### Published implementation measurements
++
++These measurements were recorded on 2026-08-28 on Linux with Node 24.18, Cargo 1.97, and the
++repository's installed lockfiles. They are end-to-end hook timings, not estimates:
++
++| Routed pre-push case                                | Observed time |
++| --------------------------------------------------- | ------------: |
++| Backend adjacent unit test                          |        0.69 s |
++| Frontend related Jest tests                         |        2.00 s |
++| Full contract suite, empty persistent Cargo target  |      103.48 s |
++| Full suite after moving to a new stable source path |       51.84 s |
++| Routed contract verification, stable path warm      |        4.34 s |
++| Unchanged contract result-cache replay              |      near 0 s |
++
++The true first Rust run can exceed the 30-second warm budget because it must build the dependency
++graph; the hook reports the complete timing breakdown rather than concealing that cost. The
++mitigation is the persistent Cargo target, stable detached source path, optional `sccache`, and
++content-exact result cache. Pre-push runs the library, differential, regression, and V2 integration
++suites; the long invariant-fuzz target, Clippy, and the complete suite remain required in CI. This
++cut measured warm contract verification to 4.34 seconds, while an unchanged replay is close to
++free. Neither `cargo clean` in the contributor checkout nor partial-staging isolation deletes the
++hook-owned cache.
++
++### Pre-push: route the complete push range
++
++The pre-push budget is **30 seconds** for a warm, single-project push. The hook consumes Git's
++pre-push ref records and diffs each local ref from its merge-base with the remote SHA. For a new
++remote ref, it uses the configured upstream, remote tracking branch, or remote default branch in
++that order. It does not use `HEAD~1`; a multi-commit push is checked as one change.
++
++Paths map to `frontend`, `backend`, `contracts`, and `ml`. Cross-project pushes run the union.
++Workflows, root dependency/format configuration, Husky launchers, and the hook engine route all
++projects. Documentation-only changes do not start unrelated test suites.
++
++Pre-push hard-resets a persistent detached Git worktree to the root checkout's resolved `HEAD`.
++Staged future work and unstaged changes are excluded from the pushed checks, while stable source
++paths preserve compiler incrementality. The detached worktree is cleaned before use and contains
++no contributor-authored state.
++
++| Project   | Pre-push check                                          |
++| --------- | ------------------------------------------------------- |
++| Frontend  | Jest tests related to changed JS/TS/JSON, in-band       |
++| Backend   | Jest tests related to changed JS/JSON, without coverage |
++| Contracts | Fast library, differential, regression, and V2 tests    |
++| ML        | Python byte-code compilation                            |
++
++Jest configuration, dependency manifests, shared root files, deletions, or project changes that
++cannot be mapped to a module deliberately fall back to that project's full suite. This keeps the
++ordinary path incremental without letting an ambiguous dependency change receive a narrower check.
++
++Coverage, Clippy, invariant fuzzing, complete suites, builds, accessibility, E2E, visual tests,
++cargo-audit, and deployment validation remain CI responsibilities because their costs exceed the
++local budget.
++
++### Exact result caching
++
++Successful results live in `.git/marketpay-hooks/cache-v1.json`, never in the worktree. A step key
++is SHA-256 over these length-delimited fields:
++
++1. cache schema;
++2. content hash of every `scripts/hooks/*.mjs` engine module;
++3. step name and exact command;
++4. tool, compiler, and sccache version output;
++5. Git mode, object ID, stage, and path for every input source, lockfile, manifest, and relevant
++   configuration file;
++6. a hash of the process environment supplied to the check, excluding hook-engine control flags.
++
++Pre-commit signatures come from the index; pre-push signatures come from `HEAD`. Git blob IDs make
++content identity exact, while the other fields ensure a configuration or tool upgrade cannot reuse
++an old result. Only status 0 is cached. Set `MARKETPAY_HOOK_CACHE=0` for an uncached diagnostic run.
++
++### Timing and budget enforcement
++
++Every step is appended to `.git/marketpay-hooks/timings.jsonl` with duration, cache status, exit
++status, total time, and budget result. Records stay local and are never uploaded. Any future
++aggregation must be explicit opt-in.
++
++An over-budget hook prints its per-step breakdown. It warns locally so a legitimate multi-project
++push is not rejected solely for being broad. CI sets `MARKETPAY_HOOK_ENFORCE_BUDGET=1`, and the test
++suite requires a representative pre-commit to remain below two seconds. Set the same variable
++locally to turn a warning into a blocking result.
++
++## Git lifecycle behavior
++
++| State                           | Behavior                                                    |
++| ------------------------------- | ----------------------------------------------------------- |
++| Normal commit or amend          | Validate the staged index                                   |
++| Merge with unresolved conflicts | Stop and list conflicts                                     |
++| Resolved merge or cherry-pick   | Validate staged content; cache keeps replays cheap          |
++| Interactive rebase              | Skip repeated checks; pre-push validates the complete range |
++| Bisect automation               | Skip the commit hook; pre-push remains the final local gate |
++| Generated merge/revert message  | Skip commitlint                                             |
++| `fixup!` / `squash!` message    | Skip commitlint for autosquash                              |
++
++Generated messages are detected from Git state and standard subjects. Ordinary messages use the
++repository-local commitlint CLI.
++
++## Conventional commits
++
++Ordinary commit messages use:
+ 
+ ```text
+-<type>(<scope>): <short description>
++<type>(<optional-scope>): <short description>
+ ```
+ 
+-### Supported Types
+-
+-- `feat`: A new feature
+-- `fix`: A bug fix
+-- `docs`: Documentation changes
+-- `style`: Code style / formatting (no logic change)
+-- `refactor`: Code refactoring without changing functionality
+-- `perf`: Performance improvements
+-- `test`: Adding or updating tests
+-- `build`: Build system or dependency updates
+-- `ci`: CI configuration or GitHub Actions updates
+-- `chore`: Maintenance tasks
++Supported types are `build`, `ci`, `chore`, `docs`, `feat`, `fix`, `perf`, `refactor`, `revert`,
++`style`, and `test`. Run `npm run commit` for the interactive prompt.
+ 
+-### Supported Scopes (Optional)
++## Portability and direct commands
+ 
+-- `frontend`, `backend`, `contracts`, `ci`, `k8s`, `deps`, `docs`, `release`, `hooks`, `security`, `sla`, `chaos`, `auth`, `escrow`, `dispute`, `profile`, `ratings`, `config`
+-
+-### Interactive Prompt (Commitizen)
+-
+-To construct valid commit messages interactively without memorizing the format:
++`.gitattributes` forces LF for hooks and source scripts. The hook test job runs on Linux, macOS,
++and Windows. Tests cover spaces and non-ASCII paths, staged-only snapshots, multi-commit routing,
++cache invalidation, generated messages, the two-second budget, and SIGINT work preservation where
++POSIX signals are available.
+ 
+ ```bash
+-npm run commit
++npm run hooks:pre-commit
++npm run hooks:pre-push
++npm run hooks:doctor
++npm run test:hooks
+ ```
+ 
+----
+-
+-## 🪝 Local Git Hooks
+-
+-### 1. `pre-commit` (lint-staged)
+-
+-Runs fast checks only on staged files before every commit:
+-
+-- **Frontend / Backend JS/TS**: Runs ESLint (`--fix`) and Prettier (`--write`).
+-- **Soroban Contracts (Rust)**: Runs `cargo fmt` and `cargo clippy`.
+-- **Markdown & JSON**: Runs Prettier formatting.
+-- **Measured Runtime**: `< 2.5 seconds` for typical staged commits.
+-
+-### 2. `commit-msg` (commitlint)
+-
+-Validates that the commit message satisfies Conventional Commits specification.
+-
+-### 3. `pre-push` (fast test suite)
+-
+-Runs fast unit test suites (`npm run test:fast`) across subprojects before pushing to remote, while excluding slow E2E or chaos test suites.
+-
+----
+-
+-## 🚪 Escape Hatch & Guidelines
+-
+-In exceptional situations (e.g. emergency hotfix during an active outage, saving incomplete WIP stashes, or local environment toolchain issues), hooks can be bypassed using the `--no-verify` flag:
+-
+-```bash
+-git commit -m "fix(hotfix): emergency patch" --no-verify
+-git push --no-verify
+-```
+-
+-> ⚠️ **Legitimacy Rules**:
+->
+-> - Using `--no-verify` is **prohibited** for standard feature work or to mask broken tests/lint failures.
+-> - CI runs quality gates independently on pull requests, so bypassing hooks locally will still enforce commit and format checks on server-side PR builds.
+-
+----
+-
+-## 🚀 Releases & Changelog Generation
+-
+-SemVer versioning and `CHANGELOG.md` updates are driven by commit history:
+-
+-```bash
+-npm run release       # Auto-detect version bump & update changelog
+-npm run release:patch # Patch bump (1.0.1)
+-npm run release:minor # Minor bump (1.1.0)
+-npm run release:major # Major bump (2.0.0)
+-```
++Git's `--no-verify` remains available for exceptional operational use. Server-side CI independently
++runs formatting, lint, tests, Clippy, builds, and commit-message checks, so bypassing a local hook
++does not bypass repository quality gates.
+diff --git a/docs/PR_FAST_CORRECT_GIT_HOOKS.md b/docs/PR_FAST_CORRECT_GIT_HOOKS.md
+new file mode 100644
+index 0000000..fd0e9c1
+--- /dev/null
++++ b/docs/PR_FAST_CORRECT_GIT_HOOKS.md
+@@ -0,0 +1,119 @@
++# PR: Make Git hooks fast, staged-content-correct, and portable
++
++## Summary
++
++This replaces the repository's broad, worktree-mutating `lint-staged` setup with a small hook engine
++that validates exactly what Git will commit, routes work to affected projects, caches successful
++results by content, and enforces explicit performance budgets.
++
++Husky remains the entry point, while `scripts/hooks/` owns isolation, routing, lifecycle behavior,
++tool resolution, caching, timing, and diagnostics.
++
++## Problem fixed
++
++The previous hooks had four reliability problems:
++
++1. `lint-staged` could stash and rewrite partially staged files, risking hidden work and invalidating
++   build caches.
++2. Pre-commit ran whole-project Rust work, including cold Clippy paths that could take nearly a
++   minute.
++3. Pre-push always ran every project's fast suite and only considered the current checkout, rather
++   than the complete range being pushed.
++4. Hook launchers hard-coded one developer's NVM version and did not diagnose skipped or shadowed
++   installations.
++
++## What changed
++
++### Pre-commit
++
++- Exports the Git index to an isolated temporary snapshot.
++- Materializes blobs directly from Git objects so Windows checkout conversion cannot change staged
++  LF bytes to CRLF before validation.
++- Runs check-only Prettier, project-local ESLint, crate-aware `rustfmt`, and Python syntax checks.
++- Selects tools only when files owned by that project are staged.
++- Never stashes, rewrites, or re-stages contributor files.
++- Rejects unresolved conflicts and skips repeated checks during rebase and bisect replay.
++- Enforces a 2-second representative warm-commit budget in the regression suite.
++
++### Commit message
++
++- Uses the repository-local commitlint executable.
++- Accepts generated merge/revert messages and autosquash `fixup!`/`squash!` subjects.
++- Uses the same portable Node launcher as the other hooks.
++
++### Pre-push
++
++- Reads Git's pre-push ref records and compares each ref with the remote merge-base.
++- Includes every commit in a multi-commit push instead of using `HEAD~1`.
++- Routes frontend, backend, contract, and ML changes independently; cross-project changes run the
++  union and shared configuration changes run all projects.
++- Validates a detached, hard-reset `HEAD` worktree, excluding staged or unstaged future work.
++- Runs related frontend tests, adjacent/related backend tests, fast contract verification, or ML
++  compilation as applicable.
++- Keeps invariant fuzzing, Clippy, coverage, builds, accessibility, E2E, and visual testing in CI.
++
++### Exact caching and timing
++
++- Stores local-only results in `.git/marketpay-hooks/cache-v1.json`.
++- Keys include engine content, exact command, tool versions, environment, Git blob/mode entries,
++  lockfiles, manifests, and relevant configuration.
++- Records per-step timing in `.git/marketpay-hooks/timings.jsonl`.
++- Warns with a breakdown above the 30-second pre-push budget; CI can make budget regressions block.
++- Uses `.git/marketpay-hooks/cargo-target` and a stable detached source path for Rust incrementality.
++
++### Portability and diagnosis
++
++- Adds LF rules for hooks and source scripts in `.gitattributes`.
++- Resolves Node 22.12+ through `NODE_BINARY`, `PATH`, Volta, asdf, or installed NVM versions.
++- Resolves JavaScript tools from the owning dependency tree and Cargo from standard rustup paths.
++- Adds `npm run hooks:doctor` to report missing Husky setup, `npm ci --ignore-scripts`, conflicting
++  `core.hooksPath`, CRLF, executable-bit problems, missing dependencies, and optional Rust caches.
++- Adds hook-engine CI coverage on Ubuntu, macOS, and Windows.
++
++## Measurements
++
++Measured on Linux with Node 24.18 and Cargo 1.97:
++
++| Routed case                              | Observed time |
++| ---------------------------------------- | ------------: |
++| Backend adjacent unit tests              |        0.69 s |
++| Frontend related tests                   |        2.00 s |
++| Warm contract verification               |        4.34 s |
++| Unchanged successful result-cache replay |      near 0 s |
++
++The completely cold contract dependency build remains longer than the local budget. The persistent
++target directory, stable source path, optional `sccache`, and exact result cache make subsequent
++runs survivable without moving whole-crate Clippy into pre-commit.
++
++## Verification
++
++- Hook engine: 20 tests passed on Linux, macOS, and Windows.
++- Partial staging: staged blob validated while an unstaged hunk remained unchanged.
++- Work preservation: staged diff, worktree diff, and stash list remained byte-identical after
++  SIGINT.
++- Lifecycle: merge, revert, amend, cherry-pick, rebase, bisect, and unresolved conflicts covered.
++- Routing: multi-commit ranges, deletions, shared files, and cross-project changes covered.
++- Portability: spaces, non-ASCII paths, LF/executable checks, and minimal GUI-style `PATH` covered.
++- Backend: 61 suites / 559 tests passed; 1 suite / 1 test skipped.
++- Frontend: unit, accessibility, type, lint, production build, Storybook, E2E, and visual checks
++  passed.
++- Contracts: tests, Clippy, WASM check/build, and cargo-audit passed.
++- Repository formatting and whitespace checks passed.
++
++## Trade-offs
++
++- Formatters are check-only. Contributors format and re-stage failed files deliberately; the hook
++  never risks including an unstaged hunk.
++- Long invariant fuzzing and Clippy remain in CI so ordinary commits and pushes stay within their
++  agreed budgets.
++- `sccache` is optional. The persistent Cargo target works without it, and `hooks:doctor` reports
++  whether the extra cache is available.
++
++## Reviewer entry points
++
++- `scripts/hooks/runner.mjs` — staged and pre-push execution.
++- `scripts/hooks/git.mjs` — snapshots, lifecycle state, and push-range calculation.
++- `scripts/hooks/cache.mjs` — exact cache keys and timing records.
++- `scripts/hooks/doctor.mjs` — installation diagnostics.
++- `scripts/hooks/tests/` — correctness, lifecycle, interruption, routing, and budget regression.
++- `docs/GIT_HOOKS_AND_COMMITS.md` — contributor-facing architecture and measurements.
+diff --git a/package-lock.json b/package-lock.json
+index afd330a..532610b 100644
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -15,8 +15,10 @@
+         "commit-and-tag-version": "^13.1.2",
+         "commitizen": "^4.3.2",
+         "husky": "^9.1.7",
+-        "lint-staged": "^17.3.0",
+         "prettier": "^3.9.6"
++      },
++      "engines": {
++        "node": ">=22.12.0"
+       }
+     },
+     "node_modules/@babel/code-frame": {
+@@ -2963,30 +2965,6 @@
+       "dev": true,
+       "license": "MIT"
+     },
+-    "node_modules/lint-staged": {
+-      "version": "17.3.0",
+-      "resolved": "https://registry.npmjs.org/lint-staged/-/lint-staged-17.3.0.tgz",
+-      "integrity": "sha512-woZS3vNe3UKqBaLPvbLOtKRY4tLANpWQhom12MGWqC8Mh1lCOO+WgSwmX2amjJAqTY9BkXYW87fCUH5H9Ph6xw==",
+-      "dev": true,
+-      "license": "MIT",
+-      "dependencies": {
+-        "picomatch": "^4.0.5",
+-        "string-argv": "^0.3.2",
+-        "tinyexec": "^1.2.4"
+-      },
+-      "bin": {
+-        "lint-staged": "bin/lint-staged.js"
+-      },
+-      "engines": {
+-        "node": ">=22.22.1"
+-      },
+-      "funding": {
+-        "url": "https://opencollective.com/lint-staged"
+-      },
+-      "optionalDependencies": {
+-        "yaml": "^2.9.0"
+-      }
+-    },
+     "node_modules/locate-path": {
+       "version": "6.0.0",
+       "resolved": "https://registry.npmjs.org/locate-path/-/locate-path-6.0.0.tgz",
+@@ -3365,19 +3343,6 @@
+       "dev": true,
+       "license": "ISC"
+     },
+-    "node_modules/picomatch": {
+-      "version": "4.0.5",
+-      "resolved": "https://registry.npmjs.org/picomatch/-/picomatch-4.0.5.tgz",
+-      "integrity": "sha512-RvwwcruNjI1ncT5xRakeyS9Lf8lcItv34KD+aif+VH9kduAyfYBipGh12274xtenIPZ119/R9BdTBa8gAwSh0A==",
+-      "dev": true,
+-      "license": "MIT",
+-      "engines": {
+-        "node": ">=12"
+-      },
+-      "funding": {
+-        "url": "https://github.com/sponsors/jonschlinkert"
+-      }
+-    },
+     "node_modules/prettier": {
+       "version": "3.9.6",
+       "resolved": "https://registry.npmjs.org/prettier/-/prettier-3.9.6.tgz",
+@@ -3560,16 +3525,6 @@
+         "safe-buffer": "~5.2.0"
+       }
+     },
+-    "node_modules/string-argv": {
+-      "version": "0.3.2",
+-      "resolved": "https://registry.npmjs.org/string-argv/-/string-argv-0.3.2.tgz",
+-      "integrity": "sha512-aqD2Q0144Z+/RqG52NeHEkZauTAUWJO8c6yTftGJKO3Tja5tUgIfmIl6kExvhtxSDP7fXB6DvzkfMpCd/F3G+Q==",
+-      "dev": true,
+-      "license": "MIT",
+-      "engines": {
+-        "node": ">=0.6.19"
+-      }
+-    },
+     "node_modules/string-width": {
+       "version": "4.2.3",
+       "resolved": "https://registry.npmjs.org/string-width/-/string-width-4.2.3.tgz",
+diff --git a/package.json b/package.json
+index feba480..fcf6e28 100644
+--- a/package.json
++++ b/package.json
+@@ -19,7 +19,11 @@
+     "release": "commit-and-tag-version",
+     "release:minor": "commit-and-tag-version --release-as minor",
+     "release:patch": "commit-and-tag-version --release-as patch",
+-    "release:major": "commit-and-tag-version --release-as major"
++    "release:major": "commit-and-tag-version --release-as major",
++    "test:hooks": "node --test scripts/hooks/tests/*.test.mjs",
++    "hooks:pre-commit": "node scripts/hooks/cli.mjs pre-commit",
++    "hooks:pre-push": "node scripts/hooks/cli.mjs pre-push",
++    "hooks:doctor": "node scripts/hooks/cli.mjs doctor"
+   },
+   "config": {
+     "commitizen": {
+@@ -46,7 +50,9 @@
+     "commit-and-tag-version": "^13.1.2",
+     "commitizen": "^4.3.2",
+     "husky": "^9.1.7",
+-    "lint-staged": "^17.3.0",
+     "prettier": "^3.9.6"
++  },
++  "engines": {
++    "node": ">=22.12.0"
+   }
+ }
+diff --git a/scripts/hooks/cache.mjs b/scripts/hooks/cache.mjs
+new file mode 100644
+index 0000000..9f7d640
+--- /dev/null
++++ b/scripts/hooks/cache.mjs
+@@ -0,0 +1,100 @@
++import { createHash } from "node:crypto";
++import {
++  appendFileSync,
++  mkdirSync,
++  readFileSync,
++  readdirSync,
++  renameSync,
++  writeFileSync,
++} from "node:fs";
++import path from "node:path";
++import { CACHE_SCHEMA } from "./config.mjs";
++import { gitDir } from "./git.mjs";
++
++export function sha256(parts) {
++  const hash = createHash("sha256");
++  for (const part of parts) {
++    const value = Buffer.isBuffer(part) ? part : Buffer.from(String(part));
++    hash.update(String(value.length));
++    hash.update("\0");
++    hash.update(value);
++    hash.update("\0");
++  }
++  return hash.digest("hex");
++}
++
++export function engineHash(root) {
++  const directory = path.join(root, "scripts", "hooks");
++  const files = readdirSync(directory)
++    .filter((file) => file.endsWith(".mjs"))
++    .sort();
++  return sha256(files.flatMap((file) => [file, readFileSync(path.join(directory, file))]));
++}
++
++export function cacheKey({ root, step, command, toolVersion, inputSignature }) {
++  const engineControls = new Set([
++    "MARKETPAY_HOOK_BASE",
++    "MARKETPAY_HOOK_CACHE",
++    "MARKETPAY_HOOK_ENFORCE_BUDGET",
++    "MARKETPAY_HOOK_TEST_DELAY_MS",
++    "MARKETPAY_HOOK_TIMINGS",
++  ]);
++  const environment = Object.entries(process.env)
++    .filter(([name]) => !engineControls.has(name))
++    .sort(([left], [right]) => left.localeCompare(right))
++    .map(([name, value]) => `${name}=${value}`);
++  return sha256([
++    CACHE_SCHEMA,
++    engineHash(root),
++    step,
++    command,
++    toolVersion,
++    inputSignature,
++    sha256(environment),
++  ]);
++}
++
++export class ResultCache {
++  constructor(root) {
++    this.directory = path.join(gitDir(root), "marketpay-hooks");
++    this.file = path.join(this.directory, "cache-v1.json");
++    mkdirSync(this.directory, { recursive: true });
++    try {
++      this.data = JSON.parse(readFileSync(this.file, "utf8"));
++    } catch {
++      this.data = { schema: CACHE_SCHEMA, entries: {} };
++    }
++    if (this.data.schema !== CACHE_SCHEMA) this.data = { schema: CACHE_SCHEMA, entries: {} };
++  }
++
++  has(step, key) {
++    return this.data.entries[step]?.key === key;
++  }
++
++  put(step, key) {
++    this.data.entries[step] = { key, savedAt: new Date().toISOString() };
++    const temp = `${this.file}.${process.pid}.tmp`;
++    writeFileSync(temp, `${JSON.stringify(this.data, null, 2)}\n`);
++    renameSync(temp, this.file);
++  }
++}
++
++export function timingFile(root) {
++  const directory = path.join(gitDir(root), "marketpay-hooks");
++  mkdirSync(directory, { recursive: true });
++  return path.join(directory, "timings.jsonl");
++}
++
++export function appendTiming(root, report) {
++  if (process.env.MARKETPAY_HOOK_TIMINGS === "0") return;
++  appendFileSync(timingFile(root), `${JSON.stringify(report)}\n`);
++}
++
++export function readTimings(root, limit = 10) {
++  try {
++    const lines = readFileSync(timingFile(root), "utf8").trim().split("\n").filter(Boolean);
++    return lines.slice(-limit).map((line) => JSON.parse(line));
++  } catch {
++    return [];
++  }
++}
+diff --git a/scripts/hooks/cli.mjs b/scripts/hooks/cli.mjs
+new file mode 100644
+index 0000000..446ddbd
+--- /dev/null
++++ b/scripts/hooks/cli.mjs
+@@ -0,0 +1,79 @@
++#!/usr/bin/env node
++import { existsSync, readFileSync } from "node:fs";
++import path from "node:path";
++import { fileURLToPath } from "node:url";
++import { spawnSync } from "node:child_process";
++import { diagnose, printDiagnosis } from "./doctor.mjs";
++import { affectedPushPaths, locateRoot, operationState } from "./git.mjs";
++import { runPreCommit, runPrePush } from "./runner.mjs";
++
++export function isGeneratedCommitMessage(firstLine, state = {}) {
++  return (
++    state.merge ||
++    state.revert ||
++    /^(?:Merge\b|Revert\s+")/.test(firstLine) ||
++    /^(?:fixup|squash)!\s/.test(firstLine)
++  );
++}
++
++function readStdin() {
++  if (process.stdin.isTTY) return "";
++  try {
++    return readFileSync(0, "utf8");
++  } catch {
++    return "";
++  }
++}
++
++function runCommitlint(root, messageFile) {
++  const firstLine = readFileSync(messageFile, "utf8").split(/\r?\n/, 1)[0];
++  if (isGeneratedCommitMessage(firstLine, operationState(root))) {
++    console.log(`[hooks] commit-msg skipped for generated message: ${firstLine}`);
++    return 0;
++  }
++
++  const cli = path.join(root, "node_modules", "@commitlint", "cli", "cli.js");
++  if (!existsSync(cli)) throw new Error("commitlint is not installed. Run: npm ci");
++  const result = spawnSync(process.execPath, [cli, "--edit", messageFile], {
++    cwd: root,
++    stdio: "inherit",
++    windowsHide: false,
++  });
++  if (result.error) throw result.error;
++  return result.status ?? 1;
++}
++
++async function main() {
++  const command = process.argv[2];
++  const originalCwd = process.cwd();
++  const messageArgument = process.argv[3];
++  const root = locateRoot(originalCwd);
++  process.chdir(root);
++
++  if (command === "pre-commit") return (await runPreCommit(root)).status;
++  if (command === "pre-push") {
++    const remoteName = process.argv[3] || "origin";
++    const files = affectedPushPaths(root, readStdin(), remoteName);
++    return (await runPrePush(root, files)).status;
++  }
++  if (command === "commit-msg") {
++    if (!messageArgument) throw new Error("commit-msg requires the commit message file path");
++    const messageFile = path.resolve(originalCwd, messageArgument);
++    return runCommitlint(root, messageFile);
++  }
++  if (command === "doctor") return printDiagnosis(diagnose(root));
++
++  console.error("Usage: node scripts/hooks/cli.mjs <pre-commit|pre-push|commit-msg|doctor>");
++  return 2;
++}
++
++if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
++  main()
++    .then((status) => {
++      process.exitCode = status;
++    })
++    .catch((error) => {
++      console.error(`[hooks] ${error.message}`);
++      process.exitCode = 1;
++    });
++}
+diff --git a/scripts/hooks/config.mjs b/scripts/hooks/config.mjs
+new file mode 100644
+index 0000000..c3e1b97
+--- /dev/null
++++ b/scripts/hooks/config.mjs
+@@ -0,0 +1,98 @@
++export const CACHE_SCHEMA = "marketpay-hooks-v1";
++
++export const BUDGETS_MS = Object.freeze({
++  "pre-commit": 2_000,
++  "pre-push": 30_000,
++});
++
++export const PROJECTS = Object.freeze(["frontend", "backend", "contracts", "ml"]);
++
++const BROAD_PATHS = new Set([
++  ".editorconfig",
++  ".gitattributes",
++  ".gitignore",
++  ".prettierignore",
++  ".prettierrc.json",
++  "package.json",
++  "package-lock.json",
++]);
++
++const BROAD_PREFIXES = [".github/workflows/", ".husky/", "scripts/hooks/"];
++
++export function normalisePath(file) {
++  return file.replaceAll("\\", "/").replace(/^\.\//, "");
++}
++
++export function isBroadPath(file) {
++  const path = normalisePath(file);
++  return BROAD_PATHS.has(path) || BROAD_PREFIXES.some((prefix) => path.startsWith(prefix));
++}
++
++export function projectForPath(file) {
++  const path = normalisePath(file);
++  return PROJECTS.find((project) => path === project || path.startsWith(`${project}/`)) ?? null;
++}
++
++export function classifyPaths(files) {
++  const paths = [...new Set(files.map(normalisePath))].sort();
++  const broad = paths.some(isBroadPath);
++  const projects = new Set(broad ? PROJECTS : []);
++
++  for (const file of paths) {
++    const project = projectForPath(file);
++    if (project) projects.add(project);
++  }
++
++  return {
++    paths,
++    broad,
++    projects: PROJECTS.filter((project) => projects.has(project)),
++  };
++}
++
++export function isPrettierPath(file) {
++  return /\.(?:c?js|mjs|jsx|ts|tsx|json|md|ya?ml)$/i.test(file);
++}
++
++export function isFrontendLintPath(file) {
++  return /^frontend\/.*\.(?:js|jsx|ts|tsx)$/i.test(normalisePath(file));
++}
++
++export function isBackendLintPath(file) {
++  return /^backend\/(?:src|tests)\/.*\.js$/i.test(normalisePath(file));
++}
++
++export function isPythonPath(file) {
++  return /\.py$/i.test(file);
++}
++
++export function rustCratesForPaths(files) {
++  const crates = new Set();
++  for (const rawPath of files) {
++    const file = normalisePath(rawPath);
++    if (/^contracts\/marketpay-contract\/.*\.rs$/i.test(file)) crates.add("marketpay-contract");
++    if (/^contracts\/marketpay-spec\/.*\.rs$/i.test(file)) crates.add("marketpay-spec");
++  }
++  return [...crates].sort();
++}
++
++export const PROJECT_INPUTS = Object.freeze({
++  frontend: [
++    "frontend",
++    "package.json",
++    "package-lock.json",
++    ".editorconfig",
++    ".prettierrc.json",
++    "scripts/hooks",
++  ],
++  backend: [
++    "backend",
++    "package.json",
++    "package-lock.json",
++    ".editorconfig",
++    ".prettierrc.json",
++    "scripts/hooks",
++  ],
++  contracts: ["contracts/marketpay-contract", "contracts/marketpay-spec", "scripts/hooks"],
++  ml: ["ml", "scripts/hooks"],
++});
+diff --git a/scripts/hooks/doctor.mjs b/scripts/hooks/doctor.mjs
+new file mode 100644
+index 0000000..5127a7a
+--- /dev/null
++++ b/scripts/hooks/doctor.mjs
+@@ -0,0 +1,170 @@
++import { accessSync, constants, existsSync, readFileSync } from "node:fs";
++import path from "node:path";
++import { findCommand } from "./runner.mjs";
++import { git, gitDir } from "./git.mjs";
++
++function versionMajor(version) {
++  const [major, minor] = version.replace(/^v/, "").split(".").map(Number);
++  return { major, minor };
++}
++
++function result(level, label, detail, fix = null) {
++  return { level, label, detail, fix };
++}
++
++export function diagnose(root) {
++  const results = [];
++  const nodeVersion = versionMajor(process.version);
++  const nodeSupported =
++    nodeVersion.major > 22 || (nodeVersion.major === 22 && nodeVersion.minor >= 12);
++  results.push(
++    nodeSupported
++      ? result("pass", "Node.js", process.version)
++      : result(
++          "fail",
++          "Node.js",
++          `${process.version} is too old for the installed commitlint`,
++          "Install or activate Node.js 22.12 or newer."
++        )
++  );
++
++  const hooksPath = git(root, ["config", "--get", "core.hooksPath"], { allowFailure: true });
++  if (!hooksPath) {
++    results.push(
++      result(
++        "fail",
++        "Git hooks",
++        "core.hooksPath is unset; install scripts may have been skipped",
++        "Run: npm run prepare"
++      )
++    );
++  } else if (hooksPath.replaceAll("\\", "/").replace(/\/$/, "") !== ".husky/_") {
++    results.push(
++      result(
++        "fail",
++        "Git hooks",
++        `core.hooksPath=${hooksPath} shadows Husky`,
++        "Remove the conflicting hooksPath, then run: npm run prepare"
++      )
++    );
++  } else {
++    results.push(result("pass", "Git hooks", "core.hooksPath=.husky/_"));
++  }
++
++  const generatedHook = path.join(root, ".husky", "_", "h");
++  results.push(
++    existsSync(generatedHook)
++      ? result("pass", "Husky runtime", ".husky/_/h exists")
++      : result("fail", "Husky runtime", ".husky/_/h is missing", "Run: npm run prepare")
++  );
++
++  for (const hook of ["pre-commit", "commit-msg", "pre-push"]) {
++    const file = path.join(root, ".husky", hook);
++    if (!existsSync(file)) {
++      results.push(result("fail", hook, "hook file is missing", "Restore it from Git."));
++      continue;
++    }
++    const content = readFileSync(file);
++    const mode = git(root, ["ls-files", "-s", "--", `.husky/${hook}`], {
++      allowFailure: true,
++    }).split(" ")[0];
++    if (content.includes(13)) {
++      results.push(result("fail", hook, "contains CRLF", "Run: git add --renormalize .husky"));
++    } else if (mode !== "100755") {
++      results.push(
++        result(
++          "fail",
++          hook,
++          `Git mode is ${mode || "untracked"}`,
++          `Run: git update-index --chmod=+x .husky/${hook}`
++        )
++      );
++    } else {
++      results.push(result("pass", hook, "LF and executable"));
++    }
++  }
++
++  const launcher = path.join(root, "scripts", "hooks", "launch.sh");
++  if (!existsSync(launcher)) {
++    results.push(result("fail", "Hook launcher", "scripts/hooks/launch.sh is missing"));
++  } else if (readFileSync(launcher).includes(13)) {
++    results.push(
++      result("fail", "Hook launcher", "contains CRLF", "Run: git add --renormalize scripts/hooks")
++    );
++  } else {
++    try {
++      accessSync(launcher, process.platform === "win32" ? constants.F_OK : constants.X_OK);
++      results.push(result("pass", "Hook launcher", "LF and executable"));
++    } catch {
++      results.push(
++        result(
++          "fail",
++          "Hook launcher",
++          "is not executable",
++          "Run: chmod +x scripts/hooks/launch.sh"
++        )
++      );
++    }
++  }
++
++  const prettier = path.join(root, "node_modules", "prettier", "bin", "prettier.cjs");
++  results.push(
++    existsSync(prettier)
++      ? result("pass", "Root dependencies", "Prettier is installed locally")
++      : result("fail", "Root dependencies", "root node_modules is missing", "Run: npm ci")
++  );
++
++  for (const project of ["frontend", "backend"]) {
++    const modules = path.join(root, project, "node_modules");
++    results.push(
++      existsSync(modules)
++        ? result("pass", `${project} dependencies`, "installed")
++        : result(
++            "warn",
++            `${project} dependencies`,
++            "not installed; hooks need them only when that project changes",
++            `Run: npm --prefix ${project} ci`
++          )
++    );
++  }
++
++  const cargo = findCommand("cargo");
++  results.push(
++    cargo
++      ? result("pass", "Rust toolchain", cargo)
++      : result(
++          "warn",
++          "Rust toolchain",
++          "not found; required only for contract changes",
++          "Install rustup with rustfmt."
++        )
++  );
++
++  const sccache = findCommand("sccache");
++  results.push(
++    sccache
++      ? result("pass", "sccache", sccache)
++      : result(
++          "warn",
++          "sccache",
++          "not installed; the persistent Cargo target cache is still active",
++          "Optional: install sccache for faster dependency rebuilds."
++        )
++  );
++
++  const gitState = path.join(gitDir(root), "marketpay-hooks");
++  results.push(result("pass", "Local state", gitState));
++  return results;
++}
++
++export function printDiagnosis(results) {
++  const icons = { pass: "PASS", warn: "WARN", fail: "FAIL" };
++  for (const item of results) {
++    console.log(`${icons[item.level].padEnd(4)} ${item.label}: ${item.detail}`);
++    if (item.fix) console.log(`     ${item.fix}`);
++  }
++  const failures = results.filter((item) => item.level === "fail").length;
++  const warnings = results.filter((item) => item.level === "warn").length;
++  console.log(`\nHook doctor: ${failures} failure(s), ${warnings} warning(s)`);
++  return failures === 0 ? 0 : 1;
++}
+diff --git a/scripts/hooks/git.mjs b/scripts/hooks/git.mjs
+new file mode 100644
+index 0000000..068cef8
+--- /dev/null
++++ b/scripts/hooks/git.mjs
+@@ -0,0 +1,271 @@
++import { createHash } from "node:crypto";
++import {
++  chmodSync,
++  existsSync,
++  mkdtempSync,
++  mkdirSync,
++  rmSync,
++  symlinkSync,
++  writeFileSync,
++} from "node:fs";
++import { tmpdir } from "node:os";
++import path from "node:path";
++import { spawnSync } from "node:child_process";
++
++function commandResult(command, args, options = {}) {
++  const result = spawnSync(command, args, {
++    cwd: options.cwd,
++    env: options.env,
++    encoding: options.encoding === null ? null : "utf8",
++    input: options.input,
++    maxBuffer: 64 * 1024 * 1024,
++    windowsHide: true,
++  });
++
++  if (result.error) throw result.error;
++  if (result.status !== 0 && !options.allowFailure) {
++    const stderr = Buffer.isBuffer(result.stderr)
++      ? result.stderr.toString("utf8")
++      : result.stderr || "";
++    throw new Error(`git ${args.join(" ")} failed (${result.status}): ${stderr.trim()}`);
++  }
++  return result;
++}
++
++export function git(root, args, options = {}) {
++  const result = commandResult("git", args, { ...options, cwd: root });
++  if (options.encoding === null) return result.stdout;
++  return (result.stdout || "").trimEnd();
++}
++
++export function locateRoot(cwd = process.cwd()) {
++  return git(cwd, ["rev-parse", "--show-toplevel"]);
++}
++
++export function gitDir(root) {
++  const raw = git(root, ["rev-parse", "--git-common-dir"]);
++  return path.resolve(root, raw);
++}
++
++function splitNul(bufferOrString) {
++  const text = Buffer.isBuffer(bufferOrString) ? bufferOrString.toString("utf8") : bufferOrString;
++  return text.split("\0").filter(Boolean);
++}
++
++export function stagedPaths(root) {
++  return splitNul(
++    git(root, ["diff", "--cached", "--name-only", "--diff-filter=ACMR", "-z"], {
++      encoding: null,
++    })
++  );
++}
++
++export function stagedChangedPaths(root) {
++  return splitNul(
++    git(root, ["diff", "--cached", "--name-only", "--diff-filter=ACMRD", "-z"], {
++      encoding: null,
++    })
++  );
++}
++
++export function conflictedPaths(root) {
++  return splitNul(git(root, ["diff", "--name-only", "--diff-filter=U", "-z"], { encoding: null }));
++}
++
++export function indexSignature(root, paths) {
++  if (paths.length === 0) return "";
++  return git(root, ["ls-files", "-s", "-z", "--", ...paths], { encoding: null }).toString("hex");
++}
++
++export function treeSignature(root, treeish, paths) {
++  if (paths.length === 0) return "";
++  const result = commandResult("git", ["ls-tree", "-r", "-z", treeish, "--", ...paths], {
++    cwd: root,
++    encoding: null,
++    allowFailure: true,
++  });
++  if (result.status !== 0) return "";
++  return result.stdout.toString("hex");
++}
++
++export function pathExistsInGitDir(root, name) {
++  const resolved = git(root, ["rev-parse", "--git-path", name]);
++  return path.resolve(root, resolved);
++}
++
++export function operationState(root) {
++  const rebase = ["rebase-merge", "rebase-apply"].some((name) =>
++    existsSync(pathExistsInGitDir(root, name))
++  );
++  const bisect = existsSync(pathExistsInGitDir(root, "BISECT_LOG"));
++  const merge = existsSync(pathExistsInGitDir(root, "MERGE_HEAD"));
++  const cherryPick = existsSync(pathExistsInGitDir(root, "CHERRY_PICK_HEAD"));
++  const revert = existsSync(pathExistsInGitDir(root, "REVERT_HEAD"));
++  return { rebase, bisect, merge, cherryPick, revert };
++}
++
++export function exportIndexSnapshot(root, treeish = null) {
++  const holder = mkdtempSync(path.join(tmpdir(), "marketpay-hooks-"));
++  const snapshot = path.join(holder, "snapshot");
++  mkdirSync(snapshot);
++  const env = { ...process.env };
++
++  if (treeish) {
++    env.GIT_INDEX_FILE = path.join(holder, "index");
++    git(root, ["read-tree", treeish], { env });
++  }
++
++  // `git checkout-index` applies checkout filters such as core.autocrlf. That means a staged LF
++  // blob becomes CRLF on Windows before Prettier sees it, so the hook no longer validates the
++  // bytes Git will commit. Materialise stage-zero blobs directly from the object database instead.
++  const records = splitNul(git(root, ["ls-files", "--stage", "-z"], { encoding: null, env }));
++  const snapshotRoot = `${path.resolve(snapshot)}${path.sep}`;
++
++  for (const record of records) {
++    const separator = record.indexOf("\t");
++    if (separator < 0) continue;
++    const [mode, objectId, stage] = record.slice(0, separator).split(" ");
++    if (stage !== "0") continue;
++
++    const relativePath = record.slice(separator + 1);
++    const destination = path.resolve(snapshot, ...relativePath.split("/"));
++    if (!destination.startsWith(snapshotRoot)) {
++      throw new Error(`Refusing to export an index path outside the snapshot: ${relativePath}`);
++    }
++
++    if (mode === "160000") {
++      mkdirSync(destination, { recursive: true });
++      continue;
++    }
++
++    mkdirSync(path.dirname(destination), { recursive: true });
++    const content = git(root, ["cat-file", "blob", objectId], { encoding: null, env });
++    if (mode === "120000" && process.platform !== "win32") {
++      symlinkSync(content.toString("utf8"), destination);
++      continue;
++    }
++
++    writeFileSync(destination, content);
++    if (mode === "100755") chmodSync(destination, 0o755);
++  }
++
++  return {
++    path: snapshot,
++    cleanup() {
++      rmSync(holder, { recursive: true, force: true });
++    },
++  };
++}
++
++export function exportHeadWorktree(root, treeish = "HEAD") {
++  const repositoryId = createHash("sha256").update(gitDir(root)).digest("hex").slice(0, 16);
++  // Jest ignores source trees nested below .git, so keep the stable worktree in the OS temp area.
++  // The Git-owned result and compiler caches remain under .git/marketpay-hooks.
++  const hooksDirectory = path.join(tmpdir(), `marketpay-hooks-${repositoryId}`);
++  const snapshot = path.join(hooksDirectory, "head-worktree");
++  const commit = git(root, ["rev-parse", "--verify", `${treeish}^{commit}`]);
++  mkdirSync(hooksDirectory, { recursive: true });
++
++  let reused = false;
++  if (existsSync(path.join(snapshot, ".git"))) {
++    try {
++      // Keep this path stable so Cargo can reuse incremental artifacts keyed to source paths.
++      // Hard reset and clean only this detached worktree; the contributor's checkout is untouched.
++      git(snapshot, ["reset", "--hard", commit]);
++      git(snapshot, ["clean", "-ffdx"]);
++      reused = true;
++    } catch {
++      // The OS may preserve the directory after Git metadata was removed; recreate that stale copy.
++    }
++  }
++
++  if (!reused) {
++    rmSync(snapshot, { recursive: true, force: true });
++    git(root, ["worktree", "prune"]);
++    git(root, ["worktree", "add", "--detach", "--force", snapshot, commit]);
++  }
++
++  return {
++    path: snapshot,
++    // The detached worktree intentionally persists under .git for warm tool caches and stable paths.
++    cleanup() {},
++  };
++}
++
++function verifiedCommit(root, ref) {
++  if (!ref) return null;
++  const result = commandResult("git", ["rev-parse", "--verify", `${ref}^{commit}`], {
++    cwd: root,
++    allowFailure: true,
++  });
++  return result.status === 0 ? result.stdout.trim() : null;
++}
++
++function mergeBase(root, left, right) {
++  const result = commandResult("git", ["merge-base", left, right], {
++    cwd: root,
++    allowFailure: true,
++  });
++  return result.status === 0 ? result.stdout.trim() : null;
++}
++
++export function resolveFallbackBase(root, remoteName = "origin", head = "HEAD") {
++  const explicit = verifiedCommit(root, process.env.MARKETPAY_HOOK_BASE);
++  if (explicit) return mergeBase(root, head, explicit);
++
++  const upstream = verifiedCommit(root, "@{upstream}");
++  if (upstream) return mergeBase(root, head, upstream);
++
++  const branch = git(root, ["symbolic-ref", "--quiet", "--short", "HEAD"], {
++    allowFailure: true,
++  });
++  const candidates = [
++    branch ? `refs/remotes/${remoteName}/${branch}` : null,
++    `refs/remotes/${remoteName}/HEAD`,
++    `refs/remotes/${remoteName}/main`,
++    `refs/remotes/${remoteName}/develop`,
++  ];
++
++  for (const candidate of candidates) {
++    const commit = verifiedCommit(root, candidate);
++    if (commit) return mergeBase(root, head, commit);
++  }
++  return null;
++}
++
++function diffPaths(root, base, head) {
++  if (!base) {
++    return splitNul(git(root, ["ls-tree", "-r", "--name-only", "-z", head], { encoding: null }));
++  }
++  return splitNul(
++    git(root, ["diff", "--name-only", "--diff-filter=ACMRD", "-z", base, head], {
++      encoding: null,
++    })
++  );
++}
++
++export function affectedPushPaths(root, pushInput = "", remoteName = "origin") {
++  const zero = /^0{40,64}$/;
++  const ranges = [];
++
++  for (const line of pushInput.split(/\r?\n/)) {
++    const [, localSha, , remoteSha] = line.trim().split(/\s+/);
++    if (!localSha || zero.test(localSha)) continue;
++    const head = verifiedCommit(root, localSha);
++    if (!head) continue;
++    let base = !zero.test(remoteSha || "") ? verifiedCommit(root, remoteSha) : null;
++    if (base) base = mergeBase(root, head, base);
++    if (!base) base = resolveFallbackBase(root, remoteName, head);
++    ranges.push({ base, head });
++  }
++
++  if (ranges.length === 0) {
++    ranges.push({ base: resolveFallbackBase(root, remoteName), head: "HEAD" });
++  }
++
++  const paths = new Set();
++  for (const range of ranges) {
++    for (const file of diffPaths(root, range.base, range.head)) paths.add(file);
++  }
++  return [...paths].sort();
++}
+diff --git a/scripts/hooks/launch.sh b/scripts/hooks/launch.sh
+new file mode 100755
+index 0000000..4d98e89
+--- /dev/null
++++ b/scripts/hooks/launch.sh
+@@ -0,0 +1,38 @@
++#!/usr/bin/env sh
++set -eu
++
++ROOT=$(git rev-parse --show-toplevel)
++
++supports_hooks() {
++  [ -n "${1:-}" ] && [ -x "$1" ] && "$1" -e '
++    const [major, minor] = process.versions.node.split(".").map(Number);
++    process.exit(major > 22 || (major === 22 && minor >= 12) ? 0 : 1);
++  ' >/dev/null 2>&1
++}
++
++NODE=${NODE_BINARY:-}
++if ! supports_hooks "$NODE"; then
++  NODE=$(command -v node 2>/dev/null || true)
++fi
++
++if ! supports_hooks "$NODE"; then
++  for candidate in \
++    "$HOME/.volta/bin/node" \
++    "$HOME/.asdf/shims/node" \
++    "$HOME"/.nvm/versions/node/*/bin/node
++  do
++    if supports_hooks "$candidate"; then
++      NODE=$candidate
++      break
++    fi
++  done
++fi
++
++if ! supports_hooks "$NODE"; then
++  printf '%s\n' \
++    'MarketPay hooks require Node.js >=22.12.' \
++    'Install or activate it, then run: npm ci && npm run hooks:doctor' >&2
++  exit 1
++fi
++
++exec "$NODE" "$ROOT/scripts/hooks/cli.mjs" "$@"
+diff --git a/scripts/hooks/runner.mjs b/scripts/hooks/runner.mjs
+new file mode 100644
+index 0000000..5e1f3d2
+--- /dev/null
++++ b/scripts/hooks/runner.mjs
+@@ -0,0 +1,553 @@
++import {
++  accessSync,
++  constants,
++  existsSync,
++  mkdirSync,
++  readFileSync,
++  readdirSync,
++  symlinkSync,
++} from "node:fs";
++import { homedir } from "node:os";
++import path from "node:path";
++import { spawnSync } from "node:child_process";
++import {
++  BUDGETS_MS,
++  PROJECT_INPUTS,
++  classifyPaths,
++  isBackendLintPath,
++  isFrontendLintPath,
++  isPrettierPath,
++  isPythonPath,
++  rustCratesForPaths,
++} from "./config.mjs";
++import { ResultCache, appendTiming, cacheKey } from "./cache.mjs";
++import {
++  conflictedPaths,
++  exportHeadWorktree,
++  exportIndexSnapshot,
++  gitDir,
++  indexSignature,
++  operationState,
++  stagedChangedPaths,
++  stagedPaths,
++  treeSignature,
++} from "./git.mjs";
++
++let activeCleanup = null;
++let signalHandlersInstalled = false;
++
++function installSignalHandlers() {
++  if (signalHandlersInstalled) return;
++  signalHandlersInstalled = true;
++  for (const [signal, code] of [
++    ["SIGINT", 130],
++    ["SIGTERM", 143],
++  ]) {
++    process.once(signal, () => {
++      try {
++        activeCleanup?.();
++      } finally {
++        process.exit(code);
++      }
++    });
++  }
++}
++
++function isExecutable(file) {
++  try {
++    accessSync(file, process.platform === "win32" ? constants.F_OK : constants.X_OK);
++    return true;
++  } catch {
++    return false;
++  }
++}
++
++export function findCommand(name) {
++  const extensionCandidates = process.platform === "win32" ? [".exe", ".cmd", ".bat", ""] : [""];
++  const pathEntries = (process.env.PATH || "").split(path.delimiter).filter(Boolean);
++  if (name === "cargo" || name === "rustfmt")
++    pathEntries.unshift(path.join(homedir(), ".cargo", "bin"));
++
++  for (const directory of pathEntries) {
++    for (const extension of extensionCandidates) {
++      const candidate = path.join(directory, `${name}${extension}`);
++      if (isExecutable(candidate)) return candidate;
++    }
++  }
++  return null;
++}
++
++function nodeTool(root, relativePath, installCommand) {
++  const file = path.join(root, ...relativePath.split("/"));
++  if (!existsSync(file)) {
++    throw new Error(`Missing local tool ${relativePath}. Run: ${installCommand}`);
++  }
++  return { executable: process.execPath, prefixArgs: [file] };
++}
++
++function commandVersion(executable, args = ["--version"], cwd) {
++  const result = spawnSync(executable, args, {
++    cwd,
++    encoding: "utf8",
++    windowsHide: true,
++    maxBuffer: 1024 * 1024,
++  });
++  if (result.error || result.status !== 0)
++    return `unavailable:${result.error?.message || result.status}`;
++  const version = `${result.stdout || result.stderr}`.trim();
++  return executable === process.execPath ? `node ${process.version} | ${version}` : version;
++}
++
++function linkDirectory(source, destination) {
++  if (!existsSync(source) || existsSync(destination)) return;
++  mkdirSync(path.dirname(destination), { recursive: true });
++  symlinkSync(source, destination, process.platform === "win32" ? "junction" : "dir");
++}
++
++function linkDependencyTrees(root, snapshot) {
++  for (const directory of ["node_modules", "frontend/node_modules", "backend/node_modules"]) {
++    linkDirectory(path.join(root, directory), path.join(snapshot, directory));
++  }
++}
++
++function formatDuration(milliseconds) {
++  return `${(milliseconds / 1000).toFixed(milliseconds < 100 ? 3 : 2)}s`;
++}
++
++function spawnStep(step) {
++  const result = spawnSync(step.executable, [...(step.prefixArgs || []), ...step.args], {
++    cwd: step.cwd,
++    env: { ...process.env, ...step.env },
++    stdio: "inherit",
++    windowsHide: false,
++  });
++  if (result.error) {
++    console.error(`[hooks] ${step.name}: ${result.error.message}`);
++    return 127;
++  }
++  if (result.signal) {
++    console.error(`[hooks] ${step.name}: terminated by ${result.signal}`);
++    return 1;
++  }
++  return result.status ?? 1;
++}
++
++function executeSteps({ root, hook, steps, budget = BUDGETS_MS[hook] }) {
++  const cache = new ResultCache(root);
++  const started = performance.now();
++  const timings = [];
++  let status = 0;
++
++  for (const step of steps) {
++    const cacheable = step.cacheable !== false && process.env.MARKETPAY_HOOK_CACHE !== "0";
++    const key = cacheable
++      ? cacheKey({
++          root,
++          step: step.name,
++          command: step.command,
++          toolVersion: step.toolVersion,
++          inputSignature: step.inputSignature,
++        })
++      : null;
++
++    if (cacheable && cache.has(step.name, key)) {
++      console.log(`[hooks] ${step.name}: cached`);
++      timings.push({ name: step.name, durationMs: 0, cached: true, status: 0 });
++      continue;
++    }
++
++    console.log(`[hooks] ${step.name}`);
++    const stepStarted = performance.now();
++    const stepStatus = spawnStep(step);
++    const durationMs = Math.round(performance.now() - stepStarted);
++    timings.push({ name: step.name, durationMs, cached: false, status: stepStatus });
++    console.log(
++      `[hooks] ${step.name}: ${stepStatus === 0 ? "passed" : "failed"} (${formatDuration(durationMs)})`
++    );
++
++    if (stepStatus !== 0) {
++      status = stepStatus;
++      break;
++    }
++    if (cacheable) cache.put(step.name, key);
++  }
++
++  const totalMs = Math.round(performance.now() - started);
++  const overBudget = totalMs > budget;
++  if (overBudget) {
++    console.warn(
++      `[hooks] ${hook} exceeded its ${formatDuration(budget)} budget: ${formatDuration(totalMs)}`
++    );
++    for (const timing of timings) {
++      console.warn(
++        `  ${timing.name.padEnd(24)} ${timing.cached ? "cached" : formatDuration(timing.durationMs)}`
++      );
++    }
++    if (process.env.MARKETPAY_HOOK_ENFORCE_BUDGET === "1" && status === 0) status = 1;
++  }
++
++  const report = {
++    timestamp: new Date().toISOString(),
++    hook,
++    budgetMs: budget,
++    totalMs,
++    overBudget,
++    status,
++    steps: timings,
++  };
++  appendTiming(root, report);
++  return report;
++}
++
++function stagedStepSignature(root, inputPaths, configPaths = []) {
++  return indexSignature(root, [...new Set([...inputPaths, ...configPaths])]);
++}
++
++function preCommitSteps(root, snapshot, files) {
++  const steps = [];
++  const prettierFiles = files.filter(isPrettierPath);
++  if (prettierFiles.length > 0) {
++    const tool = nodeTool(root, "node_modules/prettier/bin/prettier.cjs", "npm ci");
++    steps.push({
++      name: "prettier-staged",
++      command: `prettier --check ${prettierFiles.join(" ")}`,
++      toolVersion: commandVersion(tool.executable, [...tool.prefixArgs, "--version"], root),
++      inputSignature: stagedStepSignature(root, prettierFiles, [
++        ".prettierrc.json",
++        ".prettierignore",
++        ".editorconfig",
++        "package-lock.json",
++      ]),
++      ...tool,
++      args: ["--check", "--", ...prettierFiles],
++      cwd: snapshot,
++    });
++  }
++
++  const frontendFiles = files.filter(isFrontendLintPath);
++  if (frontendFiles.length > 0) {
++    const projectFiles = frontendFiles.map((file) => `./${file.slice("frontend/".length)}`);
++    const tool = nodeTool(
++      root,
++      "frontend/node_modules/eslint/bin/eslint.js",
++      "npm --prefix frontend ci"
++    );
++    steps.push({
++      name: "frontend-eslint-staged",
++      command: `eslint ${frontendFiles.join(" ")}`,
++      toolVersion: commandVersion(tool.executable, [...tool.prefixArgs, "--version"], root),
++      inputSignature: stagedStepSignature(root, frontendFiles, [
++        "frontend/.eslintrc.json",
++        "frontend/package.json",
++        "frontend/package-lock.json",
++      ]),
++      ...tool,
++      args: projectFiles,
++      cwd: path.join(snapshot, "frontend"),
++    });
++  }
++
++  const backendFiles = files.filter(isBackendLintPath);
++  if (backendFiles.length > 0) {
++    const projectFiles = backendFiles.map((file) => `./${file.slice("backend/".length)}`);
++    const tool = nodeTool(
++      root,
++      "backend/node_modules/eslint/bin/eslint.js",
++      "npm --prefix backend ci"
++    );
++    steps.push({
++      name: "backend-eslint-staged",
++      command: `eslint ${backendFiles.join(" ")}`,
++      toolVersion: commandVersion(tool.executable, [...tool.prefixArgs, "--version"], root),
++      inputSignature: stagedStepSignature(root, backendFiles, [
++        "backend/.eslintrc.json",
++        "backend/package.json",
++        "backend/package-lock.json",
++      ]),
++      ...tool,
++      args: projectFiles,
++      cwd: path.join(snapshot, "backend"),
++    });
++  }
++
++  for (const crate of rustCratesForPaths(files)) {
++    const rustfmt = findCommand("rustfmt");
++    if (!rustfmt)
++      throw new Error(
++        "Rust files are staged but rustfmt was not found. Install the rustfmt rustup component, then retry."
++      );
++    const manifest = `contracts/${crate}/Cargo.toml`;
++    const manifestText = readFileSync(path.join(snapshot, manifest), "utf8");
++    const edition = /^edition\s*=\s*"(2015|2018|2021|2024)"/m.exec(manifestText)?.[1] || "2015";
++    const crateFiles = files.filter(
++      (file) => file.startsWith(`contracts/${crate}/`) && /\.rs$/i.test(file)
++    );
++    const configPath = [
++      `contracts/${crate}/rustfmt.toml`,
++      `contracts/${crate}/.rustfmt.toml`,
++      "contracts/rustfmt.toml",
++      "contracts/.rustfmt.toml",
++      "rustfmt.toml",
++      ".rustfmt.toml",
++    ].find((file) => existsSync(path.join(snapshot, file)));
++    const args = ["--check", "--edition", edition];
++    if (configPath) args.push("--config-path", configPath);
++    args.push(...crateFiles);
++    steps.push({
++      name: `rustfmt-${crate}`,
++      command: `rustfmt --check --edition ${edition} ${crateFiles.join(" ")}`,
++      toolVersion: commandVersion(rustfmt, ["--version"], root),
++      inputSignature: stagedStepSignature(root, [`contracts/${crate}`]),
++      executable: rustfmt,
++      args,
++      cwd: snapshot,
++    });
++  }
++
++  const pythonFiles = files.filter(isPythonPath);
++  if (pythonFiles.length > 0) {
++    const python =
++      findCommand(process.platform === "win32" ? "python" : "python3") || findCommand("python");
++    if (!python) throw new Error("Python files are staged but Python 3 was not found.");
++    steps.push({
++      name: "python-syntax-staged",
++      command: `python -m py_compile ${pythonFiles.join(" ")}`,
++      toolVersion: commandVersion(python, ["--version"], root),
++      inputSignature: stagedStepSignature(root, pythonFiles),
++      executable: python,
++      args: ["-m", "py_compile", ...pythonFiles.map((file) => path.resolve(snapshot, file))],
++      cwd: snapshot,
++    });
++  }
++
++  return steps;
++}
++
++function rustEnvironment(root) {
++  const directory = path.join(gitDir(root), "marketpay-hooks", "cargo-target");
++  mkdirSync(directory, { recursive: true });
++  const env = { CARGO_TARGET_DIR: directory, CARGO_INCREMENTAL: "1" };
++  const sccache = findCommand("sccache");
++  if (sccache) env.RUSTC_WRAPPER = sccache;
++  return { env, sccache };
++}
++
++function relatedJestArgs(snapshot, route, project, baseArgs) {
++  const projectFiles = route.paths
++    .filter((file) => file.startsWith(`${project}/`))
++    .map((file) => file.slice(project.length + 1));
++  const configurationChanged = projectFiles.some((file) =>
++    /^(?:package(?:-lock)?\.json|jest\.config\.[cm]?js|tsconfig\.json|next\.config\.[cm]?js)$/.test(
++      file
++    )
++  );
++  const related = projectFiles.filter(
++    (file) =>
++      /\.(?:c?js|mjs|jsx|ts|tsx|json)$/i.test(file) &&
++      existsSync(path.join(snapshot, project, file))
++  );
++  if (route.broad || configurationChanged || related.length === 0) return baseArgs;
++  return [
++    ...baseArgs,
++    "--findRelatedTests",
++    ...related.map((file) => path.resolve(snapshot, project, file)),
++    "--passWithNoTests",
++  ];
++}
++
++function backendJestArgs(snapshot, route) {
++  const baseArgs = ["--runInBand", "--coverage=false"];
++  const projectFiles = route.paths
++    .filter((file) => file.startsWith("backend/"))
++    .map((file) => file.slice("backend/".length));
++  const directTests = new Set();
++
++  for (const file of projectFiles) {
++    if (!existsSync(path.join(snapshot, "backend", file))) continue;
++    if (/\.(?:test|spec)(?:\.[^.]+)?\.js$/i.test(file)) {
++      directTests.add(file);
++      continue;
++    }
++    if (!file.endsWith(".js")) continue;
++    const directory = path.posix.dirname(file);
++    const stem = path.posix.basename(file, ".js");
++    const absoluteDirectory = path.join(snapshot, "backend", directory);
++    for (const entry of readdirSync(absoluteDirectory)) {
++      if (entry === `${stem}.test.js` || entry.startsWith(`${stem}.test.`)) {
++        directTests.add(path.posix.join(directory, entry));
++      }
++    }
++  }
++
++  if (directTests.size > 0 && !route.broad) {
++    return [
++      ...baseArgs,
++      "--runTestsByPath",
++      ...[...directTests].sort().map((file) => path.resolve(snapshot, "backend", file)),
++    ];
++  }
++
++  const related = relatedJestArgs(snapshot, route, "backend", baseArgs);
++  return related === baseArgs ? ["--coverage=false", "--maxWorkers=50%", "--forceExit"] : related;
++}
++
++function prePushSteps(root, snapshot, route) {
++  const steps = [];
++  const head = "HEAD";
++  const { projects } = route;
++
++  if (projects.includes("frontend")) {
++    const tool = nodeTool(
++      root,
++      "frontend/node_modules/jest/bin/jest.js",
++      "npm --prefix frontend ci"
++    );
++    const args = relatedJestArgs(snapshot, route, "frontend", ["--ci", "--runInBand"]);
++    steps.push({
++      name: "frontend-tests",
++      command: `frontend jest ${args.join(" ")}`,
++      toolVersion: commandVersion(tool.executable, [...tool.prefixArgs, "--version"], root),
++      inputSignature: treeSignature(root, head, PROJECT_INPUTS.frontend),
++      ...tool,
++      args,
++      cwd: path.join(snapshot, "frontend"),
++    });
++  }
++
++  if (projects.includes("backend")) {
++    const tool = nodeTool(root, "backend/node_modules/jest/bin/jest.js", "npm --prefix backend ci");
++    const args = backendJestArgs(snapshot, route);
++    steps.push({
++      name: "backend-unit-tests",
++      command: `backend jest ${args.join(" ")}`,
++      toolVersion: commandVersion(tool.executable, [...tool.prefixArgs, "--version"], root),
++      inputSignature: treeSignature(root, head, PROJECT_INPUTS.backend),
++      ...tool,
++      args,
++      cwd: path.join(snapshot, "backend"),
++      env: { NODE_ENV: "test" },
++    });
++  }
++
++  if (projects.includes("contracts")) {
++    const cargo = findCommand("cargo");
++    if (!cargo) throw new Error("Contract changes are being pushed but cargo was not found.");
++    const { env, sccache } = rustEnvironment(root);
++    const versions = [
++      commandVersion(cargo, ["--version"], root),
++      commandVersion(findCommand("rustc") || "rustc", ["--version"], root),
++      sccache ? commandVersion(sccache, ["--version"], root) : "sccache:not-installed",
++    ].join(" | ");
++    steps.push({
++      name: "contract-tests",
++      command:
++        "cargo test --features std --lib --test differential --test regressions --test v2_escrow --test v2_properties",
++      toolVersion: versions,
++      inputSignature: treeSignature(root, head, PROJECT_INPUTS.contracts),
++      executable: cargo,
++      args: [
++        "test",
++        "--manifest-path",
++        "contracts/marketpay-contract/Cargo.toml",
++        "--features",
++        "std",
++        "--lib",
++        "--test",
++        "differential",
++        "--test",
++        "regressions",
++        "--test",
++        "v2_escrow",
++        "--test",
++        "v2_properties",
++      ],
++      cwd: snapshot,
++      env,
++    });
++  }
++
++  if (projects.includes("ml")) {
++    const python =
++      findCommand(process.platform === "win32" ? "python" : "python3") || findCommand("python");
++    if (!python) throw new Error("ML changes are being pushed but Python 3 was not found.");
++    steps.push({
++      name: "ml-syntax",
++      command: "python -m compileall -q ml",
++      toolVersion: commandVersion(python, ["--version"], root),
++      inputSignature: treeSignature(root, head, PROJECT_INPUTS.ml),
++      executable: python,
++      args: ["-m", "compileall", "-q", "ml"],
++      cwd: snapshot,
++      env: {
++        PYTHONPYCACHEPREFIX: path.join(gitDir(root), "marketpay-hooks", "python-cache"),
++      },
++    });
++  }
++
++  return steps;
++}
++
++async function optionalTestDelay() {
++  const delay = Number(process.env.MARKETPAY_HOOK_TEST_DELAY_MS || 0);
++  if (Number.isFinite(delay) && delay > 0) {
++    console.log(`[hooks] test delay: ${delay}ms`);
++    await new Promise((resolve) => setTimeout(resolve, delay));
++  }
++}
++
++export async function runPreCommit(root) {
++  installSignalHandlers();
++  const conflicts = conflictedPaths(root);
++  if (conflicts.length > 0) {
++    throw new Error(`Resolve staged conflicts before committing:\n  ${conflicts.join("\n  ")}`);
++  }
++
++  const state = operationState(root);
++  if (state.rebase || state.bisect) {
++    const operation = state.rebase ? "rebase" : "bisect";
++    console.log(
++      `[hooks] pre-commit skipped during ${operation}; pre-push validates the complete range.`
++    );
++    return { status: 0, skipped: operation, totalMs: 0, steps: [] };
++  }
++
++  const changedFiles = stagedChangedPaths(root);
++  if (changedFiles.length === 0) {
++    console.log("[hooks] pre-commit: no staged files");
++    return { status: 0, totalMs: 0, steps: [] };
++  }
++
++  const files = stagedPaths(root);
++  const route = classifyPaths(changedFiles);
++  console.log(`[hooks] staged projects: ${route.projects.join(", ") || "repository files only"}`);
++  const snapshot = exportIndexSnapshot(root);
++  activeCleanup = snapshot.cleanup;
++  try {
++    linkDependencyTrees(root, snapshot.path);
++    await optionalTestDelay();
++    const steps = preCommitSteps(root, snapshot.path, files);
++    return executeSteps({ root, hook: "pre-commit", steps });
++  } finally {
++    activeCleanup = null;
++    snapshot.cleanup();
++  }
++}
++
++export async function runPrePush(root, files) {
++  installSignalHandlers();
++  const route = classifyPaths(files);
++  console.log(`[hooks] pushed projects: ${route.projects.join(", ") || "repository files only"}`);
++
++  const snapshot = exportHeadWorktree(root, "HEAD");
++  activeCleanup = snapshot.cleanup;
++  try {
++    linkDependencyTrees(root, snapshot.path);
++    await optionalTestDelay();
++    const steps = prePushSteps(root, snapshot.path, route);
++    if (steps.length === 0) return { status: 0, totalMs: 0, steps: [] };
++    return executeSteps({ root, hook: "pre-push", steps });
++  } finally {
++    activeCleanup = null;
++    snapshot.cleanup();
++  }
++}
+diff --git a/scripts/hooks/tests/commit-message.test.mjs b/scripts/hooks/tests/commit-message.test.mjs
+new file mode 100644
+index 0000000..8f6fcca
+--- /dev/null
++++ b/scripts/hooks/tests/commit-message.test.mjs
+@@ -0,0 +1,11 @@
++import assert from "node:assert/strict";
++import test from "node:test";
++import { isGeneratedCommitMessage } from "../cli.mjs";
++
++test("generated Git lifecycle messages bypass conventional-commit linting", () => {
++  assert.equal(isGeneratedCommitMessage("Merge branch 'main'", {}), true);
++  assert.equal(isGeneratedCommitMessage('Revert "feat: example"', {}), true);
++  assert.equal(isGeneratedCommitMessage("fixup! feat: example", {}), true);
++  assert.equal(isGeneratedCommitMessage("anything", { merge: true }), true);
++  assert.equal(isGeneratedCommitMessage("feat(frontend): add page", {}), false);
++});
+diff --git a/scripts/hooks/tests/config.test.mjs b/scripts/hooks/tests/config.test.mjs
+new file mode 100644
+index 0000000..15a0b99
+--- /dev/null
++++ b/scripts/hooks/tests/config.test.mjs
+@@ -0,0 +1,56 @@
++import assert from "node:assert/strict";
++import test from "node:test";
++import { cacheKey } from "../cache.mjs";
++import { classifyPaths, projectForPath, rustCratesForPaths } from "../config.mjs";
++
++test("routes files to their owning projects and unions cross-project changes", () => {
++  assert.equal(projectForPath("frontend/pages/index.tsx"), "frontend");
++  assert.equal(projectForPath("backend/src/server.js"), "backend");
++  assert.equal(projectForPath("docs/hooks.md"), null);
++  assert.deepEqual(classifyPaths(["backend/src/server.js", "frontend/pages/index.tsx"]).projects, [
++    "frontend",
++    "backend",
++  ]);
++});
++
++test("shared workflow and hook configuration changes route every project", () => {
++  assert.deepEqual(classifyPaths([".github/workflows/ci.yml"]).projects, [
++    "frontend",
++    "backend",
++    "contracts",
++    "ml",
++  ]);
++  assert.deepEqual(classifyPaths(["scripts/hooks/runner.mjs"]).projects, [
++    "frontend",
++    "backend",
++    "contracts",
++    "ml",
++  ]);
++});
++
++test("Rust formatting is crate-aware", () => {
++  assert.deepEqual(
++    rustCratesForPaths([
++      "contracts/marketpay-spec/src/lib.rs",
++      "contracts/marketpay-contract/src/lib.rs",
++      "frontend/pages/index.tsx",
++    ]),
++    ["marketpay-contract", "marketpay-spec"]
++  );
++});
++
++test("cache keys change with content, tool, command, or configuration engine", () => {
++  const root = process.cwd();
++  const base = {
++    root,
++    step: "frontend-tests",
++    command: "jest --ci",
++    toolVersion: "30.0.0",
++    inputSignature: "blob-a config-a lock-a",
++  };
++  const original = cacheKey(base);
++  assert.equal(cacheKey(base), original);
++  assert.notEqual(cacheKey({ ...base, inputSignature: "blob-b config-a lock-a" }), original);
++  assert.notEqual(cacheKey({ ...base, toolVersion: "31.0.0" }), original);
++  assert.notEqual(cacheKey({ ...base, command: "jest --ci --runInBand" }), original);
++});
+diff --git a/scripts/hooks/tests/doctor.test.mjs b/scripts/hooks/tests/doctor.test.mjs
+new file mode 100644
+index 0000000..87c2a14
+--- /dev/null
++++ b/scripts/hooks/tests/doctor.test.mjs
+@@ -0,0 +1,43 @@
++import assert from "node:assert/strict";
++import { mkdtempSync, rmSync } from "node:fs";
++import { tmpdir } from "node:os";
++import path from "node:path";
++import { spawnSync } from "node:child_process";
++import test from "node:test";
++import { diagnose } from "../doctor.mjs";
++
++function git(root, ...args) {
++  const result = spawnSync("git", args, { cwd: root, encoding: "utf8" });
++  assert.equal(result.status, 0, result.stderr);
++}
++
++function repository() {
++  const root = mkdtempSync(path.join(tmpdir(), "marketpay-hook-doctor-"));
++  git(root, "init", "--quiet");
++  return root;
++}
++
++test("doctor reports an installation skipped by npm --ignore-scripts", () => {
++  const root = repository();
++  try {
++    const hooks = diagnose(root).find((item) => item.label === "Git hooks");
++    assert.equal(hooks.level, "fail");
++    assert.match(hooks.detail, /core\.hooksPath is unset/);
++    assert.match(hooks.fix, /npm run prepare/);
++  } finally {
++    rmSync(root, { recursive: true, force: true });
++  }
++});
++
++test("doctor reports another hook manager shadowing Husky", () => {
++  const root = repository();
++  try {
++    git(root, "config", "core.hooksPath", ".git/hooks");
++    const hooks = diagnose(root).find((item) => item.label === "Git hooks");
++    assert.equal(hooks.level, "fail");
++    assert.match(hooks.detail, /shadows Husky/);
++    assert.match(hooks.fix, /npm run prepare/);
++  } finally {
++    rmSync(root, { recursive: true, force: true });
++  }
++});
+diff --git a/scripts/hooks/tests/git.test.mjs b/scripts/hooks/tests/git.test.mjs
+new file mode 100644
+index 0000000..2b57a04
+--- /dev/null
++++ b/scripts/hooks/tests/git.test.mjs
+@@ -0,0 +1,176 @@
++import assert from "node:assert/strict";
++import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
++import { tmpdir } from "node:os";
++import path from "node:path";
++import { spawnSync } from "node:child_process";
++import test from "node:test";
++import {
++  affectedPushPaths,
++  exportHeadWorktree,
++  exportIndexSnapshot,
++  operationState,
++} from "../git.mjs";
++
++function git(root, ...args) {
++  const result = spawnSync("git", args, { cwd: root, encoding: "utf8" });
++  assert.equal(result.status, 0, result.stderr);
++  return result.stdout.trim();
++}
++
++function repository() {
++  const root = mkdtempSync(path.join(tmpdir(), "marketpay-hooks-git-test-"));
++  git(root, "init", "--quiet");
++  git(root, "config", "user.name", "Hook Test");
++  git(root, "config", "user.email", "hooks@example.test");
++  git(root, "config", "core.autocrlf", "false");
++  writeFileSync(path.join(root, "README.md"), "# fixture\n");
++  git(root, "add", ".");
++  git(root, "commit", "--quiet", "-m", "test: initialise fixture");
++  return root;
++}
++
++test("pre-push range includes every commit since the merge base, not only HEAD~1", () => {
++  const root = repository();
++  const previousBase = process.env.MARKETPAY_HOOK_BASE;
++  try {
++    const base = git(root, "rev-parse", "HEAD");
++    mkdirSync(path.join(root, "frontend"));
++    writeFileSync(path.join(root, "frontend", "first.js"), "export const first = true;\n");
++    git(root, "add", ".");
++    git(root, "commit", "--quiet", "-m", "test: add first project change");
++
++    mkdirSync(path.join(root, "backend"));
++    writeFileSync(path.join(root, "backend", "second.js"), "module.exports = true;\n");
++    git(root, "add", ".");
++    git(root, "commit", "--quiet", "-m", "test: add second project change");
++
++    process.env.MARKETPAY_HOOK_BASE = base;
++    assert.deepEqual(affectedPushPaths(root), ["backend/second.js", "frontend/first.js"]);
++  } finally {
++    if (previousBase === undefined) delete process.env.MARKETPAY_HOOK_BASE;
++    else process.env.MARKETPAY_HOOK_BASE = previousBase;
++    rmSync(root, { recursive: true, force: true });
++  }
++});
++
++test("HEAD snapshots exclude staged and unstaged future content", () => {
++  const root = repository();
++  try {
++    writeFileSync(path.join(root, "README.md"), "staged future\n");
++    git(root, "add", "README.md");
++    writeFileSync(path.join(root, "README.md"), "unstaged future\n");
++    const snapshot = exportIndexSnapshot(root, "HEAD");
++    try {
++      assert.equal(readFileSync(path.join(snapshot.path, "README.md"), "utf8"), "# fixture\n");
++    } finally {
++      snapshot.cleanup();
++    }
++  } finally {
++    rmSync(root, { recursive: true, force: true });
++  }
++});
++
++test("index snapshots preserve staged blob bytes when checkout conversion is enabled", () => {
++  const root = repository();
++  try {
++    git(root, "config", "core.autocrlf", "true");
++    writeFileSync(path.join(root, "README.md"), "staged with LF\n");
++    git(root, "add", "README.md");
++    const staged = spawnSync("git", ["show", ":README.md"], {
++      cwd: root,
++      encoding: null,
++    });
++    assert.equal(staged.status, 0, staged.stderr?.toString("utf8"));
++
++    const snapshot = exportIndexSnapshot(root);
++    try {
++      assert.deepEqual(readFileSync(path.join(snapshot.path, "README.md")), staged.stdout);
++    } finally {
++      snapshot.cleanup();
++    }
++  } finally {
++    rmSync(root, { recursive: true, force: true });
++  }
++});
++
++test("the persistent pre-push worktree follows root HEAD but excludes future content", () => {
++  const root = repository();
++  let hooksDirectory;
++  try {
++    const first = exportHeadWorktree(root);
++    hooksDirectory = path.dirname(first.path);
++    assert.equal(readFileSync(path.join(first.path, "README.md"), "utf8"), "# fixture\n");
++
++    writeFileSync(path.join(root, "README.md"), "committed\n");
++    git(root, "add", "README.md");
++    git(root, "commit", "--quiet", "-m", "test: advance root HEAD");
++    writeFileSync(path.join(root, "README.md"), "staged future\n");
++    git(root, "add", "README.md");
++    writeFileSync(path.join(root, "README.md"), "unstaged future\n");
++
++    const second = exportHeadWorktree(root);
++    assert.equal(second.path, first.path);
++    assert.equal(readFileSync(path.join(second.path, "README.md"), "utf8"), "committed\n");
++  } finally {
++    if (hooksDirectory) {
++      spawnSync(
++        "git",
++        ["worktree", "remove", "--force", path.join(hooksDirectory, "head-worktree")],
++        {
++          cwd: root,
++          encoding: "utf8",
++        }
++      );
++      rmSync(hooksDirectory, { recursive: true, force: true });
++    }
++    rmSync(root, { recursive: true, force: true });
++  }
++});
++
++test("Git lifecycle state detection distinguishes replay, merge, and conflict-resolution states", () => {
++  const root = repository();
++  const gitDirectory = path.join(root, ".git");
++  try {
++    mkdirSync(path.join(gitDirectory, "rebase-merge"));
++    writeFileSync(path.join(gitDirectory, "BISECT_LOG"), "fixture\n");
++    writeFileSync(path.join(gitDirectory, "MERGE_HEAD"), `${git(root, "rev-parse", "HEAD")}\n`);
++    writeFileSync(
++      path.join(gitDirectory, "CHERRY_PICK_HEAD"),
++      `${git(root, "rev-parse", "HEAD")}\n`
++    );
++    writeFileSync(path.join(gitDirectory, "REVERT_HEAD"), `${git(root, "rev-parse", "HEAD")}\n`);
++
++    assert.deepEqual(operationState(root), {
++      rebase: true,
++      bisect: true,
++      merge: true,
++      cherryPick: true,
++      revert: true,
++    });
++  } finally {
++    rmSync(root, { recursive: true, force: true });
++  }
++});
++
++test("deleted files still route their owning project on pre-push", () => {
++  const root = repository();
++  const previousBase = process.env.MARKETPAY_HOOK_BASE;
++  try {
++    mkdirSync(path.join(root, "frontend"));
++    writeFileSync(path.join(root, "frontend", "removed.js"), "export default true;\n");
++    git(root, "add", ".");
++    git(root, "commit", "--quiet", "-m", "test: add removable file");
++    const base = git(root, "rev-parse", "HEAD");
++
++    rmSync(path.join(root, "frontend", "removed.js"));
++    git(root, "add", "-u");
++    git(root, "commit", "--quiet", "-m", "test: remove project file");
++
++    process.env.MARKETPAY_HOOK_BASE = base;
++    assert.deepEqual(affectedPushPaths(root), ["frontend/removed.js"]);
++  } finally {
++    if (previousBase === undefined) delete process.env.MARKETPAY_HOOK_BASE;
++    else process.env.MARKETPAY_HOOK_BASE = previousBase;
++    rmSync(root, { recursive: true, force: true });
++  }
++});
+diff --git a/scripts/hooks/tests/pre-commit.integration.test.mjs b/scripts/hooks/tests/pre-commit.integration.test.mjs
+new file mode 100644
+index 0000000..58f34e0
+--- /dev/null
++++ b/scripts/hooks/tests/pre-commit.integration.test.mjs
+@@ -0,0 +1,244 @@
++import assert from "node:assert/strict";
++import { mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
++import { tmpdir } from "node:os";
++import path from "node:path";
++import { fileURLToPath } from "node:url";
++import { spawn, spawnSync } from "node:child_process";
++import test from "node:test";
++import { runPreCommit } from "../runner.mjs";
++
++const SOURCE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
++const CLI = path.join(SOURCE_ROOT, "scripts", "hooks", "cli.mjs");
++
++function git(root, ...args) {
++  const result = spawnSync("git", args, { cwd: root, encoding: "utf8" });
++  assert.equal(result.status, 0, result.stderr);
++  return result.stdout;
++}
++
++function link(source, destination) {
++  symlinkSync(source, destination, process.platform === "win32" ? "junction" : "dir");
++}
++
++function fixture() {
++  const root = mkdtempSync(path.join(tmpdir(), "marketpay hooks ü fixture "));
++  git(root, "init", "--quiet");
++  git(root, "config", "user.name", "Hook Test");
++  git(root, "config", "user.email", "hooks@example.test");
++  mkdirSync(path.join(root, "scripts"));
++  link(path.join(SOURCE_ROOT, "scripts", "hooks"), path.join(root, "scripts", "hooks"));
++  link(path.join(SOURCE_ROOT, "node_modules"), path.join(root, "node_modules"));
++  writeFileSync(path.join(root, ".prettierrc.json"), '{"semi":true}\n');
++  writeFileSync(path.join(root, ".prettierignore"), "node_modules\n");
++  writeFileSync(path.join(root, ".editorconfig"), "root = true\n[*]\nend_of_line = lf\n");
++  writeFileSync(path.join(root, "package-lock.json"), "{}\n");
++  mkdirSync(path.join(root, "docs"));
++  writeFileSync(path.join(root, "docs", "space ü.json"), '{\n  "value": 1\n}\n');
++  git(
++    root,
++    "add",
++    ".prettierrc.json",
++    ".prettierignore",
++    ".editorconfig",
++    "package-lock.json",
++    "docs"
++  );
++  git(root, "commit", "--quiet", "-m", "test: initialise fixture");
++  return root;
++}
++
++function gitState(root) {
++  return {
++    cached: git(root, "diff", "--cached", "--binary"),
++    worktree: git(root, "diff", "--binary"),
++    stash: git(root, "stash", "list"),
++    content: readFileSync(path.join(root, "docs", "space ü.json"), "utf8"),
++  };
++}
++
++function gitStateForPath(root, target) {
++  return {
++    cached: git(root, "diff", "--cached", "--binary", "--", target),
++    worktree: git(root, "diff", "--binary", "--", target),
++    stash: git(root, "stash", "list"),
++    content: readFileSync(path.join(root, target), "utf8"),
++  };
++}
++
++test("pre-commit validates the staged blob, preserves an unstaged hunk, and meets budget", async () => {
++  const root = fixture();
++  try {
++    const file = path.join(root, "docs", "space ü.json");
++    writeFileSync(file, '{\n  "value": 2\n}\n');
++    git(root, "add", "docs/space ü.json");
++    writeFileSync(file, '{"value":3}\n');
++    const before = gitState(root);
++
++    const previousEnforcement = process.env.MARKETPAY_HOOK_ENFORCE_BUDGET;
++    delete process.env.MARKETPAY_HOOK_ENFORCE_BUDGET;
++    const report = await runPreCommit(root);
++    process.env.MARKETPAY_HOOK_ENFORCE_BUDGET = "1";
++    const warmReport = await runPreCommit(root);
++    if (previousEnforcement === undefined) delete process.env.MARKETPAY_HOOK_ENFORCE_BUDGET;
++    else process.env.MARKETPAY_HOOK_ENFORCE_BUDGET = previousEnforcement;
++
++    assert.equal(report.status, 0);
++    assert.equal(warmReport.status, 0);
++    assert.ok(warmReport.totalMs < 2_000, `warm pre-commit took ${warmReport.totalMs}ms`);
++    assert.deepEqual(gitState(root), before);
++  } finally {
++    rmSync(root, { recursive: true, force: true });
++  }
++});
++
++test("pre-commit rejects an unformatted staged blob even when the working copy is formatted", async () => {
++  const root = fixture();
++  try {
++    const file = path.join(root, "docs", "space ü.json");
++    writeFileSync(file, '{"value":2}\n');
++    git(root, "add", "docs/space ü.json");
++    writeFileSync(file, '{\n  "value": 3\n}\n');
++    const before = gitState(root);
++
++    const report = await runPreCommit(root);
++
++    assert.notEqual(report.status, 0);
++    assert.deepEqual(gitState(root), before);
++  } finally {
++    rmSync(root, { recursive: true, force: true });
++  }
++});
++
++test("rustfmt checks a staged, unreferenced Rust module with its crate edition", async () => {
++  const root = fixture();
++  try {
++    const crate = path.join(root, "contracts", "marketpay-contract");
++    mkdirSync(path.join(crate, "src"), { recursive: true });
++    writeFileSync(
++      path.join(crate, "Cargo.toml"),
++      '[package]\nname = "hook-fixture"\nversion = "0.1.0"\nedition = "2021"\n'
++    );
++    writeFileSync(path.join(crate, "src", "lib.rs"), "pub fn existing() {}\n");
++    git(root, "add", "contracts");
++    git(root, "commit", "--quiet", "-m", "test: add Rust fixture");
++
++    const file = path.join(crate, "src", "unreferenced.rs");
++    writeFileSync(file, "pub fn staged(){let _value=1;}\n");
++    git(root, "add", "contracts/marketpay-contract/src/unreferenced.rs");
++    writeFileSync(file, "pub fn staged() {\n    let _value = 1;\n}\n");
++    const before = gitStateForPath(root, "contracts/marketpay-contract/src/unreferenced.rs");
++
++    const report = await runPreCommit(root);
++
++    assert.notEqual(report.status, 0);
++    assert.deepEqual(
++      gitStateForPath(root, "contracts/marketpay-contract/src/unreferenced.rs"),
++      before
++    );
++  } finally {
++    rmSync(root, { recursive: true, force: true });
++  }
++});
++
++test("rebase and bisect replay skip repeated pre-commit work", async () => {
++  const root = fixture();
++  try {
++    writeFileSync(path.join(root, "docs", "space ü.json"), '{"unformatted":true}\n');
++    git(root, "add", "docs/space ü.json");
++
++    mkdirSync(path.join(root, ".git", "rebase-merge"));
++    const rebase = await runPreCommit(root);
++    assert.equal(rebase.skipped, "rebase");
++    rmSync(path.join(root, ".git", "rebase-merge"), { recursive: true });
++
++    writeFileSync(path.join(root, ".git", "BISECT_LOG"), "fixture\n");
++    const bisect = await runPreCommit(root);
++    assert.equal(bisect.skipped, "bisect");
++  } finally {
++    rmSync(root, { recursive: true, force: true });
++  }
++});
++
++test("resolved merge, cherry-pick, revert, and ordinary amend paths validate the staged index", async () => {
++  const root = fixture();
++  try {
++    writeFileSync(path.join(root, "docs", "space ü.json"), '{\n  "valid": true\n}\n');
++    git(root, "add", "docs/space ü.json");
++    const head = git(root, "rev-parse", "HEAD").trim();
++
++    for (const marker of ["MERGE_HEAD", "CHERRY_PICK_HEAD", "REVERT_HEAD", null]) {
++      if (marker) writeFileSync(path.join(root, ".git", marker), `${head}\n`);
++      const report = await runPreCommit(root);
++      assert.equal(report.status, 0, `${marker || "ordinary/amend"} should validate normally`);
++      if (marker) rmSync(path.join(root, ".git", marker));
++    }
++  } finally {
++    rmSync(root, { recursive: true, force: true });
++  }
++});
++
++test("unresolved merge conflicts are reported before any staged check runs", async () => {
++  const root = fixture();
++  try {
++    const originalBranch = git(root, "branch", "--show-current").trim();
++    git(root, "checkout", "--quiet", "-b", "conflicting-side");
++    writeFileSync(path.join(root, "docs", "space ü.json"), '{\n  "side": true\n}\n');
++    git(root, "add", "docs/space ü.json");
++    git(root, "commit", "--quiet", "-m", "test: side conflict");
++
++    git(root, "checkout", "--quiet", originalBranch);
++    writeFileSync(path.join(root, "docs", "space ü.json"), '{\n  "main": true\n}\n');
++    git(root, "add", "docs/space ü.json");
++    git(root, "commit", "--quiet", "-m", "test: main conflict");
++    const merge = spawnSync("git", ["merge", "--no-edit", "conflicting-side"], {
++      cwd: root,
++      encoding: "utf8",
++    });
++    assert.notEqual(merge.status, 0);
++
++    await assert.rejects(runPreCommit(root), /Resolve staged conflicts.*docs\/space ü\.json/s);
++  } finally {
++    rmSync(root, { recursive: true, force: true });
++  }
++});
++
++test(
++  "SIGINT leaves staged, unstaged, and stash state byte-for-byte unchanged",
++  { skip: process.platform === "win32" },
++  async () => {
++    const root = fixture();
++    try {
++      const file = path.join(root, "docs", "space ü.json");
++      writeFileSync(file, '{\n  "value": 2\n}\n');
++      git(root, "add", "docs/space ü.json");
++      writeFileSync(file, '{"value":3}\n');
++      const before = gitState(root);
++
++      const child = spawn(process.execPath, [CLI, "pre-commit"], {
++        cwd: root,
++        env: { ...process.env, MARKETPAY_HOOK_TEST_DELAY_MS: "5000" },
++        stdio: ["ignore", "pipe", "pipe"],
++      });
++      await new Promise((resolve, reject) => {
++        const timer = setTimeout(
++          () => reject(new Error("hook did not reach the interrupt point")),
++          3_000
++        );
++        child.stdout.on("data", (chunk) => {
++          if (chunk.toString().includes("test delay")) {
++            clearTimeout(timer);
++            resolve();
++          }
++        });
++        child.once("error", reject);
++      });
++      child.kill("SIGINT");
++      const code = await new Promise((resolve) => child.once("close", resolve));
++
++      assert.equal(code, 130);
++      assert.deepEqual(gitState(root), before);
++    } finally {
++      rmSync(root, { recursive: true, force: true });
++    }
++  }
++);

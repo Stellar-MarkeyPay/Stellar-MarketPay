@@ -769,12 +769,17 @@ dependencies = [
  "base64ct",
  "ethnum",
  "indexmap 2.1.0",
+ "marketpay-spec",
  "serde_with",
  "soroban-sdk",
  "stellar-xdr",
  "time-core",
  "zeroize_derive",
 ]
+
+[[package]]
+name = "marketpay-spec"
+version = "0.1.0"
 
 [[package]]
 name = "memchr"

@@ -31,6 +31,130 @@ async function logAdminAction({ action, adminAddress, targetId, targetType, deta
 }
 
 // ── GET /api/admin/metrics — platform analytics dashboard ─────────────────────
+/**
+ * @swagger
+ * /api/admin/metrics:
+ *   get:
+ *     summary: Get platform analytics dashboard
+ *     description: >
+ *       Returns aggregated platform health, user growth, financial, quality, and dispute
+ *       metrics for the requested time window, plus a top-earners leaderboard and daily job
+ *       volume. Admin-only. If the admin account has 2FA enabled, the caller's JWT must also
+ *       carry a verified 2FA claim.
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: period
+ *         required: false
+ *         schema:
+ *           type: string
+ *           enum: [7d, 30d, 90d]
+ *           default: 30d
+ *         description: Time window to aggregate metrics over. Any other value falls back to 30 days.
+ *         example: 30d
+ *     responses:
+ *       200:
+ *         description: Metrics retrieved successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     period:
+ *                       type: string
+ *                       example: 30d
+ *                     platformHealth:
+ *                       type: object
+ *                       properties:
+ *                         total_jobs: { type: integer, example: 142 }
+ *                         open_jobs: { type: integer, example: 58 }
+ *                         completed_jobs: { type: integer, example: 70 }
+ *                         disputed_jobs: { type: integer, example: 3 }
+ *                         completion_rate: { type: number, example: 92.1 }
+ *                         dispute_rate: { type: number, example: 2.11 }
+ *                     userGrowth:
+ *                       type: object
+ *                       properties:
+ *                         total_users: { type: integer, example: 320 }
+ *                         freelancers: { type: integer, example: 210 }
+ *                         clients: { type: integer, example: 130 }
+ *                         new_users_period: { type: integer, example: 45 }
+ *                     weeklyGrowth:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           week: { type: string, format: date-time, example: "2026-07-27T00:00:00.000Z" }
+ *                           new_users: { type: integer, example: 12 }
+ *                     financialMetrics:
+ *                       type: object
+ *                       properties:
+ *                         total_xlm_escrow: { type: number, example: 15250.5 }
+ *                         total_xlm_released: { type: number, example: 9800 }
+ *                         avg_job_budget: { type: number, example: 320.75 }
+ *                         active_escrows: { type: integer, example: 18 }
+ *                     qualityMetrics:
+ *                       type: object
+ *                       properties:
+ *                         avg_rating: { type: number, example: 4.6 }
+ *                         total_ratings: { type: integer, example: 88 }
+ *                         repeat_hires: { type: integer, example: 9 }
+ *                     disputeMetrics:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           week: { type: string, format: date-time, example: "2026-07-27T00:00:00.000Z" }
+ *                           disputes_opened: { type: integer, example: 2 }
+ *                           disputes_resolved: { type: integer, example: 1 }
+ *                     topEarners:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           public_key: { type: string, example: "GA5JQHFZLLM7H45AEB5S7M2E7EYQ3M3K5Y6R7B8C9D0E1F2G3H4I5J6K7L8M9N0O" }
+ *                           display_name: { type: string, example: "Jane Freelancer" }
+ *                           total_earned_xlm: { type: number, example: 4200.5 }
+ *                           completed_jobs: { type: integer, example: 12 }
+ *                           rating: { type: number, example: 4.9 }
+ *                     jobVolume:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           date: { type: string, format: date-time, example: "2026-08-20T00:00:00.000Z" }
+ *                           jobs_created: { type: integer, example: 6 }
+ *                           jobs_completed: { type: integer, example: 4 }
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         description: >
+ *           Forbidden. Either the caller is not an admin, or the admin account has 2FA enabled
+ *           and the current JWT has not been through the 2FA-verify step.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                 requires2FA:
+ *                   type: boolean
+ *             examples:
+ *               notAdmin:
+ *                 value: { error: "Forbidden: Admin access required" }
+ *               requires2FA:
+ *                 value: { error: "2FA required", requires2FA: true }
+ */
 router.get("/metrics", verifyJWT, requireAdminRole, requireAdmin2FA, async (req, res, next) => {
   try {
     const { period = "30d" } = req.query;
@@ -46,20 +170,20 @@ router.get("/metrics", verifyJWT, requireAdminRole, requireAdmin2FA, async (req,
     // Platform Health Metrics
     const platformHealth = await pool.query(
       `
-      SELECT 
+      SELECT
         COUNT(*) as total_jobs,
         COUNT(*) FILTER (WHERE status = 'open') as open_jobs,
         COUNT(*) FILTER (WHERE status = 'completed') as completed_jobs,
         COUNT(*) FILTER (WHERE status = 'disputed') as disputed_jobs,
         ROUND(
-          COUNT(*) FILTER (WHERE status = 'completed')::numeric / 
+          COUNT(*) FILTER (WHERE status = 'completed')::numeric /
           NULLIF(COUNT(*) FILTER (WHERE status IN ('completed', 'cancelled'))::numeric, 0) * 100, 2
         ) as completion_rate,
         ROUND(
-          COUNT(*) FILTER (WHERE status = 'disputed')::numeric / 
+          COUNT(*) FILTER (WHERE status = 'disputed')::numeric /
           NULLIF(COUNT(*)::numeric, 0) * 100, 2
         ) as dispute_rate
-      FROM jobs 
+      FROM jobs
       WHERE created_at >= $1
     `,
       [startDate]
@@ -68,7 +192,7 @@ router.get("/metrics", verifyJWT, requireAdminRole, requireAdmin2FA, async (req,
     // User Growth Metrics
     const userGrowth = await pool.query(
       `
-      SELECT 
+      SELECT
         COUNT(DISTINCT public_key) as total_users,
         COUNT(DISTINCT public_key) FILTER (WHERE role IN ('freelancer', 'both')) as freelancers,
         COUNT(DISTINCT public_key) FILTER (WHERE role IN ('client', 'both')) as clients,
@@ -81,10 +205,10 @@ router.get("/metrics", verifyJWT, requireAdminRole, requireAdmin2FA, async (req,
     // Weekly new user growth
     const weeklyGrowth = await pool.query(
       `
-      SELECT 
+      SELECT
         DATE_TRUNC('week', created_at) as week,
         COUNT(*) as new_users
-      FROM profiles 
+      FROM profiles
       WHERE created_at >= $1
       GROUP BY DATE_TRUNC('week', created_at)
       ORDER BY week
@@ -95,7 +219,7 @@ router.get("/metrics", verifyJWT, requireAdminRole, requireAdmin2FA, async (req,
     // Financial Metrics
     const financialMetrics = await pool.query(
       `
-      SELECT 
+      SELECT
         COALESCE(SUM(budget) FILTER (WHERE status = 'funded'), 0) as total_xlm_escrow,
         COALESCE(SUM(budget) FILTER (WHERE status = 'released'), 0) as total_xlm_released,
         COALESCE(AVG(budget), 0) as avg_job_budget,
@@ -110,14 +234,14 @@ router.get("/metrics", verifyJWT, requireAdminRole, requireAdmin2FA, async (req,
     // Quality Metrics
     const qualityMetrics = await pool.query(
       `
-      SELECT 
+      SELECT
         COALESCE(AVG(rating), 0) as avg_rating,
         COUNT(*) as total_ratings,
         COUNT(DISTINCT j.client_address) FILTER (
           WHERE EXISTS (
-            SELECT 1 FROM jobs j2 
-            WHERE j2.client_address = j.client_address 
-            AND j2.freelancer_address = j.freelancer_address 
+            SELECT 1 FROM jobs j2
+            WHERE j2.client_address = j.client_address
+            AND j2.freelancer_address = j.freelancer_address
             AND j2.id != j.id
           )
         ) as repeat_hires
@@ -131,7 +255,7 @@ router.get("/metrics", verifyJWT, requireAdminRole, requireAdmin2FA, async (req,
     // Dispute Metrics
     const disputeMetrics = await pool.query(
       `
-      SELECT 
+      SELECT
         DATE_TRUNC('week', created_at) as week,
         COUNT(*) FILTER (WHERE status = 'disputed') as disputes_opened,
         COUNT(*) FILTER (WHERE status = 'resolved') as disputes_resolved
@@ -145,7 +269,7 @@ router.get("/metrics", verifyJWT, requireAdminRole, requireAdmin2FA, async (req,
 
     // Top Earners
     const topEarners = await pool.query(`
-      SELECT 
+      SELECT
         p.public_key,
         p.display_name,
         p.total_earned_xlm,
@@ -160,7 +284,7 @@ router.get("/metrics", verifyJWT, requireAdminRole, requireAdmin2FA, async (req,
     // Job Volume Over Time
     const jobVolume = await pool.query(
       `
-      SELECT 
+      SELECT
         DATE_TRUNC('day', created_at) as date,
         COUNT(*) as jobs_created,
         COUNT(*) FILTER (WHERE status = 'completed') as jobs_completed
@@ -192,6 +316,76 @@ router.get("/metrics", verifyJWT, requireAdminRole, requireAdmin2FA, async (req,
 });
 
 // ── GET /api/admin/reports/jobs — list all flagged/reported jobs ───────────────
+/**
+ * @swagger
+ * /api/admin/reports/jobs:
+ *   get:
+ *     summary: List flagged/reported jobs
+ *     description: >
+ *       Returns the 100 most recently reported jobs, joined with job title/status/client info.
+ *       Admin-only, and requires a verified 2FA claim when 2FA is enabled for the account.
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: Job reports retrieved successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id: { type: string, format: uuid }
+ *                       job_id: { type: string, format: uuid }
+ *                       reporter_address: { type: string, example: "GA5JQHFZLLM7H45AEB5S7M2E7EYQ3M3K5Y6R7B8C9D0E1F2G3H4I5J6K7L8M9N0O" }
+ *                       category: { type: string, example: "fraud" }
+ *                       description: { type: string, example: "Client requested off-platform payment." }
+ *                       created_at: { type: string, format: date-time }
+ *                       job_title: { type: string, example: "Build a Soroban escrow contract" }
+ *                       job_status: { type: string, example: "open" }
+ *                       client_address: { type: string, example: "GB5JQHFZLLM7H45AEB5S7M2E7EYQ3M3K5Y6R7B8C9D0E1F2G3H4I5J6K7L8M9N0O" }
+ *               example:
+ *                 success: true
+ *                 data:
+ *                   - id: "3f2b6f2e-4b1a-4c9a-9d3b-1234567890ab"
+ *                     job_id: "9c7f2b1e-5b1a-4c9a-9d3b-abcdef012345"
+ *                     reporter_address: "GA5JQHFZLLM7H45AEB5S7M2E7EYQ3M3K5Y6R7B8C9D0E1F2G3H4I5J6K7L8M9N0O"
+ *                     category: "fraud"
+ *                     description: "Client requested off-platform payment."
+ *                     created_at: "2026-08-15T10:00:00.000Z"
+ *                     job_title: "Build a Soroban escrow contract"
+ *                     job_status: "open"
+ *                     client_address: "GB5JQHFZLLM7H45AEB5S7M2E7EYQ3M3K5Y6R7B8C9D0E1F2G3H4I5J6K7L8M9N0O"
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         description: >
+ *           Forbidden. Either the caller is not an admin, or the admin account has 2FA enabled
+ *           and the current JWT has not been through the 2FA-verify step.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                 requires2FA:
+ *                   type: boolean
+ *             examples:
+ *               notAdmin:
+ *                 value: { error: "Forbidden: Admin access required" }
+ *               requires2FA:
+ *                 value: { error: "2FA required", requires2FA: true }
+ */
 router.get(
   "/reports/jobs",
   verifyJWT,
@@ -216,6 +410,76 @@ router.get(
 );
 
 // ── GET /api/admin/disputes — list all open disputes ─────────────────────────
+/**
+ * @swagger
+ * /api/admin/disputes:
+ *   get:
+ *     summary: List open disputes
+ *     description: >
+ *       Returns up to 100 escrows/jobs currently in a disputed state, joined with job details.
+ *       Admin-only, and requires a verified 2FA claim when 2FA is enabled for the account.
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: Open disputes retrieved successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       job_id: { type: string, format: uuid }
+ *                       escrow_status: { type: string, example: "disputed" }
+ *                       escrow_created_at: { type: string, format: date-time }
+ *                       job_title: { type: string, example: "Build a Soroban escrow contract" }
+ *                       client_address: { type: string, example: "GB5JQHFZLLM7H45AEB5S7M2E7EYQ3M3K5Y6R7B8C9D0E1F2G3H4I5J6K7L8M9N0O" }
+ *                       freelancer_address: { type: string, nullable: true, example: "GC5JQHFZLLM7H45AEB5S7M2E7EYQ3M3K5Y6R7B8C9D0E1F2G3H4I5J6K7L8M9N0O" }
+ *                       budget: { type: number, example: 500 }
+ *                       currency: { type: string, example: "XLM" }
+ *                       job_status: { type: string, example: "disputed" }
+ *               example:
+ *                 success: true
+ *                 data:
+ *                   - job_id: "9c7f2b1e-5b1a-4c9a-9d3b-abcdef012345"
+ *                     escrow_status: "disputed"
+ *                     escrow_created_at: "2026-08-10T12:00:00.000Z"
+ *                     job_title: "Build a Soroban escrow contract"
+ *                     client_address: "GB5JQHFZLLM7H45AEB5S7M2E7EYQ3M3K5Y6R7B8C9D0E1F2G3H4I5J6K7L8M9N0O"
+ *                     freelancer_address: "GC5JQHFZLLM7H45AEB5S7M2E7EYQ3M3K5Y6R7B8C9D0E1F2G3H4I5J6K7L8M9N0O"
+ *                     budget: 500
+ *                     currency: "XLM"
+ *                     job_status: "disputed"
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         description: >
+ *           Forbidden. Either the caller is not an admin, or the admin account has 2FA enabled
+ *           and the current JWT has not been through the 2FA-verify step.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                 requires2FA:
+ *                   type: boolean
+ *             examples:
+ *               notAdmin:
+ *                 value: { error: "Forbidden: Admin access required" }
+ *               requires2FA:
+ *                 value: { error: "2FA required", requires2FA: true }
+ */
 router.get("/disputes", verifyJWT, requireAdminRole, requireAdmin2FA, async (req, res, next) => {
   try {
     const { rows } = await pool.query(
@@ -235,6 +499,65 @@ router.get("/disputes", verifyJWT, requireAdminRole, requireAdmin2FA, async (req
 });
 
 // ── GET /api/admin/reported-wallets — list reported user addresses ─────────────
+/**
+ * @swagger
+ * /api/admin/reported-wallets:
+ *   get:
+ *     summary: List most-reported wallet addresses
+ *     description: >
+ *       Aggregates job_reports by reporter_address, returning up to 100 addresses ordered by
+ *       report count descending. Admin-only, and requires a verified 2FA claim when 2FA is
+ *       enabled for the account.
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: Reported wallets retrieved successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       reported_address: { type: string, example: "GA5JQHFZLLM7H45AEB5S7M2E7EYQ3M3K5Y6R7B8C9D0E1F2G3H4I5J6K7L8M9N0O" }
+ *                       report_count: { type: integer, example: 4 }
+ *                       last_reported_at: { type: string, format: date-time }
+ *               example:
+ *                 success: true
+ *                 data:
+ *                   - reported_address: "GA5JQHFZLLM7H45AEB5S7M2E7EYQ3M3K5Y6R7B8C9D0E1F2G3H4I5J6K7L8M9N0O"
+ *                     report_count: 4
+ *                     last_reported_at: "2026-08-18T09:30:00.000Z"
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         description: >
+ *           Forbidden. Either the caller is not an admin, or the admin account has 2FA enabled
+ *           and the current JWT has not been through the 2FA-verify step.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                 requires2FA:
+ *                   type: boolean
+ *             examples:
+ *               notAdmin:
+ *                 value: { error: "Forbidden: Admin access required" }
+ *               requires2FA:
+ *                 value: { error: "2FA required", requires2FA: true }
+ */
 router.get(
   "/reported-wallets",
   verifyJWT,
@@ -259,6 +582,75 @@ router.get(
 );
 
 // ── GET /api/admin/logs — admin action audit log ───────────────────────────────
+/**
+ * @swagger
+ * /api/admin/logs:
+ *   get:
+ *     summary: List admin action audit log
+ *     description: >
+ *       Returns the 200 most recent admin actions recorded by this route file (dispute
+ *       resolutions, job cancellations, wallet freezes, reactivations, etc.). Admin-only, and
+ *       requires a verified 2FA claim when 2FA is enabled for the account. If the audit_logs
+ *       table read fails (e.g. table not yet migrated), the route still responds 200 with an
+ *       empty `data` array rather than an error.
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: Audit log entries retrieved successfully (or an empty list if the underlying read failed).
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id: { type: string, format: uuid }
+ *                       action: { type: string, example: "freeze_wallet" }
+ *                       actor_address: { type: string, example: "GA5JQHFZLLM7H45AEB5S7M2E7EYQ3M3K5Y6R7B8C9D0E1F2G3H4I5J6K7L8M9N0O" }
+ *                       target: { type: string, nullable: true, example: "GD5JQHFZLLM7H45AEB5S7M2E7EYQ3M3K5Y6R7B8C9D0E1F2G3H4I5J6K7L8M9N0O" }
+ *                       reason: { type: string, nullable: true, example: "Suspicious activity reported" }
+ *                       metadata: { type: object, example: { targetType: "wallet" } }
+ *                       created_at: { type: string, format: date-time }
+ *               example:
+ *                 success: true
+ *                 data:
+ *                   - id: "5e2f9a1b-4b1a-4c9a-9d3b-1234567890ab"
+ *                     action: "freeze_wallet"
+ *                     actor_address: "GA5JQHFZLLM7H45AEB5S7M2E7EYQ3M3K5Y6R7B8C9D0E1F2G3H4I5J6K7L8M9N0O"
+ *                     target: "GD5JQHFZLLM7H45AEB5S7M2E7EYQ3M3K5Y6R7B8C9D0E1F2G3H4I5J6K7L8M9N0O"
+ *                     reason: "Suspicious activity reported"
+ *                     metadata: { targetType: "wallet" }
+ *                     created_at: "2026-08-19T14:00:00.000Z"
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         description: >
+ *           Forbidden. Either the caller is not an admin, or the admin account has 2FA enabled
+ *           and the current JWT has not been through the 2FA-verify step.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                 requires2FA:
+ *                   type: boolean
+ *             examples:
+ *               notAdmin:
+ *                 value: { error: "Forbidden: Admin access required" }
+ *               requires2FA:
+ *                 value: { error: "2FA required", requires2FA: true }
+ */
 router.get("/logs", verifyJWT, requireAdminRole, requireAdmin2FA, async (req, res) => {
   try {
     const { rows } = await pool.query(
@@ -274,6 +666,98 @@ router.get("/logs", verifyJWT, requireAdminRole, requireAdmin2FA, async (req, re
 });
 
 // ── PATCH /api/admin/disputes/:jobId/resolve — mark dispute resolved ───────────
+/**
+ * @swagger
+ * /api/admin/disputes/{jobId}/resolve:
+ *   patch:
+ *     summary: Resolve a disputed job
+ *     description: >
+ *       Marks the escrow for the given job as resolved, then sets the job status to
+ *       `cancelled` (funds released to client) or `completed` (funds released to freelancer)
+ *       depending on `releaseTo`, and records the action in the admin audit log and the
+ *       on-chain contract audit log. Admin-only, and requires a verified 2FA claim when 2FA is
+ *       enabled for the account.
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: jobId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: ID of the disputed job.
+ *         example: "9c7f2b1e-5b1a-4c9a-9d3b-abcdef012345"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - resolution
+ *             properties:
+ *               resolution:
+ *                 type: string
+ *                 description: Admin's written resolution note, stored as the audit log reason.
+ *                 example: "Freelancer delivered per spec; releasing funds."
+ *               releaseTo:
+ *                 type: string
+ *                 enum: [client, freelancer]
+ *                 description: Who the escrow funds are released to. `client` cancels the job; anything else marks it completed.
+ *                 example: freelancer
+ *           example:
+ *             resolution: "Freelancer delivered per spec; releasing funds."
+ *             releaseTo: freelancer
+ *     responses:
+ *       200:
+ *         description: Dispute resolved successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 message: { type: string, example: "Dispute resolved. Job marked as completed." }
+ *       400:
+ *         description: Missing resolution note.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: "Resolution note is required"
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         description: >
+ *           Forbidden. Either the caller is not an admin, or the admin account has 2FA enabled
+ *           and the current JWT has not been through the 2FA-verify step.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                 requires2FA:
+ *                   type: boolean
+ *             examples:
+ *               notAdmin:
+ *                 value: { error: "Forbidden: Admin access required" }
+ *               requires2FA:
+ *                 value: { error: "2FA required", requires2FA: true }
+ *       404:
+ *         description: Job not found.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: "Job not found"
+ */
 router.patch(
   "/disputes/:jobId/resolve",
   verifyJWT,
@@ -324,6 +808,80 @@ router.patch(
 );
 
 // ── PATCH /api/admin/jobs/:jobId/cancel — cancel a flagged job ─────────────────
+/**
+ * @swagger
+ * /api/admin/jobs/{jobId}/cancel:
+ *   patch:
+ *     summary: Cancel a flagged job
+ *     description: >
+ *       Force-sets a job's status to `cancelled` and records the action (with the optional
+ *       reason) in the admin audit log. Admin-only, and requires a verified 2FA claim when 2FA
+ *       is enabled for the account.
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: jobId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: ID of the job to cancel.
+ *         example: "9c7f2b1e-5b1a-4c9a-9d3b-abcdef012345"
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               reason:
+ *                 type: string
+ *                 description: Optional reason recorded in the audit log.
+ *                 example: "Violates marketplace terms of service."
+ *           example:
+ *             reason: "Violates marketplace terms of service."
+ *     responses:
+ *       200:
+ *         description: Job cancelled successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 message: { type: string, example: "Job cancelled by admin." }
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         description: >
+ *           Forbidden. Either the caller is not an admin, or the admin account has 2FA enabled
+ *           and the current JWT has not been through the 2FA-verify step.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                 requires2FA:
+ *                   type: boolean
+ *             examples:
+ *               notAdmin:
+ *                 value: { error: "Forbidden: Admin access required" }
+ *               requires2FA:
+ *                 value: { error: "2FA required", requires2FA: true }
+ *       404:
+ *         description: Job not found.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: "Job not found"
+ */
 router.patch(
   "/jobs/:jobId/cancel",
   verifyJWT,
@@ -352,6 +910,80 @@ router.patch(
 );
 
 // ── POST /api/admin/wallets/:address/freeze — freeze a wallet ─────────────────
+/**
+ * @swagger
+ * /api/admin/wallets/{address}/freeze:
+ *   post:
+ *     summary: Freeze a Stellar wallet address
+ *     description: >
+ *       Upserts a row into `frozen_wallets` for the given address and records the action in the
+ *       admin audit log. Admin-only, and requires a verified 2FA claim when 2FA is enabled for
+ *       the account.
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: address
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: "^G[A-Z0-9]{55}$"
+ *         description: Stellar public key (G-address) to freeze.
+ *         example: "GA5JQHFZLLM7H45AEB5S7M2E7EYQ3M3K5Y6R7B8C9D0E1F2G3H4I5J6K7L8M9N0O"
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               reason:
+ *                 type: string
+ *                 description: Reason for freezing the wallet. Defaults to "Admin action" if omitted.
+ *                 example: "Multiple fraud reports from clients."
+ *           example:
+ *             reason: "Multiple fraud reports from clients."
+ *     responses:
+ *       200:
+ *         description: Wallet frozen successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 message: { type: string, example: "Wallet GA5JQHFZLLM7H45AEB5S7M2E7EYQ3M3K5Y6R7B8C9D0E1F2G3H4I5J6K7L8M9N0O frozen." }
+ *       400:
+ *         description: Address is not a valid Stellar G-address.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: "Invalid Stellar address"
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         description: >
+ *           Forbidden. Either the caller is not an admin, or the admin account has 2FA enabled
+ *           and the current JWT has not been through the 2FA-verify step.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                 requires2FA:
+ *                   type: boolean
+ *             examples:
+ *               notAdmin:
+ *                 value: { error: "Forbidden: Admin access required" }
+ *               requires2FA:
+ *                 value: { error: "2FA required", requires2FA: true }
+ */
 router.post(
   "/wallets/:address/freeze",
   verifyJWT,
@@ -389,6 +1021,58 @@ router.post(
 );
 
 // ── DELETE /api/admin/wallets/:address/freeze — unfreeze a wallet ─────────────
+/**
+ * @swagger
+ * /api/admin/wallets/{address}/freeze:
+ *   delete:
+ *     summary: Unfreeze a Stellar wallet address
+ *     description: >
+ *       Removes the address from `frozen_wallets` (if present) and records the action in the
+ *       admin audit log. Responds successfully even if the address was not frozen. Admin-only,
+ *       and requires a verified 2FA claim when 2FA is enabled for the account.
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: address
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Stellar public key (G-address) to unfreeze.
+ *         example: "GA5JQHFZLLM7H45AEB5S7M2E7EYQ3M3K5Y6R7B8C9D0E1F2G3H4I5J6K7L8M9N0O"
+ *     responses:
+ *       200:
+ *         description: Wallet unfrozen successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 message: { type: string, example: "Wallet GA5JQHFZLLM7H45AEB5S7M2E7EYQ3M3K5Y6R7B8C9D0E1F2G3H4I5J6K7L8M9N0O unfrozen." }
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         description: >
+ *           Forbidden. Either the caller is not an admin, or the admin account has 2FA enabled
+ *           and the current JWT has not been through the 2FA-verify step.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                 requires2FA:
+ *                   type: boolean
+ *             examples:
+ *               notAdmin:
+ *                 value: { error: "Forbidden: Admin access required" }
+ *               requires2FA:
+ *                 value: { error: "2FA required", requires2FA: true }
+ */
 router.delete(
   "/wallets/:address/freeze",
   verifyJWT,
@@ -415,6 +1099,65 @@ router.delete(
 );
 
 // ── GET /api/admin/wallets/frozen — list frozen wallets ───────────────────────
+/**
+ * @swagger
+ * /api/admin/wallets/frozen:
+ *   get:
+ *     summary: List frozen wallets
+ *     description: >
+ *       Returns all rows from `frozen_wallets`, most recent first. Admin-only, and requires a
+ *       verified 2FA claim when 2FA is enabled for the account. If the underlying read fails,
+ *       the route still responds 200 with an empty `data` array rather than an error.
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: Frozen wallets retrieved successfully (or an empty list if the underlying read failed).
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       address: { type: string, example: "GA5JQHFZLLM7H45AEB5S7M2E7EYQ3M3K5Y6R7B8C9D0E1F2G3H4I5J6K7L8M9N0O" }
+ *                       reason: { type: string, nullable: true, example: "Multiple fraud reports from clients." }
+ *                       frozen_by: { type: string, example: "GF5JQHFZLLM7H45AEB5S7M2E7EYQ3M3K5Y6R7B8C9D0E1F2G3H4I5J6K7L8M9N0O" }
+ *                       created_at: { type: string, format: date-time }
+ *               example:
+ *                 success: true
+ *                 data:
+ *                   - address: "GA5JQHFZLLM7H45AEB5S7M2E7EYQ3M3K5Y6R7B8C9D0E1F2G3H4I5J6K7L8M9N0O"
+ *                     reason: "Multiple fraud reports from clients."
+ *                     frozen_by: "GF5JQHFZLLM7H45AEB5S7M2E7EYQ3M3K5Y6R7B8C9D0E1F2G3H4I5J6K7L8M9N0O"
+ *                     created_at: "2026-08-16T08:00:00.000Z"
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         description: >
+ *           Forbidden. Either the caller is not an admin, or the admin account has 2FA enabled
+ *           and the current JWT has not been through the 2FA-verify step.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                 requires2FA:
+ *                   type: boolean
+ *             examples:
+ *               notAdmin:
+ *                 value: { error: "Forbidden: Admin access required" }
+ *               requires2FA:
+ *                 value: { error: "2FA required", requires2FA: true }
+ */
 router.get("/wallets/frozen", verifyJWT, requireAdminRole, requireAdmin2FA, async (req, res) => {
   try {
     const { rows } = await pool.query(
@@ -427,6 +1170,57 @@ router.get("/wallets/frozen", verifyJWT, requireAdminRole, requireAdmin2FA, asyn
 });
 
 // ── GET /api/admin/jobs/expired — list expired jobs ───────────────────────────
+/**
+ * @swagger
+ * /api/admin/jobs/expired:
+ *   get:
+ *     summary: List expired jobs
+ *     description: >
+ *       Returns up to 100 jobs whose status is `expired`, most recently expired first.
+ *       Admin-only. Unlike most other routes in this file, this endpoint does not require
+ *       2FA verification even if the admin account has 2FA enabled.
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: Expired jobs retrieved successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id: { type: string, format: uuid }
+ *                       title: { type: string, example: "Build a Soroban escrow contract" }
+ *                       client_address: { type: string, example: "GB5JQHFZLLM7H45AEB5S7M2E7EYQ3M3K5Y6R7B8C9D0E1F2G3H4I5J6K7L8M9N0O" }
+ *                       budget: { type: number, example: 500 }
+ *                       currency: { type: string, example: "XLM" }
+ *                       status: { type: string, example: "expired" }
+ *                       expires_at: { type: string, format: date-time }
+ *                       created_at: { type: string, format: date-time }
+ *               example:
+ *                 success: true
+ *                 data:
+ *                   - id: "9c7f2b1e-5b1a-4c9a-9d3b-abcdef012345"
+ *                     title: "Build a Soroban escrow contract"
+ *                     client_address: "GB5JQHFZLLM7H45AEB5S7M2E7EYQ3M3K5Y6R7B8C9D0E1F2G3H4I5J6K7L8M9N0O"
+ *                     budget: 500
+ *                     currency: "XLM"
+ *                     status: "expired"
+ *                     expires_at: "2026-08-01T00:00:00.000Z"
+ *                     created_at: "2026-06-01T00:00:00.000Z"
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ */
 router.get("/jobs/expired", verifyJWT, requireAdminRole, async (req, res, next) => {
   try {
     const { rows } = await pool.query(
@@ -443,6 +1237,81 @@ router.get("/jobs/expired", verifyJWT, requireAdminRole, async (req, res, next) 
 });
 
 // ── POST /api/admin/jobs/:jobId/reactivate — reactivate expired job ───────────
+/**
+ * @swagger
+ * /api/admin/jobs/{jobId}/reactivate:
+ *   post:
+ *     summary: Reactivate an expired job
+ *     description: >
+ *       Sets an expired job's status back to `open` and pushes its expiry 30 days out, then
+ *       records the action in the admin audit log. Only succeeds if the job currently has
+ *       status `expired`. Admin-only, and requires a verified 2FA claim when 2FA is enabled for
+ *       the account.
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: jobId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: ID of the expired job to reactivate.
+ *         example: "9c7f2b1e-5b1a-4c9a-9d3b-abcdef012345"
+ *     responses:
+ *       200:
+ *         description: Job reactivated successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id: { type: string, format: uuid }
+ *                     title: { type: string, example: "Build a Soroban escrow contract" }
+ *                     status: { type: string, example: "open" }
+ *                     expires_at: { type: string, format: date-time }
+ *               example:
+ *                 success: true
+ *                 data:
+ *                   id: "9c7f2b1e-5b1a-4c9a-9d3b-abcdef012345"
+ *                   title: "Build a Soroban escrow contract"
+ *                   status: "open"
+ *                   expires_at: "2026-09-20T00:00:00.000Z"
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         description: >
+ *           Forbidden. Either the caller is not an admin, or the admin account has 2FA enabled
+ *           and the current JWT has not been through the 2FA-verify step.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                 requires2FA:
+ *                   type: boolean
+ *             examples:
+ *               notAdmin:
+ *                 value: { error: "Forbidden: Admin access required" }
+ *               requires2FA:
+ *                 value: { error: "2FA required", requires2FA: true }
+ *       404:
+ *         description: Job not found, or found but not currently expired.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: "Job not found or not expired"
+ */
 router.post(
   "/jobs/:jobId/reactivate",
   verifyJWT,
@@ -476,6 +1345,77 @@ router.post(
       });
 
       res.json({ success: true, data: rows[0] });
+    } catch (e) {
+      next(e);
+    }
+  }
+);
+
+// ── POST /api/admin/reputation/commitments/:id/revoke — overturn a rating on appeal (Issue #319) ──
+/**
+ * @swagger
+ * /api/admin/reputation/commitments/{id}/revoke:
+ *   post:
+ *     summary: Overturn a rating's zero-knowledge reputation commitment
+ *     description: >
+ *       Zero-knowledge reputation with selective disclosure (Issue #319):
+ *       when a rating appeal is upheld, this revokes the rating's committed
+ *       leaf. The subject's Merkle root advances to a new epoch, and every
+ *       outstanding proof bound to an epoch at or after the one that first
+ *       included this rating becomes invalid — both here and on-chain (the
+ *       Soroban contract's `earliest_invalidated_epoch`). Proofs bound to
+ *       strictly earlier epochs are unaffected. Admin-only, 2FA-gated.
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *         description: reputation_commitments.id (not the rating id)
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [reason]
+ *             properties:
+ *               reason: { type: string }
+ *     responses:
+ *       200: { description: Revoked }
+ *       404: { description: Commitment not found }
+ *       409: { description: Already revoked }
+ */
+router.post(
+  "/reputation/commitments/:id/revoke",
+  verifyJWT,
+  requireAdminRole,
+  requireAdmin2FA,
+  async (req, res, next) => {
+    try {
+      const { reason } = req.body || {};
+      if (!reason || typeof reason !== "string") {
+        return res.status(400).json({ error: "reason is required" });
+      }
+      const reputationService = require("../services/reputationService");
+      const result = await reputationService.revokeRating({
+        commitmentId: req.params.id,
+        reason,
+        revokedBy: req.user.publicKey,
+      });
+
+      await logAdminAction({
+        action: "reputation_rating_revoked",
+        adminAddress: req.user.publicKey,
+        targetId: req.params.id,
+        targetType: "reputation_commitment",
+        details: { reason, invalidatesFromEpoch: result.invalidatesFromEpoch },
+      });
+
+      res.json({ success: true, data: result });
     } catch (e) {
       next(e);
     }

@@ -1,0 +1,222 @@
+name: Formal Verification
+
+# Verification is slower than testing, so it does not all run in the same
+# place. The split below is by cost, and the reasoning is in
+# docs/VERIFICATION.md §6:
+#
+#   * The bounded model check and the differential suite run on every pull
+#     request. They finish in under a minute and they are what catch a
+#     specification drift while the change is still being written.
+#   * Kani runs nightly and on demand. Its harnesses take minutes each and one
+#     of them is the reason `docs/VERIFICATION.md` has a section on bounds.
+#     Gating pull requests on it would mean either a long wait or a lowered
+#     bound, and a lowered bound is a worse trade than a slower signal.
+#   * The deep fuzzing campaign runs nightly for the same reason.
+#
+# A pull request that needs the full treatment before merging can ask for it:
+# label it `run-verification` and the Kani job runs on that PR.
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  schedule:
+    # 03:17 UTC — off the hour, so it does not contend with everything else
+    # that runs at midnight.
+    - cron: "17 3 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # ── Runs on every pull request ──────────────────────────────────────────
+  bounded-model-check:
+    name: Bounded model check (specification)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: contracts/marketpay-spec
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            contracts/marketpay-spec/target
+          key: ${{ runner.os }}-spec-${{ hashFiles('contracts/marketpay-spec/Cargo.toml') }}
+
+      - name: Lint the specification
+        run: cargo clippy --all-targets -- -D warnings
+
+      # The specification is `no_std` so the contract's own tests can depend on
+      # it. Checking that here means a `std`-only construct creeping into the
+      # model fails in this job rather than in the contract build.
+      - name: Check the specification builds without std
+        run: cargo check --no-default-features
+
+      - name: Exhaustively check the bounded state space
+        run: cargo test --release -- --nocapture
+
+  # ── Runs on every pull request ──────────────────────────────────────────
+  differential:
+    name: Contract vs. specification
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: contracts/marketpay-contract
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            contracts/marketpay-contract/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('contracts/marketpay-contract/Cargo.lock') }}
+
+      - name: Differential tests
+        run: cargo test --features std --test differential
+
+      - name: Committed counterexamples
+        run: cargo test --features std --test regressions
+
+      - name: Invariant fuzzing (pull-request budget)
+        run: cargo test --release --features std --test invariant_fuzz
+        env:
+          FUZZ_ROUNDS: "500"
+
+  # ── Nightly, on demand, or on a labelled pull request ───────────────────
+  kani:
+    name: Symbolic proofs (Kani)
+    if: >-
+      github.event_name == 'schedule' ||
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'push' ||
+      contains(github.event.pull_request.labels.*.name, 'run-verification')
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    defaults:
+      run:
+        working-directory: contracts/marketpay-spec
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+
+      # Kani ships its own nightly toolchain and a solver bundle of roughly a
+      # gigabyte, so the install is cached aggressively — without this the
+      # setup costs more than the proofs.
+      - name: Cache the Kani toolchain
+        id: kani-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.kani
+            ~/.cargo/bin/cargo-kani
+            ~/.cargo/bin/kani
+          key: ${{ runner.os }}-kani-0.67.0
+
+      - name: Install Kani
+        if: steps.kani-cache.outputs.cache-hit != 'true'
+        run: |
+          cargo install --locked kani-verifier --version 0.67.0
+          cargo kani setup
+
+      # Each harness gets its own timeout and its own log. Running them as one
+      # invocation means a single slow harness hides the results of every
+      # other one, which is exactly what happened the first time this was run
+      # by hand.
+      - name: Discharge each proof harness
+        run: |
+          mkdir -p kani-logs
+          status=0
+          # Ask Kani what its harnesses are rather than grepping for `pub fn`.
+          # A grep silently picks up helpers that carry no `#[kani::proof]`,
+          # and — worse — silently misses a harness whose signature does not
+          # match the pattern, reporting a green run that proved less than it
+          # claimed. `jq` is preinstalled on GitHub runners.
+          cargo kani list --format json > kani-list.json
+          harnesses=$(jq -r '.["standard-harnesses"]
+                             | if type == "object" then (to_entries[] | .value[]) else .[] end' \
+                        kani-list.json | awk -F'::' '{print $NF}')
+          echo "Discovered $(echo "$harnesses" | wc -l) proof harnesses"
+
+          for h in $harnesses; do
+            echo "::group::$h"
+            start=$(date +%s)
+            if timeout 900 cargo kani --no-default-features --harness "$h" \
+                 > "kani-logs/$h.log" 2>&1; then
+              verdict=$(grep -E '^VERIFICATION:' "kani-logs/$h.log" | tail -1)
+              echo "PASS  $h  ($(($(date +%s)-start))s)  $verdict"
+            else
+              rc=$?
+              if [ "$rc" -eq 124 ]; then
+                echo "TIMEOUT  $h  (900s) — see docs/VERIFICATION.md §5"
+              else
+                echo "FAIL  $h  ($(($(date +%s)-start))s)"
+                # Print the counterexample, not the whole solver transcript.
+                sed -n '/^Failed Checks/,/^VERIFICATION/p' "kani-logs/$h.log" || true
+              fi
+              status=1
+            fi
+            echo "::endgroup::"
+          done
+          exit $status
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: kani-logs
+          path: contracts/marketpay-spec/kani-logs/
+          retention-days: 14
+
+  # ── Nightly and on demand ───────────────────────────────────────────────
+  deep-fuzz:
+    name: Extended invariant fuzzing
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: contracts/marketpay-contract
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            contracts/marketpay-contract/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('contracts/marketpay-contract/Cargo.lock') }}
+
+      - name: Fuzz with the invariants as oracles
+        run: cargo test --release --features std --test invariant_fuzz -- --nocapture
+        env:
+          FUZZ_ROUNDS: "100000"
+
+  # ── Nightly and on demand ───────────────────────────────────────────────
+  deep-bmc:
+    name: Deeper bounded model check
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: contracts/marketpay-spec
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Explore one call deeper than the pull-request bound
+        run: cargo test --release -- --nocapture --ignored
+        env:
+          BMC_DEPTH: "9"

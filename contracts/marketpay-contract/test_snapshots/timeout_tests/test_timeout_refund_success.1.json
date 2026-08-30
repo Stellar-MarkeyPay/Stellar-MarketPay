@@ -442,21 +442,6 @@
                         "key": {
                           "vec": [
                             {
-                              "symbol": "TimeoutTimestamp"
-                            },
-                            {
-                              "string": "timeout_job_1"
-                            }
-                          ]
-                        },
-                        "val": {
-                          "u32": 604800
-                        }
-                      },
-                      {
-                        "key": {
-                          "vec": [
-                            {
                               "symbol": "Version"
                             }
                           ]

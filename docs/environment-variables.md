@@ -37,6 +37,18 @@ This page is the single reference for runtime configuration in Stellar MarketPay
 | `ML_RANKING_COLD_START_MIN_HISTORY` |                          No | `2`                                     | Minimum completed jobs before ML ranking is used for a freelancer.                                                                      | `2`                                               |
 | `ML_RANKING_EXPLORATION_BUDGET`     |                          No | `0.15`                                  | Fraction of ranking slots reserved for new-freelancer exploration.                                                                      | `0.15`                                            |
 | `ML_RANKING_MODEL_PATH`             |                          No | `backend/src/ml/defaultModel.json`      | Path to exported model artifact from `ml/train.py`.                                                                                     | `/app/backend/src/ml/defaultModel.json`           |
+| `ML_DRIFT_KS_THRESHOLD`             |                          No | `0.15`                                  | Maximum KS statistic before drift alert.                                                                                                | `0.15`                                            |
+| `ML_DRIFT_PSI_THRESHOLD`            |                          No | `0.2`                                   | Maximum PSI (Population Stability Index) before drift alert.                                                                            | `0.2`                                             |
+| `ML_DRIFT_MIN_SAMPLES`              |                          No | `100`                                   | Minimum samples required for drift detection.                                                                                           | `100`                                             |
+| `ML_DRIFT_WINDOW_HOURS`             |                          No | `24`                                    | Look-back window (hours) for drift detection.                                                                                           | `24`                                              |
+
+### Enterprise federation key
+
+Before enabling enterprise SAML/OIDC in production, set `FEDERATION_HASH_KEY`
+to exactly 32 random bytes encoded as base64 or 64 hexadecimal characters. It
+blind-indexes external subjects and one-time protocol values and must be
+independent from `JWT_SECRET`. Development and test environments derive a
+local-only fallback; production rejects a missing or malformed key.
 
 ## Frontend
 

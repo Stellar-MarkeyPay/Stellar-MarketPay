@@ -1,0 +1,52 @@
+groups:
+  - name: multi-region-replication-alerts
+    rules:
+      - alert: PostgresHighReplicationLag
+        expr: marketpay_replication_lag_seconds > 30
+        for: 1m
+        labels:
+          severity: warning
+          area: database
+        annotations:
+          summary: "PostgreSQL cross-region replication lag warning"
+          description: "Cross-region WAL replay lag on region {{ $labels.region }} is {{ $value }}s, approaching the 60s RPO limit."
+
+      - alert: PostgresCriticalReplicationLag
+        expr: marketpay_replication_lag_seconds > 60
+        for: 30s
+        labels:
+          severity: critical
+          area: database
+        annotations:
+          summary: "PostgreSQL cross-region replication lag BREACH"
+          description: "Cross-region replay lag on region {{ $labels.region }} is {{ $value }}s, exceeding the 60s RPO budget."
+
+      - alert: PostgresFencingLeaseExpired
+        expr: marketpay_fencing_status == 0
+        for: 15s
+        labels:
+          severity: critical
+          area: infra
+        annotations:
+          summary: "Region entered FENCED mode"
+          description: "Region {{ $labels.region }} has lost its fencing lease or detected a network partition and is in read-only fenced mode."
+
+      - alert: PostgresSplitBrainRisk
+        expr: sum(marketpay_fencing_status) > 1
+        for: 5s
+        labels:
+          severity: critical
+          area: security
+        annotations:
+          summary: "SPLIT-BRAIN RISK: Multiple regions claiming active authority"
+          description: "More than one region has marketpay_fencing_status == 1 simultaneously. Immediate operator intervention required."
+
+      - alert: PostgresMultiRegionConflictSurge
+        expr: sum(rate(marketpay_replication_conflicts_total[5m])) * 60 > 5
+        for: 2m
+        labels:
+          severity: warning
+          area: database
+        annotations:
+          summary: "Surge in multi-region write conflicts"
+          description: "Replication conflict rate has exceeded 5 conflicts/min across multi-region writes."

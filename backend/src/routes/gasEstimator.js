@@ -53,7 +53,22 @@ function serialiseEstimate(estimate) {
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/GasEstimateResponse'
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/GasEstimateResponse'
+ *             example:
+ *               success: true
+ *               data:
+ *                 slow: { feeStroops: "100", feeXlm: 0.00001, label: "Slow", description: "Lowest cost, may take longer to confirm", estimatedWaitLedgers: 5 }
+ *                 medium: { feeStroops: "1000", feeXlm: 0.0001, label: "Medium", description: "Balanced cost and confirmation time", estimatedWaitLedgers: 2 }
+ *                 fast: { feeStroops: "10000", feeXlm: 0.001, label: "Fast", description: "Recommended for time-sensitive transactions", estimatedWaitLedgers: 1 }
+ *                 spikeDetected: false
+ *                 fetchedAt: "2026-08-21T12:00:00.000Z"
+ *                 cached: true
  *       502:
  *         description: Unable to reach Horizon
  */
@@ -71,10 +86,32 @@ router.get("/", async (req, res, next) => {
  * /api/gas-estimate/refresh:
  *   get:
  *     summary: Force-refresh gas fee estimates (bypass cache)
+ *     description: >
+ *       Bypasses the 15-second cache and forces a fresh Horizon fee_stats fetch.
+ *       Same response shape as GET /api/gas-estimate, but `cached` will be `false`.
  *     tags: [Gas Estimator]
  *     responses:
  *       200:
  *         description: Fresh fee tier estimates
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/GasEstimateResponse'
+ *             example:
+ *               success: true
+ *               data:
+ *                 slow: { feeStroops: "100", feeXlm: 0.00001, label: "Slow", description: "Lowest cost, may take longer to confirm", estimatedWaitLedgers: 5 }
+ *                 medium: { feeStroops: "1000", feeXlm: 0.0001, label: "Medium", description: "Balanced cost and confirmation time", estimatedWaitLedgers: 2 }
+ *                 fast: { feeStroops: "10000", feeXlm: 0.001, label: "Fast", description: "Recommended for time-sensitive transactions", estimatedWaitLedgers: 1 }
+ *                 spikeDetected: false
+ *                 fetchedAt: "2026-08-21T12:00:05.000Z"
+ *                 cached: false
  *       502:
  *         description: Unable to reach Horizon
  */

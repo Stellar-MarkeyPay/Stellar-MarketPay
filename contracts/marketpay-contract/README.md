@@ -99,6 +99,24 @@ them, and writes them back. Call `migrate()` once immediately after `upgrade()`.
 Old records that are never touched will be read with default values for new
 fields as long as the struct derives `Default` or the fields are `Option<T>`.
 
+### Escrow core v2
+
+The v2 core uses additive storage and lazily converts a v1 escrow on the first
+`get_escrow_v2`/`migrate_escrow_v2` access. Existing entrypoints and the v1
+`Escrow` return type remain available. New settlement APIs are:
+
+- named template publication/reuse and two-party milestone amendments;
+- `create_streaming_escrow`, `withdraw_stream`, `pause_stream`,
+  `resume_stream`, and `cancel_stream`;
+- `rollback_escrow_v2` for an untouched lazy migration.
+
+Architecture and upgrade semantics are in
+[`docs/ESCROW_V2_DESIGN_COMMENT.md`](../../docs/ESCROW_V2_DESIGN_COMMENT.md),
+resource measurements are in
+[`docs/ESCROW_V2_RESOURCE_BASELINE.md`](../../docs/ESCROW_V2_RESOURCE_BASELINE.md),
+and the executable rollback procedure is
+[`scripts/rollback-escrow-v2.sh`](../../scripts/rollback-escrow-v2.sh).
+
 ## XLM SAC Address (Testnet)
 
 ```

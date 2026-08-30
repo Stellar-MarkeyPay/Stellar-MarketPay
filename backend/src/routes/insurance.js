@@ -14,8 +14,94 @@ const router = express.Router();
 const logger = createServiceLogger("insurance_routes");
 
 /**
- * POST /api/insurance/policies
- * Create a new insurance policy for a file
+ * @swagger
+ * /api/insurance/policies:
+ *   post:
+ *     summary: Create a new insurance policy for a file
+ *     description: >
+ *       Creates an insurance policy for a file stored on IPFS or Arweave. The premium is
+ *       calculated as 2% of the declared file value, scaled up to 2x for files larger than
+ *       10MB. Files over 100MB are rejected by the underlying service as a plain error, which
+ *       surfaces as a 500 response rather than a 400 since it isn't caught by this route.
+ *     tags: [Insurance]
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - cid
+ *               - fileSize
+ *               - fileValue
+ *               - storageType
+ *             properties:
+ *               cid:
+ *                 type: string
+ *                 description: Content identifier (IPFS CID or Arweave transaction ID) of the file to insure
+ *                 example: QmT8x1sVjnG6Kn6h8SbXZjZzZzYFq5J5rB6f8Q9Ekz9uVy
+ *               fileSize:
+ *                 type: number
+ *                 description: File size in megabytes (must be > 0, max 100 MB)
+ *                 example: 5.2
+ *               fileValue:
+ *                 type: number
+ *                 description: Declared value of the file in XLM (must be > 0); the premium is 2% of this value, scaled by file size
+ *                 example: 500
+ *               storageType:
+ *                 type: string
+ *                 enum: [ipfs, arweave]
+ *                 description: Storage backend the file is pinned on
+ *                 example: ipfs
+ *     responses:
+ *       201:
+ *         description: Policy created
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 policy:
+ *                   type: object
+ *                   properties:
+ *                     id: { type: integer, example: 42 }
+ *                     cid: { type: string, example: QmT8x1sVjnG6Kn6h8SbXZjZzZzYFq5J5rB6f8Q9Ekz9uVy }
+ *                     premium: { type: number, example: 10 }
+ *                     fileValue: { type: number, example: 500 }
+ *                     status: { type: string, example: active }
+ *                     createdAt: { type: string, format: date-time, example: "2026-08-21T12:00:00.000Z" }
+ *       400:
+ *         description: Missing/invalid `cid`, `fileSize`, `fileValue`, or an unsupported `storageType`
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error: { type: string }
+ *                 message: { type: string }
+ *             example:
+ *               error: Invalid storage type
+ *               message: Storage type must be 'ipfs' or 'arweave'
+ *       401:
+ *         description: Missing or invalid authentication
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: Unauthorized
+ *       500:
+ *         description: Policy creation failed (e.g. file exceeds the 100MB insurable size limit, or the database insert failed)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: File size exceeds maximum insurable size of 100MB
  */
 router.post("/policies", requireAuth, async (req, res, next) => {
   try {
@@ -72,8 +158,54 @@ router.post("/policies", requireAuth, async (req, res, next) => {
 });
 
 /**
- * GET /api/insurance/policies
- * Get user's insurance policies
+ * @swagger
+ * /api/insurance/policies:
+ *   get:
+ *     summary: List the authenticated user's insurance policies
+ *     description: Returns every insured file owned by the authenticated Stellar address.
+ *     tags: [Insurance]
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: Policies retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 policies:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id: { type: integer, example: 42 }
+ *                       cid: { type: string, example: QmT8x1sVjnG6Kn6h8SbXZjZzZzYFq5J5rB6f8Q9Ekz9uVy }
+ *                       fileSize: { type: number, example: 5.2 }
+ *                       fileValue: { type: number, example: 500 }
+ *                       premium: { type: number, example: 10 }
+ *                       status: { type: string, example: active }
+ *                       availabilityScore: { type: number, example: 0.995 }
+ *                       storageType: { type: string, enum: [ipfs, arweave], example: ipfs }
+ *                       lastChecked: { type: string, format: date-time, nullable: true, example: "2026-08-21T11:00:00.000Z" }
+ *                       createdAt: { type: string, format: date-time, example: "2026-08-20T09:00:00.000Z" }
+ *                 count: { type: integer, example: 1 }
+ *       401:
+ *         description: Missing or invalid authentication
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: Unauthorized
+ *       500:
+ *         description: Unexpected error while retrieving policies
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
 router.get("/policies", requireAuth, async (req, res, next) => {
   try {
@@ -107,8 +239,73 @@ router.get("/policies", requireAuth, async (req, res, next) => {
 });
 
 /**
- * GET /api/insurance/policies/:id
- * Get specific policy details
+ * @swagger
+ * /api/insurance/policies/{id}:
+ *   get:
+ *     summary: Get a specific insurance policy
+ *     description: Returns full details for one insured file owned by the authenticated user, including check history.
+ *     tags: [Insurance]
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Insured file (policy) ID
+ *         example: 42
+ *     responses:
+ *       200:
+ *         description: Policy details
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 policy:
+ *                   type: object
+ *                   properties:
+ *                     id: { type: integer, example: 42 }
+ *                     cid: { type: string, example: QmT8x1sVjnG6Kn6h8SbXZjZzZzYFq5J5rB6f8Q9Ekz9uVy }
+ *                     fileSize: { type: number, example: 5.2 }
+ *                     fileValue: { type: number, example: 500 }
+ *                     premium: { type: number, example: 10 }
+ *                     status: { type: string, example: active }
+ *                     availabilityScore: { type: number, example: 0.995 }
+ *                     storageType: { type: string, enum: [ipfs, arweave], example: ipfs }
+ *                     checksTotal: { type: integer, example: 48 }
+ *                     checksPassed: { type: integer, example: 47 }
+ *                     lastChecked: { type: string, format: date-time, nullable: true, example: "2026-08-21T11:00:00.000Z" }
+ *                     createdAt: { type: string, format: date-time, example: "2026-08-20T09:00:00.000Z" }
+ *       401:
+ *         description: Missing or invalid authentication
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: Unauthorized
+ *       404:
+ *         description: Policy not found, or it does not belong to the authenticated user
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error: { type: string }
+ *                 message: { type: string }
+ *             example:
+ *               error: Not found
+ *               message: Policy not found or you don't have permission to view it
+ *       500:
+ *         description: Unexpected error while retrieving the policy
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
 router.get("/policies/:id", requireAuth, async (req, res, next) => {
   try {
@@ -160,8 +357,89 @@ router.get("/policies/:id", requireAuth, async (req, res, next) => {
 });
 
 /**
- * POST /api/insurance/claims
- * Submit an insurance claim for a policy
+ * @swagger
+ * /api/insurance/claims:
+ *   post:
+ *     summary: Submit an insurance claim for an insured file
+ *     description: >
+ *       Verifies the caller owns the file, checks the file's current availability score is
+ *       below the 99% SLA threshold, then evaluates and (if eligible) creates a claim via the
+ *       SLA monitor. If the file already has a non-rejected claim, that existing claim is
+ *       returned instead of creating a duplicate.
+ *     tags: [Insurance]
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - fileId
+ *             properties:
+ *               fileId:
+ *                 type: integer
+ *                 description: ID of the insured file to claim against
+ *                 example: 42
+ *     responses:
+ *       201:
+ *         description: Claim submitted
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 claim:
+ *                   type: object
+ *                   properties:
+ *                     id: { type: integer, example: 7 }
+ *                     fileId: { type: integer, example: 42 }
+ *                     claimAmount: { type: number, example: 500 }
+ *                     status: { type: string, example: pending }
+ *                     createdAt: { type: string, format: date-time, example: "2026-08-21T12:00:00.000Z" }
+ *       400:
+ *         description: Missing `fileId`, file availability is still above the 99% threshold, or claim evaluation determined the file is not eligible
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error: { type: string }
+ *                 message: { type: string }
+ *                 availabilityScore: { type: number }
+ *             example:
+ *               error: Not eligible
+ *               message: File availability is above threshold. No claim can be made.
+ *               availabilityScore: 0.995
+ *       401:
+ *         description: Missing or invalid authentication
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: Unauthorized
+ *       404:
+ *         description: File not found, or it does not belong to the authenticated user
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error: { type: string }
+ *                 message: { type: string }
+ *             example:
+ *               error: Not found
+ *               message: File not found or you don't have permission
+ *       500:
+ *         description: Unexpected error while submitting the claim
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
 router.post("/claims", requireAuth, async (req, res, next) => {
   try {
@@ -239,8 +517,52 @@ router.post("/claims", requireAuth, async (req, res, next) => {
 });
 
 /**
- * GET /api/insurance/claims
- * Get user's insurance claims
+ * @swagger
+ * /api/insurance/claims:
+ *   get:
+ *     summary: List the authenticated user's insurance claims
+ *     description: Returns every insurance claim owned by the authenticated address, newest first, joined with basic file info.
+ *     tags: [Insurance]
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: Claims retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 claims:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id: { type: integer, example: 7 }
+ *                       fileId: { type: integer, example: 42 }
+ *                       cid: { type: string, example: QmT8x1sVjnG6Kn6h8SbXZjZzZzYFq5J5rB6f8Q9Ekz9uVy }
+ *                       claimAmount: { type: number, example: 500 }
+ *                       status: { type: string, example: pending }
+ *                       availabilityScore: { type: number, example: 0.95 }
+ *                       createdAt: { type: string, format: date-time, example: "2026-08-21T12:00:00.000Z" }
+ *                       paidAt: { type: string, format: date-time, nullable: true, example: null }
+ *                 count: { type: integer, example: 1 }
+ *       401:
+ *         description: Missing or invalid authentication
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: Unauthorized
+ *       500:
+ *         description: Unexpected error while retrieving claims
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
 router.get("/claims", requireAuth, async (req, res, next) => {
   try {
@@ -284,8 +606,78 @@ router.get("/claims", requireAuth, async (req, res, next) => {
 });
 
 /**
- * GET /api/insurance/claims/:id
- * Get specific claim details
+ * @swagger
+ * /api/insurance/claims/{id}:
+ *   get:
+ *     summary: Get a specific insurance claim
+ *     description: >
+ *       Returns full claim details, including oracle proof and payout info. Note: if the claim
+ *       ID does not exist, the underlying lookup throws a plain error which is handled by the
+ *       generic error handler as a 500 response rather than a 404.
+ *     tags: [Insurance]
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Insurance claim ID
+ *         example: 7
+ *     responses:
+ *       200:
+ *         description: Claim details
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 claim:
+ *                   type: object
+ *                   properties:
+ *                     id: { type: integer, example: 7 }
+ *                     fileId: { type: integer, example: 42 }
+ *                     cid: { type: string, example: QmT8x1sVjnG6Kn6h8SbXZjZzZzYFq5J5rB6f8Q9Ekz9uVy }
+ *                     claimAmount: { type: number, example: 500 }
+ *                     status: { type: string, example: proof_submitted }
+ *                     evidence: { type: object, nullable: true, example: null }
+ *                     oracleProof: { type: string, nullable: true, example: "ipfs-proof-hash-abc123" }
+ *                     oracleAddress: { type: string, nullable: true, example: GORACLEADDRXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX }
+ *                     payoutTxHash: { type: string, nullable: true, example: null }
+ *                     createdAt: { type: string, format: date-time, example: "2026-08-21T12:00:00.000Z" }
+ *                     proofSubmittedAt: { type: string, format: date-time, nullable: true, example: "2026-08-21T13:00:00.000Z" }
+ *                     paidAt: { type: string, format: date-time, nullable: true, example: null }
+ *       401:
+ *         description: Missing or invalid authentication
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: Unauthorized
+ *       403:
+ *         description: The claim exists but does not belong to the authenticated user
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error: { type: string }
+ *                 message: { type: string }
+ *             example:
+ *               error: Forbidden
+ *               message: You don't have permission to view this claim
+ *       500:
+ *         description: Claim not found, or an unexpected error occurred
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: "Claim 999 not found"
  */
 router.get("/claims/:id", requireAuth, async (req, res, next) => {
   try {
@@ -328,8 +720,83 @@ router.get("/claims/:id", requireAuth, async (req, res, next) => {
 });
 
 /**
- * POST /api/insurance/claims/:id/submit-proof
- * Submit oracle proof for a claim (oracle only)
+ * @swagger
+ * /api/insurance/claims/{id}/submit-proof:
+ *   post:
+ *     summary: Submit oracle proof for a claim
+ *     description: >
+ *       Records proof (e.g. an availability-check attestation) against a claim and moves its
+ *       status to `proof_submitted`. The authenticated caller's address is stored as the
+ *       oracle address; the route does not verify the caller holds any special oracle role.
+ *     tags: [Insurance]
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Insurance claim ID
+ *         example: 7
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - oracleProof
+ *             properties:
+ *               oracleProof:
+ *                 type: string
+ *                 description: Proof payload/hash attesting to the file's (un)availability
+ *                 example: "ipfs-proof-hash-abc123"
+ *     responses:
+ *       200:
+ *         description: Proof recorded
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 claim:
+ *                   type: object
+ *                   properties:
+ *                     id: { type: integer, example: 7 }
+ *                     status: { type: string, example: proof_submitted }
+ *                     oracleAddress: { type: string, example: GORACLEADDRXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX }
+ *                     proofSubmittedAt: { type: string, format: date-time, example: "2026-08-21T13:00:00.000Z" }
+ *       400:
+ *         description: Missing `oracleProof`
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error: { type: string }
+ *                 message: { type: string }
+ *             example:
+ *               error: Missing parameter
+ *               message: oracleProof is required
+ *       401:
+ *         description: Missing or invalid authentication
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: Unauthorized
+ *       500:
+ *         description: Claim not found, or an unexpected error occurred
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: "Claim 999 not found"
  */
 router.post("/claims/:id/submit-proof", requireAuth, async (req, res, next) => {
   try {
@@ -371,8 +838,36 @@ router.post("/claims/:id/submit-proof", requireAuth, async (req, res, next) => {
 });
 
 /**
- * GET /api/insurance/stats
- * Get insurance program statistics
+ * @swagger
+ * /api/insurance/stats:
+ *   get:
+ *     summary: Get insurance program statistics
+ *     description: Public, unauthenticated endpoint returning aggregate stats across all insured files and claims.
+ *     tags: [Insurance]
+ *     responses:
+ *       200:
+ *         description: Statistics retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 stats:
+ *                   type: object
+ *                   properties:
+ *                     activeInsuredFiles: { type: integer, example: 128 }
+ *                     pendingClaims: { type: integer, example: 3 }
+ *                     approvedClaims: { type: integer, example: 12 }
+ *                     totalPremiumsActive: { type: number, example: 640.5 }
+ *                     totalPayoutsIssued: { type: number, example: 1500 }
+ *                     systemAverageAvailability: { type: number, example: 0.998 }
+ *       500:
+ *         description: Unexpected error while retrieving statistics
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
 router.get("/stats", async (req, res, next) => {
   try {

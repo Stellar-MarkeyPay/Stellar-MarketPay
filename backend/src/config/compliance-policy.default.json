@@ -1,0 +1,36 @@
+{
+  "mode": "observe",
+  "prohibitedTerritories": [],
+  "tierLimits": { "0": "0", "1": "1000", "2": "10000", "3": "100000" },
+  "screeningCadenceDays": 1,
+  "verificationValidityDays": 365,
+  "retentionDays": 1825,
+  "travelRule": {
+    "threshold": "1000",
+    "requiredFields": ["fullName", "account", "country"]
+  },
+  "monitoring": {
+    "structuring": {
+      "windowHours": 24,
+      "singleThreshold": "1000",
+      "aggregateThreshold": "3000",
+      "minimumCount": 3
+    },
+    "velocity": { "windowMinutes": 60, "maxCount": 10, "maxAmount": "10000" },
+    "counterparty": {
+      "windowDays": 30,
+      "newCounterpartyAmount": "5000",
+      "fanOutCount": 10
+    }
+  },
+  "riskWeights": {
+    "identity": 0.25,
+    "screening": 0.3,
+    "behaviour": 0.2,
+    "onchain": 0.2,
+    "geography": 0.05
+  },
+  "riskThresholds": { "medium": 35, "high": 60, "critical": 80 },
+  "geo": { "minimumConfidence": 0.8, "conflictAction": "review" },
+  "reports": ["SAR_JSON"]
+}

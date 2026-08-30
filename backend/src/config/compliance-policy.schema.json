@@ -1,0 +1,136 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://marketpay.example/schemas/compliance-policy-v1.json",
+  "title": "MarketPay jurisdiction compliance policy",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "mode",
+    "prohibitedTerritories",
+    "tierLimits",
+    "screeningCadenceDays",
+    "verificationValidityDays",
+    "retentionDays",
+    "travelRule",
+    "monitoring",
+    "riskWeights",
+    "riskThresholds",
+    "geo",
+    "reports"
+  ],
+  "properties": {
+    "mode": { "enum": ["observe", "enforce"] },
+    "prohibitedTerritories": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[A-Z]{2}$" }
+    },
+    "tierLimits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["0", "1", "2", "3"],
+      "properties": {
+        "0": { "$ref": "#/$defs/amount" },
+        "1": { "$ref": "#/$defs/amount" },
+        "2": { "$ref": "#/$defs/amount" },
+        "3": { "$ref": "#/$defs/amount" }
+      }
+    },
+    "screeningCadenceDays": { "type": "integer", "minimum": 1, "maximum": 365 },
+    "verificationValidityDays": { "type": "integer", "minimum": 1, "maximum": 3650 },
+    "retentionDays": { "type": "integer", "minimum": 1, "maximum": 36500 },
+    "travelRule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["threshold", "requiredFields"],
+      "properties": {
+        "threshold": { "$ref": "#/$defs/amount" },
+        "requiredFields": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "monitoring": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["structuring", "velocity", "counterparty"],
+      "properties": {
+        "structuring": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["windowHours", "singleThreshold", "aggregateThreshold", "minimumCount"],
+          "properties": {
+            "windowHours": { "type": "integer", "minimum": 1, "maximum": 720 },
+            "singleThreshold": { "$ref": "#/$defs/amount" },
+            "aggregateThreshold": { "$ref": "#/$defs/amount" },
+            "minimumCount": { "type": "integer", "minimum": 2, "maximum": 1000 }
+          }
+        },
+        "velocity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["windowMinutes", "maxCount", "maxAmount"],
+          "properties": {
+            "windowMinutes": { "type": "integer", "minimum": 1, "maximum": 43200 },
+            "maxCount": { "type": "integer", "minimum": 1, "maximum": 10000 },
+            "maxAmount": { "$ref": "#/$defs/amount" }
+          }
+        },
+        "counterparty": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["windowDays", "newCounterpartyAmount", "fanOutCount"],
+          "properties": {
+            "windowDays": { "type": "integer", "minimum": 1, "maximum": 3650 },
+            "newCounterpartyAmount": { "$ref": "#/$defs/amount" },
+            "fanOutCount": { "type": "integer", "minimum": 2, "maximum": 10000 }
+          }
+        }
+      }
+    },
+    "riskWeights": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["identity", "screening", "behaviour", "onchain", "geography"],
+      "properties": {
+        "identity": { "$ref": "#/$defs/weight" },
+        "screening": { "$ref": "#/$defs/weight" },
+        "behaviour": { "$ref": "#/$defs/weight" },
+        "onchain": { "$ref": "#/$defs/weight" },
+        "geography": { "$ref": "#/$defs/weight" }
+      }
+    },
+    "riskThresholds": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["medium", "high", "critical"],
+      "properties": {
+        "medium": { "$ref": "#/$defs/score" },
+        "high": { "$ref": "#/$defs/score" },
+        "critical": { "$ref": "#/$defs/score" }
+      }
+    },
+    "geo": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["minimumConfidence", "conflictAction"],
+      "properties": {
+        "minimumConfidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "conflictAction": { "enum": ["review", "deny"] }
+      }
+    },
+    "reports": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "enum": ["SAR_JSON", "SAR_XML"] }
+    }
+  },
+  "$defs": {
+    "amount": { "type": ["string", "number"], "pattern": "^[0-9]+(?:\\.[0-9]+)?$" },
+    "weight": { "type": "number", "minimum": 0, "maximum": 1 },
+    "score": { "type": "number", "minimum": 0, "maximum": 100 }
+  }
+}

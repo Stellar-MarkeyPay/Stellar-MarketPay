@@ -1,0 +1,85 @@
+Enterprise federation foundation verification
+=============================================
+Base commit: 83535de31571f4bbeda727e74a7641d802232b19
+Worktree: /tmp/stellar-marketpay-sso-foundation
+Node runtime for modified behavior: v24.18.0
+
+BASELINE
+--------
+Command: git cat-file -e 83535de31571f4bbeda727e74a7641d802232b19:backend/src/db/migrations/V22__enterprise_federation_foundation.up.sql
+Output:
+fatal: path 'backend/src/db/migrations/V22__enterprise_federation_foundation.up.sql' exists on disk, but not in '83535de31571f4bbeda727e74a7641d802232b19'
+Exit status: 128
+
+Command: git cat-file -e 83535de31571f4bbeda727e74a7641d802232b19:backend/src/services/federation/transactionAuthorization.js
+Output:
+fatal: path 'backend/src/services/federation/transactionAuthorization.js' exists on disk, but not in '83535de31571f4bbeda727e74a7641d802232b19'
+Exit status: 128
+
+MODIFIED — focused unit and migration-runner behavior
+-----------------------------------------------------
+Command: NODE_ENV=test JWT_SECRET=test-federation-jwt-secret npm run test:unit -- --runInBand src/services/federation src/db/migrate.test.js
+Output:
+
+> stellar-marketpay-backend@1.0.0 test:unit
+> jest --runInBand src/services/federation src/db/migrate.test.js
+
+
+Test Suites: 6 passed, 6 total
+Tests:       25 passed, 25 total
+Snapshots:   0 total
+Time:        0.801 s, estimated 1 s
+Ran all test suites matching src/services/federation|src/db/migrate.test.js.
+Exit status: 0
+
+MODIFIED — real PostgreSQL apply/rollback
+-----------------------------------------
+Input: a disposable PostgreSQL database containing only profiles(public_key TEXT PRIMARY KEY)
+Command: psql -v ON_ERROR_STOP=1 -f V22__enterprise_federation_foundation.up.sql; count the eight tables; psql -v ON_ERROR_STOP=1 -f V22__enterprise_federation_foundation.down.sql; recount
+Output:
+tables_after_up=8
+tables_after_down=0
+Exit status (up/count/down/count): 0/0/0/0
+
+MODIFIED — full backend CI behavior
+-----------------------------------
+Command: Node v24.18.0 npm test with a disposable PostgreSQL database and a freshly flushed dedicated Redis database
+Output:
+Test Suites: 66 passed, 66 total
+Tests:       581 passed, 581 total
+Snapshots:   0 total
+Time:        19.26 s
+Ran all test suites.
+Exit status: 0
+
+MODIFIED — repository gates
+---------------------------
+Command: npm run format:check
+Output:
+Checking formatting...
+All matched files use Prettier code style!
+Exit status: 0
+
+Command: npm run lint && npm run type-check
+Output:
+Frontend lint: passed with eight pre-existing warnings
+Backend ESLint: passed
+Frontend TypeScript: passed
+Exit status: 0
+
+Command: node policy/cli.js check --stage ci --source staged
+Output:
+policy 1.0.0 · stage ci
+  All policies passed.
+Exit status: 0
+
+MODIFIED — database security constraints
+----------------------------------------
+Input: two organisations, one active membership and one enabled OIDC provider
+Command: attempt a cross-tenant identity, an unverified transaction-enabled binding, a duplicate state hash, and an untimestamped deprovision in PostgreSQL 16
+Output:
+cross_tenant_identity=blocked
+unverified_transaction_binding=blocked
+replayed_state=blocked
+untimestamped_deprovision=blocked
+Exit status: 0

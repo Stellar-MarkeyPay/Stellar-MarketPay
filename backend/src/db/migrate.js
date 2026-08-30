@@ -34,16 +34,38 @@ function loadMigrationPairs() {
 async function ensureMigrationsTable(client) {
   await client.query(`
     CREATE TABLE IF NOT EXISTS schema_migrations (
-      version INTEGER PRIMARY KEY,
+      version INTEGER NOT NULL,
       name TEXT NOT NULL,
-      applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (version, name)
     )
+  `);
+
+  // Multiple independently landed features already share a numeric migration
+  // version. Upgrade legacy journals in place so each named file is applied
+  // exactly once instead of silently skipping the second file at a version.
+  await client.query(`
+    DO $$
+    BEGIN
+      IF EXISTS (
+        SELECT 1
+          FROM pg_constraint
+         WHERE conrelid = 'schema_migrations'::regclass
+           AND conname = 'schema_migrations_pkey'
+           AND pg_get_constraintdef(oid) = 'PRIMARY KEY (version)'
+      ) THEN
+        ALTER TABLE schema_migrations DROP CONSTRAINT schema_migrations_pkey;
+        ALTER TABLE schema_migrations
+          ADD CONSTRAINT schema_migrations_pkey PRIMARY KEY (version, name);
+      END IF;
+    END
+    $$
   `);
 }
 
-async function getAppliedVersions(client) {
-  const { rows } = await client.query("SELECT version FROM schema_migrations");
-  return new Set(rows.map((r) => Number(r.version)));
+async function getAppliedMigrations(client) {
+  const { rows } = await client.query("SELECT name FROM schema_migrations");
+  return new Set(rows.map((r) => r.name));
 }
 
 async function migrate() {
@@ -51,11 +73,11 @@ async function migrate() {
   try {
     await ensureMigrationsTable(client);
     const migrations = loadMigrationPairs();
-    const applied = await getAppliedVersions(client);
+    const applied = await getAppliedMigrations(client);
 
     for (const migration of migrations) {
-      if (applied.has(migration.version)) {
-        console.log(`⏭️  Skipping V${migration.version} (already applied)`);
+      if (applied.has(migration.name)) {
+        console.log(`⏭️  Skipping ${migration.name} (already applied)`);
         continue;
       }
 
@@ -67,13 +89,14 @@ async function migrate() {
           migration.name,
         ]);
         await client.query("COMMIT");
-        console.log(`✅ Applied V${migration.version}`);
+        applied.add(migration.name);
+        console.log(`✅ Applied ${migration.name}`);
       } catch (err) {
         await client.query("ROLLBACK");
         // Handle duplicate key error gracefully
         if (err.code === "23505" && err.constraint === "schema_migrations_pkey") {
-          console.log(`⏭️  Skipping V${migration.version} (already applied, duplicate key)`);
-          applied.add(migration.version);
+          console.log(`⏭️  Skipping ${migration.name} (already applied, duplicate key)`);
+          applied.add(migration.name);
           continue;
         }
         throw err;
@@ -90,7 +113,10 @@ async function rollbackLastMigration() {
   try {
     await ensureMigrationsTable(client);
     const { rows } = await client.query(
-      "SELECT version, name FROM schema_migrations ORDER BY version DESC LIMIT 1"
+      `SELECT version, name
+         FROM schema_migrations
+        ORDER BY version DESC, applied_at DESC, name DESC
+        LIMIT 1`
     );
 
     if (!rows.length) return null;
@@ -106,7 +132,10 @@ async function rollbackLastMigration() {
     await client.query("BEGIN");
     try {
       await client.query(downSql);
-      await client.query("DELETE FROM schema_migrations WHERE version = $1", [last.version]);
+      await client.query("DELETE FROM schema_migrations WHERE version = $1 AND name = $2", [
+        last.version,
+        last.name,
+      ]);
       await client.query("COMMIT");
     } catch (err) {
       await client.query("ROLLBACK");

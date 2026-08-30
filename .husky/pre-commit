@@ -1,2 +1,5 @@
-export PATH=$PATH:$HOME/.nvm/versions/node/v24.18.0/bin
-npx lint-staged
+#!/usr/bin/env sh
+set -eu
+
+ROOT=$(git rev-parse --show-toplevel)
+exec "$ROOT/scripts/hooks/launch.sh" pre-commit

@@ -1,9 +1,14 @@
 /**
  * ML ranking service — serves ranked job/freelancer recommendations with
  * cold-start fallback, fairness exploration, and shadow-mode logging.
+ *
+ * Issue #265 — Productionise the ML pipeline
+ * Added: model unavailability detection, deterministic fallback, drift monitoring,
+ * model registry integration, Prometheus metrics.
  */
 "use strict";
 
+const promClient = require("prom-client");
 const pool = require("../db/pool");
 const { getRecommendations } = require("./recommendationService");
 const {
@@ -12,10 +17,41 @@ const {
   loadFreelancerProfile,
   loadJobRow,
 } = require("../ml/featureEngineering");
-const { rankItems, getModelMetadata } = require("../ml/ranker");
+const { rankItems, getModelMetadata, isModelUnavailable } = require("../ml/ranker");
 const { createServiceLogger } = require("../utils/logger");
 
 const logger = createServiceLogger("ml-ranking");
+
+// ── Prometheus metrics ────────────────────────────────────────────
+
+const mlRankingRequestsTotal = new promClient.Counter({
+  name: "ml_ranking_requests_total",
+  help: "Total ML ranking requests",
+  labelNames: ["endpoint", "source"],
+});
+
+const mlRankingLatencySeconds = new promClient.Histogram({
+  name: "ml_ranking_latency_seconds",
+  help: "ML ranking request latency in seconds",
+  labelNames: ["endpoint"],
+  buckets: [0.05, 0.1, 0.2, 0.5, 1, 2],
+});
+
+const mlModelUnavailable = new promClient.Gauge({
+  name: "ml_model_unavailable",
+  help: "1 if the ML model file is unavailable, 0 otherwise",
+});
+
+const mlDriftPsiScore = new promClient.Gauge({
+  name: "ml_drift_psi_score",
+  help: "Latest Population Stability Index for prediction drift",
+});
+
+const mlDriftAlertsTotal = new promClient.Counter({
+  name: "ml_drift_alerts_total",
+  help: "Total drift alerts raised",
+  labelNames: ["type"],
+});
 
 function mapJobRow(row) {
   return {
@@ -208,30 +244,21 @@ async function getRankedJobsForFreelancer(publicKey, limit = CONFIG.defaultLimit
   const started = Date.now();
   validatePublicKey(publicKey);
 
+  mlModelUnavailable.set(isModelUnavailable() ? 1 : 0);
+
   const safeLimit = Math.min(Math.max(Number(limit) || CONFIG.defaultLimit, 1), 50);
   const freelancerProfile = await loadFreelancerProfile(publicKey);
 
-  if (!CONFIG.enabled || isColdStart(freelancerProfile)) {
-    const baseline = await baselineJobsForFreelancer(publicKey, safeLimit);
-    const jobs = await fetchOpenJobsForFreelancer(publicKey, safeLimit);
-    const jobMap = new Map(jobs.map((j) => [j.id, mapJobRow(j)]));
+  if (!CONFIG.enabled || isColdStart(freelancerProfile) || isModelUnavailable()) {
+    const reason = isModelUnavailable()
+      ? "model_unavailable"
+      : isColdStart(freelancerProfile)
+        ? "cold_start"
+        : "model_disabled";
+    const data = await getDeterministicFallbackJobs(publicKey, safeLimit);
 
-    const data = baseline
-      .map((b) => {
-        const job = jobMap.get(b.id);
-        if (!job) return null;
-        return { ...job, matchScore: b.matchScore, rankingSource: "baseline" };
-      })
-      .filter(Boolean);
-
-    if (data.length < safeLimit) {
-      for (const row of jobs) {
-        if (data.length >= safeLimit) break;
-        if (!data.find((d) => d.id === row.id)) {
-          data.push({ ...mapJobRow(row), matchScore: 50, rankingSource: "baseline" });
-        }
-      }
-    }
+    mlRankingRequestsTotal.inc({ endpoint: "jobs", source: "fallback" });
+    mlRankingLatencySeconds.observe({ endpoint: "jobs" }, (Date.now() - started) / 1000);
 
     await logShadowEvent({
       mode: "jobs_for_freelancer",
@@ -246,7 +273,7 @@ async function getRankedJobsForFreelancer(publicKey, limit = CONFIG.defaultLimit
       data,
       meta: {
         source: "baseline",
-        reason: isColdStart(freelancerProfile) ? "cold_start" : "model_disabled",
+        reason,
         latencyMs: Date.now() - started,
         model: getModelMetadata(),
       },
@@ -276,6 +303,9 @@ async function getRankedJobsForFreelancer(publicKey, limit = CONFIG.defaultLimit
 
   const latencyMs = Date.now() - started;
   const baseline = await baselineJobsForFreelancer(publicKey, safeLimit);
+
+  mlRankingRequestsTotal.inc({ endpoint: "jobs", source: "ml" });
+  mlRankingLatencySeconds.observe({ endpoint: "jobs" }, latencyMs / 1000);
 
   await logShadowEvent({
     mode: "jobs_for_freelancer",
@@ -316,24 +346,13 @@ async function getRankedFreelancersForJob(jobId, limit = CONFIG.defaultLimit) {
     throw e;
   }
 
-  if (!CONFIG.enabled) {
-    const baseline = await baselineFreelancers(safeLimit);
-    const { rows } = await pool.query(`SELECT * FROM profiles WHERE public_key = ANY($1::text[])`, [
-      baseline.map((b) => b.publicKey),
-    ]);
-    const profileMap = new Map(rows.map((r) => [r.public_key, mapProfileRow(r)]));
-
-    const data = baseline
-      .map((b) => {
-        const profile = profileMap.get(b.publicKey);
-        if (!profile) return null;
-        return { ...profile, matchScore: b.matchScore, rankingSource: "baseline" };
-      })
-      .filter(Boolean);
+  if (!CONFIG.enabled || isModelUnavailable()) {
+    const reason = isModelUnavailable() ? "model_unavailable" : "model_disabled";
+    const data = await getDeterministicFallbackFreelancers(jobId, safeLimit);
 
     return {
       data,
-      meta: { source: "baseline", reason: "model_disabled", latencyMs: Date.now() - started },
+      meta: { source: "baseline", reason, latencyMs: Date.now() - started },
     };
   }
 
@@ -447,10 +466,106 @@ async function runFairnessAudit() {
   return audit;
 }
 
+// ── Drift monitoring (Phase 4 integration) ────────────────────────
+
+async function getDriftStatus() {
+  try {
+    const { runDriftCheck } = require("../ml/driftMonitor");
+    const result = await runDriftCheck();
+
+    // Update Prometheus metrics
+    if (result.predictionDrift?.psi != null) {
+      mlDriftPsiScore.set(result.predictionDrift.psi);
+    }
+    if (result.predictionDrift?.drift) {
+      mlDriftAlertsTotal.inc({ type: "prediction_drift" });
+    }
+
+    return result;
+  } catch (err) {
+    return { status: "error", message: err.message };
+  }
+}
+
+// ── Model registry (Phase 3 integration) ──────────────────────────
+
+async function getModelRegistryInfo() {
+  try {
+    const { getProductionModel, getModelHistory } = require("../ml/modelRegistry");
+    const production = getProductionModel();
+    const history = getModelHistory(10);
+    return { production, history };
+  } catch (err) {
+    return { production: null, history: [], error: err.message };
+  }
+}
+
+async function rollbackModel(targetVersion) {
+  try {
+    const { rollbackModel: rollback } = require("../ml/modelRegistry");
+    return rollback(targetVersion);
+  } catch (err) {
+    return { success: false, message: err.message };
+  }
+}
+
+// ── Deterministic fallback (Phase 5 acceptance criterion) ────────
+
+/**
+ * When the model is unavailable (file missing, corrupt, or unparseable),
+ * the system degrades to a deterministic non-ML ordering based on
+ * completion rate + recency — the same ordering used for cold-start
+ * freelancers.
+ */
+async function getDeterministicFallbackJobs(publicKey, limit) {
+  const jobs = await fetchOpenJobsForFreelancer(publicKey, limit * 2);
+
+  const scored = jobs.map((row) => {
+    const recency = Math.exp(
+      -Math.max((Date.now() - new Date(row.created_at).getTime()) / (1000 * 60 * 60 * 24), 0) / 30
+    );
+    return {
+      ...mapJobRow(row),
+      matchScore: Math.round(recency * 50 + 25),
+      rankingSource: "deterministic_fallback",
+    };
+  });
+
+  scored.sort((a, b) => b.matchScore - a.matchScore);
+  return scored.slice(0, limit);
+}
+
+async function getDeterministicFallbackFreelancers(jobId, limit) {
+  const { rows } = await pool.query(
+    `
+    SELECT p.*, j.category
+    FROM profiles p
+    CROSS JOIN jobs j
+    WHERE j.id = $1
+      AND p.role IN ('freelancer', 'both')
+      AND (p.availability->>'status' IS NULL OR p.availability->>'status' = 'available')
+    ORDER BY p.completed_jobs DESC, p.updated_at DESC
+    LIMIT $2
+    `,
+    [jobId, limit]
+  );
+
+  return rows.map((r) => ({
+    ...mapProfileRow(r),
+    matchScore: Math.min(100, 40 + (Number(r.completed_jobs) || 0) * 2),
+    rankingSource: "deterministic_fallback",
+  }));
+}
+
 module.exports = {
   CONFIG,
   getRankedJobsForFreelancer,
   getRankedFreelancersForJob,
   getShadowModeStats,
   runFairnessAudit,
+  getDriftStatus,
+  getModelRegistryInfo,
+  rollbackModel,
+  getDeterministicFallbackJobs,
+  getDeterministicFallbackFreelancers,
 };

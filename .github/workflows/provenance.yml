@@ -1,0 +1,95 @@
+# Build provenance for the release wasm.
+#
+# A deployed Soroban contract is a hash on-chain. Without an attestation there
+# is nothing tying that hash to a reviewed commit in this repository, so
+# "which code is holding the escrowed funds" is answered by trust rather than
+# by evidence.
+#
+# This workflow builds the contract from a tagged commit, records the wasm's
+# SHA-256, and signs a SLSA provenance statement through GitHub's attestation
+# service. Anyone can then verify a deployed hash:
+#
+#   gh attestation verify marketpay_contract.wasm --repo <owner>/<repo>
+#
+# See docs/PROVENANCE.md.
+
+name: Release Provenance
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Tag or commit to build and attest"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write # required to sign the attestation
+  attestations: write
+
+jobs:
+  attest:
+    name: Build and attest the contract wasm
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: contracts/marketpay-contract
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref || github.ref }}
+          fetch-depth: 0
+
+      # The attestation is worthless if the commit it names was not itself
+      # reviewed. Evaluating the policy set over the released range is what
+      # makes "traceable to a specific reviewed commit" true rather than
+      # aspirational.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Verify the released commit satisfies the policy set
+        working-directory: ${{ github.workspace }}
+        run: node policy/cli.js check --stage ci --source range --base auto
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Build the release wasm
+        run: cargo build --target wasm32-unknown-unknown --release --locked
+
+      - name: Record the artefact digest
+        id: digest
+        run: |
+          set -euo pipefail
+          wasm=target/wasm32-unknown-unknown/release/marketpay_contract.wasm
+          sha="$(sha256sum "$wasm" | cut -d' ' -f1)"
+          echo "sha256=$sha" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Contract build provenance"
+            echo
+            echo "| | |"
+            echo "| --- | --- |"
+            echo "| commit | \`${{ github.sha }}\` |"
+            echo "| wasm sha256 | \`$sha\` |"
+            echo
+            echo "Verify a deployed contract with:"
+            echo '```'
+            echo "gh attestation verify marketpay_contract.wasm --repo ${{ github.repository }}"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-path: >-
+            contracts/marketpay-contract/target/wasm32-unknown-unknown/release/marketpay_contract.wasm
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: marketpay-contract-wasm
+          path: contracts/marketpay-contract/target/wasm32-unknown-unknown/release/marketpay_contract.wasm
+          retention-days: 90

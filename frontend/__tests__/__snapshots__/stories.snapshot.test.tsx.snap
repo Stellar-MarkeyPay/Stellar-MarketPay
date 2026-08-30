@@ -1,0 +1,598 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`Primitives and Story Snapshot Regression Tests renders Badge variants 1`] = `
+<span
+  class="inline-flex items-center rounded-full border font-medium tracking-wide px-2.5 py-0.5 text-xs gap-1.5 bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+>
+  <span
+    class="w-1.5 h-1.5 rounded-full shrink-0 bg-emerald-400"
+  />
+  Open
+</span>
+`;
+
+exports[`Primitives and Story Snapshot Regression Tests renders Badge variants 2`] = `
+<span
+  class="inline-flex items-center rounded-full border font-medium tracking-wide px-2.5 py-0.5 text-xs gap-1.5 bg-amber-500/10 text-amber-300 border-amber-500/25"
+>
+  <span
+    class="w-1.5 h-1.5 rounded-full shrink-0 bg-amber-400"
+  />
+  In Progress
+</span>
+`;
+
+exports[`Primitives and Story Snapshot Regression Tests renders Badge variants 3`] = `
+<span
+  class="inline-flex items-center rounded-full border font-medium tracking-wide px-2.5 py-0.5 text-xs gap-1.5 bg-blue-500/10 text-blue-400 border-blue-500/20"
+>
+  <span
+    class="w-1.5 h-1.5 rounded-full shrink-0 bg-blue-400"
+  />
+  Complete
+</span>
+`;
+
+exports[`Primitives and Story Snapshot Regression Tests renders Badge variants 4`] = `
+<span
+  class="inline-flex items-center rounded-full border font-medium tracking-wide px-2.5 py-0.5 text-xs gap-1.5 bg-market-500/15 text-market-300 border-market-500/30"
+>
+  ⚡ Featured
+</span>
+`;
+
+exports[`Primitives and Story Snapshot Regression Tests renders Button variants and sizes 1`] = `
+<button
+  class="inline-flex items-center justify-center transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-ink-900 disabled:opacity-40 disabled:cursor-not-allowed select-none bg-market-500 hover:bg-market-400 text-ink-900 font-semibold focus:ring-market-400 px-4 sm:px-6 py-2.5 sm:py-3 text-sm min-h-[44px] rounded-xl gap-2"
+  type="button"
+>
+  <span
+    class="truncate"
+  >
+    Primary Button
+  </span>
+</button>
+`;
+
+exports[`Primitives and Story Snapshot Regression Tests renders Button variants and sizes 2`] = `
+<button
+  class="inline-flex items-center justify-center transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-ink-900 disabled:opacity-40 disabled:cursor-not-allowed select-none border border-market-500/30 hover:border-market-500/60 text-market-400 bg-market-500/5 hover:bg-market-500/10 font-medium focus:ring-market-400 px-4 sm:px-6 py-2.5 sm:py-3 text-sm min-h-[44px] rounded-xl gap-2"
+  type="button"
+>
+  <span
+    class="truncate"
+  >
+    Secondary Button
+  </span>
+</button>
+`;
+
+exports[`Primitives and Story Snapshot Regression Tests renders Button variants and sizes 3`] = `
+<button
+  class="inline-flex items-center justify-center transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-ink-900 disabled:opacity-40 disabled:cursor-not-allowed select-none text-market-500 hover:bg-market-500/10 font-medium border-transparent focus:ring-market-400 px-4 sm:px-6 py-2.5 sm:py-3 text-sm min-h-[44px] rounded-xl gap-2"
+  type="button"
+>
+  <span
+    class="truncate"
+  >
+    Ghost Button
+  </span>
+</button>
+`;
+
+exports[`Primitives and Story Snapshot Regression Tests renders Button variants and sizes 4`] = `
+<button
+  class="inline-flex items-center justify-center transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-ink-900 disabled:opacity-40 disabled:cursor-not-allowed select-none bg-red-500/15 hover:bg-red-500/25 text-red-400 border border-red-500/30 font-medium focus:ring-red-400 px-4 sm:px-6 py-2.5 sm:py-3 text-sm min-h-[44px] rounded-xl gap-2"
+  type="button"
+>
+  <span
+    class="truncate"
+  >
+    Danger Button
+  </span>
+</button>
+`;
+
+exports[`Primitives and Story Snapshot Regression Tests renders Button variants and sizes 5`] = `
+<button
+  class="inline-flex items-center justify-center transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-ink-900 disabled:opacity-40 disabled:cursor-not-allowed select-none bg-market-500 hover:bg-market-400 text-ink-900 font-semibold focus:ring-market-400 px-4 sm:px-6 py-2.5 sm:py-3 text-sm min-h-[44px] rounded-xl gap-2"
+  disabled=""
+  type="button"
+>
+  <svg
+    class="animate-spin animate-spin shrink-0 w-4 h-4"
+    fill="none"
+    viewBox="0 0 24 24"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <circle
+      class="opacity-25"
+      cx="12"
+      cy="12"
+      r="10"
+      stroke="currentColor"
+      stroke-width="4"
+    />
+    <path
+      class="opacity-75"
+      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+      fill="currentColor"
+    />
+  </svg>
+  <span
+    class="truncate"
+  >
+    Loading Button
+  </span>
+</button>
+`;
+
+exports[`Primitives and Story Snapshot Regression Tests renders Card container and hover states 1`] = `
+<div
+  class="rounded-2xl border border-[rgba(251,191,36,0.12)] bg-ink-800 text-amber-100 transition-all duration-200 p-5 sm:p-6 hover:border-market-500/40 hover:bg-ink-700 hover:shadow-xl cursor-pointer"
+>
+  <div
+    class="mb-4 pb-3 border-b border-market-500/10"
+  >
+    <h3>
+      Card Title
+    </h3>
+  </div>
+  <div>
+    <p>
+      Card body content
+    </p>
+  </div>
+  <div
+    class="mt-4 pt-3 border-t border-market-500/10"
+  >
+    <p>
+      Footer
+    </p>
+  </div>
+</div>
+`;
+
+exports[`Primitives and Story Snapshot Regression Tests renders FreelancerProfileSkeleton and ProgressBar 1`] = `
+<div
+  aria-busy="true"
+  class="card space-y-4 animate-pulse"
+>
+  <div
+    class="flex items-center gap-4"
+  >
+    <div
+      class="h-20 w-20 rounded-full bg-market-500/10"
+    />
+    <div
+      class="h-6 w-48 bg-market-500/10 rounded"
+    />
+  </div>
+  <div
+    class="space-y-2"
+  >
+    <div
+      class="h-4 w-full bg-market-500/10 rounded"
+    />
+    <div
+      class="h-4 w-5/6 bg-market-500/10 rounded"
+    />
+    <div
+      class="h-4 w-4/6 bg-market-500/10 rounded"
+    />
+  </div>
+  <div
+    class="flex gap-4"
+  >
+    <div
+      class="flex-1 h-12 bg-market-500/10 rounded border border-market-500/15"
+    />
+    <div
+      class="flex-1 h-12 bg-market-500/10 rounded border border-market-500/15"
+    />
+    <div
+      class="flex-1 h-12 bg-market-500/10 rounded border border-market-500/15"
+    />
+  </div>
+  <div
+    class="flex flex-wrap gap-2"
+  >
+    <div
+      class="h-6 w-16 bg-market-500/10 rounded-full"
+    />
+    <div
+      class="h-6 w-20 bg-market-500/10 rounded-full"
+    />
+    <div
+      class="h-6 w-14 bg-market-500/10 rounded-full"
+    />
+    <div
+      class="h-6 w-18 bg-market-500/10 rounded-full"
+    />
+    <div
+      class="h-6 w-12 bg-market-500/10 rounded-full"
+    />
+  </div>
+</div>
+`;
+
+exports[`Primitives and Story Snapshot Regression Tests renders FreelancerProfileSkeleton and ProgressBar 2`] = `
+<div
+  class="w-full"
+>
+  <div
+    class="flex items-center justify-between text-xs mb-2"
+  >
+    <span
+      class="text-amber-700 font-medium"
+    >
+      Profile Completion
+    </span>
+    <span
+      class="font-mono font-semibold text-market-400"
+    >
+      3
+      /
+      4
+       (
+      75
+      %)
+    </span>
+  </div>
+  <div
+    class="w-full bg-ink-900 rounded-full overflow-hidden border border-market-500/10 h-2"
+  >
+    <div
+      class="h-full transition-all duration-500 rounded-full bg-gradient-to-r from-market-500 to-market-400"
+      style="width: 75%;"
+    />
+  </div>
+</div>
+`;
+
+exports[`Primitives and Story Snapshot Regression Tests renders Input with label and error states 1`] = `
+<div
+  class="flex flex-col gap-1.5 w-full"
+>
+  <label
+    class="label"
+    for="project-title"
+  >
+    Project Title
+  </label>
+  <div
+    class="relative flex items-center"
+  >
+    <input
+      class="w-full rounded-xl bg-ink-700 border border-[rgba(251,191,36,0.18)] px-4 py-2.5 sm:py-3 text-amber-100 placeholder-amber-900/50 text-sm font-body min-h-[44px] focus:outline-none focus:border-market-500/50 focus:ring-1 focus:ring-market-500/30 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200"
+      id="project-title"
+      placeholder="Enter title"
+    />
+  </div>
+  <p
+    class="text-xs text-amber-700"
+  >
+    Helpful tip
+  </p>
+</div>
+`;
+
+exports[`Primitives and Story Snapshot Regression Tests renders Input with label and error states 2`] = `
+<div
+  class="flex flex-col gap-1.5 w-full"
+>
+  <label
+    class="label"
+    for="budget"
+  >
+    Budget
+  </label>
+  <div
+    class="relative flex items-center"
+  >
+    <input
+      class="w-full rounded-xl bg-ink-700 border border-[rgba(251,191,36,0.18)] px-4 py-2.5 sm:py-3 text-amber-100 placeholder-amber-900/50 text-sm font-body min-h-[44px] focus:outline-none focus:border-market-500/50 focus:ring-1 focus:ring-market-500/30 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200 border-red-500/50 focus:border-red-500 focus:ring-red-500/30"
+      id="budget"
+      value="-10"
+    />
+  </div>
+  <p
+    class="text-xs text-red-400 font-medium"
+  >
+    Budget must be greater than 0
+  </p>
+</div>
+`;
+
+exports[`Primitives and Story Snapshot Regression Tests renders JobCompletionPredictionPanel 1`] = `
+<div
+  class="rounded-xl border border-market-500/20 bg-market-500/5 p-4"
+>
+  <div
+    class="flex items-center justify-between gap-3 mb-3"
+  >
+    <h4
+      class="font-display text-sm font-semibold text-amber-100"
+    >
+      Completion Prediction
+    </h4>
+    <span
+      class="text-xs px-2.5 py-1 rounded-full border font-medium text-emerald-400 border-emerald-500/30 bg-emerald-500/10"
+    >
+      85
+      % confidence
+    </span>
+  </div>
+  <div
+    class="grid sm:grid-cols-3 gap-4 text-sm"
+  >
+    <div>
+      <p
+        class="text-xs text-amber-700 mb-1"
+      >
+        Estimated Duration
+      </p>
+      <p
+        class="font-mono text-market-400"
+      >
+        10
+         day
+        s
+      </p>
+    </div>
+    <div>
+      <p
+        class="text-xs text-amber-700 mb-1"
+      >
+        Estimated Completion
+      </p>
+      <p
+        class="font-mono text-amber-200"
+      >
+        5/1/2026
+      </p>
+    </div>
+    <div>
+      <p
+        class="text-xs text-amber-700 mb-1"
+      >
+        On-Time Rate
+      </p>
+      <p
+        class="font-mono text-emerald-400"
+      >
+        94%
+      </p>
+    </div>
+  </div>
+  <div
+    class="mt-3 flex flex-wrap gap-3 text-xs text-amber-800"
+  >
+    <span>
+      15
+       completed jobs
+    </span>
+    <span>
+      Rating 
+      4.8
+    </span>
+  </div>
+</div>
+`;
+
+exports[`Primitives and Story Snapshot Regression Tests renders Modal when open 1`] = `
+<div
+  aria-modal="true"
+  class="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in"
+  role="dialog"
+>
+  <div
+    class="absolute inset-0 bg-ink-950/80 backdrop-blur-sm transition-opacity"
+  />
+  <div
+    class="relative w-full rounded-2xl border border-market-500/20 bg-ink-900 p-6 shadow-2xl animate-scale-in max-w-md"
+  >
+    <div
+      class="flex items-start justify-between gap-4 mb-4"
+    >
+      <div>
+        <h2
+          class="font-display text-xl font-bold text-amber-100"
+        >
+          Escrow Confirmation
+        </h2>
+        <p
+          class="text-xs text-amber-700 mt-1"
+        >
+          Verify transaction details before signing
+        </p>
+      </div>
+      <button
+        aria-label="Close dialog"
+        class="shrink-0 text-amber-700 hover:text-amber-300 transition-colors p-1 rounded-lg"
+        type="button"
+      >
+        <svg
+          fill="none"
+          height="18"
+          stroke="currentColor"
+          stroke-width="2"
+          viewBox="0 0 24 24"
+          width="18"
+        >
+          <path
+            d="M6 18L18 6M6 6l12 12"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+      </button>
+    </div>
+    <div
+      class="text-amber-200 text-sm"
+    >
+      <p>
+        Escrow amount: 500 XLM
+      </p>
+    </div>
+    <div
+      class="mt-6 pt-4 border-t border-market-500/10 flex items-center justify-end gap-3"
+    >
+      <button
+        class="inline-flex items-center justify-center transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-ink-900 disabled:opacity-40 disabled:cursor-not-allowed select-none bg-market-500 hover:bg-market-400 text-ink-900 font-semibold focus:ring-market-400 px-3 py-1.5 text-xs min-h-[36px] rounded-lg gap-1.5"
+        type="button"
+      >
+        <span
+          class="truncate"
+        >
+          Confirm
+        </span>
+      </button>
+    </div>
+  </div>
+</div>
+`;
+
+exports[`Primitives and Story Snapshot Regression Tests renders Skeleton variants 1`] = `
+<div
+  class="bg-market-500/10 animate-pulse h-4 w-full rounded-md"
+  style="width: 80%;"
+/>
+`;
+
+exports[`Primitives and Story Snapshot Regression Tests renders Skeleton variants 2`] = `
+<div
+  class="bg-market-500/10 animate-pulse rounded-full shrink-0"
+  style="width: 48px; height: 48px;"
+/>
+`;
+
+exports[`Primitives and Story Snapshot Regression Tests renders Skeleton variants 3`] = `
+<div
+  class="rounded-2xl border border-market-500/10 bg-ink-800 p-6 space-y-4 animate-pulse"
+>
+  <div
+    class="h-5 w-2/5 rounded-md bg-market-500/15"
+  />
+  <div
+    class="space-y-2"
+  >
+    <div
+      class="h-3.5 w-full rounded bg-market-500/10"
+    />
+    <div
+      class="h-3.5 w-4/5 rounded bg-market-500/10"
+    />
+  </div>
+  <div
+    class="h-8 w-1/3 rounded-xl bg-market-500/15"
+  />
+</div>
+`;
+
+exports[`Primitives and Story Snapshot Regression Tests renders StatCard with trend indicator 1`] = `
+<div
+  class="rounded-2xl border p-5 bg-ink-800 transition-all duration-200 hover:shadow-lg border-emerald-500/20 bg-emerald-500/5 text-emerald-400"
+>
+  <div
+    class="flex items-start justify-between gap-2"
+  >
+    <p
+      class="text-xs font-semibold uppercase tracking-wider text-amber-700"
+    >
+      Total Earnings
+    </p>
+  </div>
+  <div
+    class="mt-2 flex items-baseline gap-2"
+  >
+    <p
+      class="font-display text-2xl font-bold text-amber-100"
+    >
+      12,500 XLM
+    </p>
+    <span
+      class="text-xs font-semibold px-2 py-0.5 rounded-full border bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+    >
+      ↑
+       
+      +18%
+    </span>
+  </div>
+  <p
+    class="text-xs text-amber-800 mt-1"
+  >
+    Ranked in top 5%
+  </p>
+</div>
+`;
+
+exports[`Primitives and Story Snapshot Regression Tests renders StateMessage empty and error states 1`] = `
+<div
+  class="card text-center py-16 border border-amber-500 bg-amber-500/10 border-amber-500/20"
+>
+  <h2
+    class="font-display text-xl mb-2 text-amber-100"
+  >
+    No Bids Found
+  </h2>
+  <p
+    class="text-sm text-amber-800 mb-6 max-w-xs mx-auto"
+  >
+    Check back soon for new proposals.
+  </p>
+  <button
+    class="btn-primary text-sm"
+  >
+    Browse Other Jobs
+  </button>
+</div>
+`;
+
+exports[`Primitives and Story Snapshot Regression Tests renders StateMessage empty and error states 2`] = `
+<div
+  class="card text-center py-16 border border-red-500 bg-red-500/10 border-red-500/20"
+>
+  <h2
+    class="font-display text-xl mb-2 text-red-400"
+  >
+    Connection Failed
+  </h2>
+  <p
+    class="text-sm text-amber-800 mb-6 max-w-xs mx-auto"
+  >
+    Could not connect to Soroban RPC.
+  </p>
+</div>
+`;
+
+exports[`Primitives and Story Snapshot Regression Tests renders Textarea with char count 1`] = `
+<div
+  class="flex flex-col gap-1.5 w-full"
+>
+  <div
+    class="flex justify-between items-center"
+  >
+    <label
+      class="label mb-0"
+      for="description"
+    >
+      Description
+    </label>
+    <span
+      class="text-[11px] font-mono text-amber-700"
+    >
+      33
+      /
+      200
+    </span>
+  </div>
+  <textarea
+    class="w-full rounded-xl bg-ink-700 border border-[rgba(251,191,36,0.18)] px-4 py-3 text-amber-100 placeholder-amber-900/50 text-sm font-body leading-relaxed min-h-[100px] resize-y focus:outline-none focus:border-market-500/50 focus:ring-1 focus:ring-market-500/30 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200"
+    id="description"
+    maxlength="200"
+  >
+    Detailed proposal specifications.
+  </textarea>
+</div>
+`;
