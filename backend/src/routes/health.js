@@ -62,11 +62,15 @@ async function checkDatabase() {
       row.replay_lag_seconds === null || row.replay_lag_seconds === undefined
         ? Number.NaN
         : Number(row.replay_lag_seconds);
+    const poolStats = typeof pool.getStats === "function" ? pool.getStats() : {};
+    const isFenced = poolStats.isFenced === true;
     return {
       status: "ok",
       latency_ms: Date.now() - start,
       role: inRecovery ? "replica" : "primary",
-      writable: !inRecovery,
+      writable: !inRecovery && !isFenced,
+      fenced: isFenced,
+      generation_token: poolStats.fencingGeneration || 1,
       replay_lag_seconds: Number.isFinite(replayLag) ? replayLag : null,
     };
   } catch (err) {

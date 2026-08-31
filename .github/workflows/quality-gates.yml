@@ -5,8 +5,36 @@ on:
     branches: [main, develop]
   pull_request:
     branches: [main, develop]
+  # Required checks must also report inside the merge queue, or a queued
+  # entry never satisfies branch protection and the queue stalls.
+  merge_group:
 
 jobs:
+  hook-engine:
+    name: Hook Engine (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "npm"
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - run: npm ci
+      - run: npm run hooks:doctor
+      - name: Test staged isolation, routing, portability, cache, and budget
+        run: npm run test:hooks
+        env:
+          MARKETPAY_HOOK_ENFORCE_BUDGET: "1"
+
   commitlint:
     name: Commit Lint Compliance
     runs-on: ubuntu-latest

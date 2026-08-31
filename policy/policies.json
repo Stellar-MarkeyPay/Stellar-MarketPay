@@ -1,0 +1,180 @@
+{
+  "version": "1.0.0",
+  "description": "Stellar MarketPay merge policy. This file is the single definition of the rule set: the Husky hooks and the required CI check both load it, so a rule cannot mean one thing locally and another on the server. Severity varies by stage; detection never does. Rationale for every rule: docs/POLICY_CATALOGUE.md.",
+  "rules": [
+    {
+      "id": "contract-entrypoint-tests",
+      "title": "Public contract entrypoints ship with a test change",
+      "check": "contract-entrypoint-tests",
+      "incident": "The dropped-multisig merge removed public declarations from lib.rs while leaving every call site intact. The contract did not compile on main.",
+      "rationale": "An entrypoint is the contract's ABI. Adding, removing or changing one changes what deployed clients can call and what the escrow will do with their funds. A change to that surface with no test change means nothing executed the new behaviour before it was merged.",
+      "remediation": "Add or update a test in contracts/marketpay-contract/tests/ covering the entrypoint, or a #[test] beside it in src/lib.rs.",
+      "stages": {
+        "pre-commit": "warn",
+        "pre-push": "warn",
+        "ci": "error"
+      },
+      "options": {
+        "sources": ["contracts/marketpay-contract/src/lib.rs"],
+        "testGlobs": [
+          "contracts/marketpay-contract/tests/**",
+          "contracts/marketpay-contract/src/legacy_tests.rs"
+        ]
+      }
+    },
+    {
+      "id": "storage-compat-ack",
+      "title": "Stored-type shape changes carry a storage-compatibility acknowledgement",
+      "check": "storage-compat-ack",
+      "incident": "Escrow gained a v2 schema alongside live v1 ledger entries; the migration path was designed, but nothing in the tooling required it to be.",
+      "rationale": "Escrow, DataKey and the other #[contracttype] values are persisted in ledger entries by deployed contracts. Changing a field is not a refactor — existing entries were written with the old layout and must still decode, or be migrated. The acknowledgement forces the author to state which, in writing, where a reviewer reads it.",
+      "remediation": "Add a 'Storage-Compat: <how existing entries decode, and the migration if they do not>' trailer to a commit in the change, or to the pull request body. The commit-msg hook checks it as you write the message.",
+      "stages": {
+        "pre-commit": "off",
+        "commit-msg": "warn",
+        "pre-push": "warn",
+        "ci": "error"
+      },
+      "options": {
+        "types": ["Escrow", "EscrowV1", "EscrowV2", "DataKey", "Milestone", "Rating"],
+        "sources": [
+          "contracts/marketpay-contract/src/lib.rs",
+          "contracts/marketpay-contract/src/escrow.rs",
+          "contracts/marketpay-contract/src/milestones.rs",
+          "contracts/marketpay-contract/src/ratings.rs"
+        ],
+        "trailer": "Storage-Compat"
+      }
+    },
+    {
+      "id": "cargo-lock-integrity",
+      "title": "Cargo.lock stays committed and version requirements stay bounded",
+      "check": "cargo-lock-integrity",
+      "incident": "soroban-env-host declares ed25519-dalek = \">=2.0.0\". An unpinned resolve pulled a 3.x that does not compile against env-host, and the Rust job broke with no change to this repository.",
+      "rationale": "The contract is a deployable artefact, so its build must be reproducible from the tree. A deleted lock, a lock that moves without its manifest, or a new unbounded requirement each reintroduce a build whose result depends on the day it runs.",
+      "remediation": "Keep Cargo.lock committed, include the Cargo.toml change that caused any re-resolve, and give every requirement an upper bound.",
+      "stages": {
+        "pre-commit": "warn",
+        "pre-push": "error",
+        "ci": "error"
+      },
+      "options": {}
+    },
+    {
+      "id": "migration-down-tested",
+      "title": "Database migrations ship with a tested down migration",
+      "check": "migration-down-tested",
+      "incident": "npm run migrate:rollback exists and is part of the documented rollback path, but nothing required a down migration to be written or executed.",
+      "rationale": "A forward migration with no reverse is a deploy with no rollback. A reverse that no test ever executes is a rollback nobody has run — which is discovered during the incident it was meant to resolve.",
+      "remediation": "Create the matching .down.sql reversing every forward statement in the opposite order, and add a case to backend/src/db/migrate.test.js that applies the up and then the down.",
+      "stages": {
+        "pre-commit": "warn",
+        "pre-push": "warn",
+        "ci": "warn"
+      },
+      "options": {
+        "directory": "backend/src/db/migrations",
+        "testGlobs": ["backend/src/db/migrate.test.js", "backend/tests/**migration**"]
+      }
+    },
+    {
+      "id": "new-module-tests",
+      "title": "New backend services and routes arrive with a test file",
+      "check": "new-module-tests",
+      "rationale": "Thirty services and thirty-nine routes are currently untested. The rule is not retroactive and does not ask anyone to backfill them; it fires only on files a change adds, so the debt stops growing while it is paid down.",
+      "remediation": "Add <module>.test.js beside the new file. It is picked up by the existing backend Jest suite with no configuration.",
+      "stages": {
+        "pre-commit": "warn",
+        "pre-push": "warn",
+        "ci": "warn"
+      },
+      "options": {
+        "directories": ["backend/src/services", "backend/src/routes"],
+        "extensions": [".js"],
+        "ignore": ["backend/src/**/index.js"]
+      }
+    },
+    {
+      "id": "no-wallclock-tests",
+      "title": "Tests do not assert against the current wall clock",
+      "check": "no-wallclock-tests",
+      "incident": "Two separate time-bomb tests have broken main in this repository. Both passed in review and failed later, on a day nobody had changed the code.",
+      "rationale": "A test whose result depends on when it runs does not test the code. It converts a passing suite into a scheduled outage, and the failure arrives attached to whichever innocent pull request happened to run next.",
+      "remediation": "Freeze time (jest.useFakeTimers / jest.setSystemTime, or an injected clock) and assert against the frozen value.",
+      "stages": {
+        "pre-commit": "warn",
+        "pre-push": "warn",
+        "ci": "error"
+      },
+      "options": {
+        "ignore": ["backend/tests/chaos.test.js", "frontend/tests/e2e/**", "policy/tests/**"],
+        "$ignore_comment": "policy/tests/** holds this rule's own fixtures: strings that look like wall-clock assertions, quoted so the rule can be tested against both outcomes. backend/tests/chaos.test.js and the Playwright suites deliberately exercise real elapsed time."
+      }
+    },
+    {
+      "id": "no-root-scripts",
+      "title": "One-off scripts do not live at the repository root",
+      "check": "no-root-scripts",
+      "incident": "Stray root-level scripts have had to be cleaned up once already.",
+      "rationale": "A script at the root is outside every subproject's linter and test runner, so it rots unnoticed, and it is among the first things a new contributor sees. scripts/ exists and is covered.",
+      "remediation": "Move it under scripts/ — or delete it if it was genuinely a one-off — and reference it from a package.json script so it is discoverable.",
+      "stages": {
+        "pre-commit": "error",
+        "pre-push": "error",
+        "ci": "error"
+      },
+      "options": {
+        "extensions": [".sh", ".py", ".rb", ".pl"],
+        "allow": [],
+        "destination": "scripts/"
+      }
+    },
+    {
+      "id": "no-secrets",
+      "title": "Credentials never enter git history",
+      "check": "no-secrets",
+      "rationale": "A secret in a commit is disclosed the moment it is pushed, and stays reachable through the reflog, every fork and every CI cache. Deleting it in the next commit does not revoke it. The local scan is a courtesy that saves a rotation; the server-side scan is the control.",
+      "remediation": "Remove the value, load it from the environment or a secret store, and rotate the credential — see docs/SECRET_RESPONSE.md. If it is a documentation placeholder, add it to policy/secrets-allowlist.json with a reason.",
+      "stages": {
+        "pre-commit": "error",
+        "pre-push": "error",
+        "ci": "error"
+      },
+      "options": {
+        "allowlistPath": "policy/secrets-allowlist.json",
+        "minEntropy": 4.0
+      }
+    },
+    {
+      "id": "signed-commits",
+      "title": "Commits on protected branches are signed",
+      "check": "signed-commits",
+      "rationale": "Author identity in git is a self-declared string. For a repository holding escrowed-funds code, 'who wrote the change that moved the money' needs an answer that survives scrutiny. Enforcement is server-side; the local run exists to tell a contributor their signing setup is broken before they push twenty commits with it.",
+      "remediation": "Enrol a key once with docs/COMMIT_SIGNING.md (npm run policy:signing-setup), then re-sign the range: git rebase --exec \"git commit --amend --no-edit -S\" <base>.",
+      "stages": {
+        "pre-commit": "off",
+        "pre-push": "warn",
+        "ci": "warn"
+      },
+      "options": {
+        "acceptUntrusted": true
+      }
+    },
+    {
+      "id": "hook-integrity",
+      "title": "Hook scripts and policy definitions are themselves verified",
+      "check": "hook-integrity",
+      "rationale": "A hook that reports success without running anything is a supply-chain problem, and it is invisible because everything looks green. Recording a digest does not stop a hook from changing; it stops the change from being silent, by putting the new digest in the diff a reviewer reads.",
+      "remediation": "If the change to the hook or the policy set is intended, regenerate the manifest: npm run policy:integrity -- --write.",
+      "stages": {
+        "pre-commit": "off",
+        "pre-push": "warn",
+        "ci": "error"
+      },
+      "options": {
+        "manifestPath": "policy/integrity.json",
+        "governs": [".husky/", "policy/engine/", "policy/policies.json", "policy/cli.js"]
+      }
+    }
+  ]
+}

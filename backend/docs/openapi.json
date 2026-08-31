@@ -5503,6 +5503,297 @@
         }
       }
     },
+    "/api/replication/status": {
+      "get": {
+        "summary": "Multi-region replication telemetry and fencing state",
+        "description": "Returns comprehensive multi-region active-active status: measured WAL replay lag, peer RTT, fencing lease holder, generation token, and pool states.\n",
+        "tags": ["Replication"],
+        "x-rate-limit": {
+          "limit": 60,
+          "windowMinutes": 1
+        },
+        "responses": {
+          "200": {
+            "description": "Multi-region replication status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "region": {
+                      "type": "string",
+                      "example": "primary-cluster"
+                    },
+                    "clusterRole": {
+                      "type": "string",
+                      "example": "active"
+                    },
+                    "isAuthority": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "fencing": {
+                      "type": "object",
+                      "properties": {
+                        "isFenced": {
+                          "type": "boolean",
+                          "example": false
+                        },
+                        "generationToken": {
+                          "type": "number",
+                          "example": 1
+                        },
+                        "leaseHealthy": {
+                          "type": "boolean",
+                          "example": true
+                        }
+                      }
+                    },
+                    "replication": {
+                      "type": "object",
+                      "properties": {
+                        "currentLagSeconds": {
+                          "type": "number",
+                          "example": 0.2
+                        },
+                        "currentRttMs": {
+                          "type": "number",
+                          "example": 15
+                        },
+                        "isHealthy": {
+                          "type": "boolean",
+                          "example": true
+                        }
+                      }
+                    },
+                    "poolStats": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/replication/conflicts": {
+      "get": {
+        "summary": "Audit log of multi-region replication conflicts",
+        "description": "Returns recorded conflicts across multi-region writes, resolution policies applied, and resolution status.\n",
+        "tags": ["Replication"],
+        "x-rate-limit": {
+          "limit": 60,
+          "windowMinutes": 1
+        },
+        "responses": {
+          "200": {
+            "description": "Conflict audit trail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "conflicts": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "tableName": {
+                            "type": "string",
+                            "example": "jobs"
+                          },
+                          "recordId": {
+                            "type": "string"
+                          },
+                          "resolutionStrategy": {
+                            "type": "string",
+                            "example": "STATE_MACHINE_PROGRESSION"
+                          },
+                          "resolutionStatus": {
+                            "type": "string",
+                            "example": "resolved"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/replication/reconcile": {
+      "post": {
+        "summary": "Trigger on-chain Soroban escrow reconciliation",
+        "description": "Audits and reconciles off-chain PostgreSQL escrow state with on-chain Soroban contract state following a regional failover or network partition recovery.\n",
+        "tags": ["Replication"],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "dryRun": {
+                    "type": "boolean",
+                    "default": false
+                  },
+                  "jobIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Reconciliation results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "report": {
+                      "type": "object",
+                      "properties": {
+                        "totalChecked": {
+                          "type": "number",
+                          "example": 42
+                        },
+                        "reconciled": {
+                          "type": "number",
+                          "example": 0
+                        },
+                        "discrepancies": {
+                          "type": "array",
+                          "items": {
+                            "type": "object"
+                          }
+                        },
+                        "durationMs": {
+                          "type": "number",
+                          "example": 120
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/replication/fence": {
+      "post": {
+        "summary": "Manually fence a node or region",
+        "description": "Switches local region into FENCED_READ_ONLY mode, draining in-flight write connections and rejecting Class 1 financial writes to prepare for maintenance or disaster recovery.\n",
+        "tags": ["Replication"],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Node successfully fenced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "status": {
+                      "type": "string",
+                      "example": "fenced"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/replication/promote": {
+      "post": {
+        "summary": "Promote region to active financial authority",
+        "description": "Acquires the global financial authority fencing lease with an incremented generation token, enabling Class 1 financial writes on this region.\n",
+        "tags": ["Replication"],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Region successfully promoted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "generationToken": {
+                      "type": "number",
+                      "example": 2
+                    },
+                    "expiresAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/referrals/info": {
       "get": {
         "summary": "Get referral bonus tier information",

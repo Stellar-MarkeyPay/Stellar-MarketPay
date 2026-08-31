@@ -42,6 +42,14 @@ This page is the single reference for runtime configuration in Stellar MarketPay
 | `ML_DRIFT_MIN_SAMPLES`              |                          No | `100`                                   | Minimum samples required for drift detection.                                                                                           | `100`                                             |
 | `ML_DRIFT_WINDOW_HOURS`             |                          No | `24`                                    | Look-back window (hours) for drift detection.                                                                                           | `24`                                              |
 
+### Enterprise federation key
+
+Before enabling enterprise SAML/OIDC in production, set `FEDERATION_HASH_KEY`
+to exactly 32 random bytes encoded as base64 or 64 hexadecimal characters. It
+blind-indexes external subjects and one-time protocol values and must be
+independent from `JWT_SECRET`. Development and test environments derive a
+local-only fallback; production rejects a missing or malformed key.
+
 ## Frontend
 
 | Variable                        |                        Required | Default                               | Description                                                                                                                     | Example                               |

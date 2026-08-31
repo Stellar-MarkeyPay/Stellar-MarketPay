@@ -1,0 +1,102 @@
+Hook engine verification record
+===============================
+Repository input: fix/fast-correct-git-hooks working tree based on 972658ada0957e7a27710b59125350d39b679aba
+
+BASELINE ENTRY POINT
+Command: git show HEAD:.husky/pre-commit && git show HEAD:.husky/pre-push
+Input: baseline files at HEAD
+Literal output:
+export PATH=$PATH:$HOME/.nvm/versions/node/v24.18.0/bin
+npx lint-staged
+export PATH=$PATH:$HOME/.nvm/versions/node/v24.18.0/bin:$HOME/.cargo/bin
+npm run test:fast
+Exit status: 0
+
+MODIFIED ENTRY POINT
+Command: cat .husky/pre-commit && cat .husky/pre-push
+Input: modified working-tree files
+Literal output:
+#!/usr/bin/env sh
+set -eu
+
+ROOT=$(git rev-parse --show-toplevel)
+exec "$ROOT/scripts/hooks/launch.sh" pre-commit
+#!/usr/bin/env sh
+set -eu
+
+ROOT=$(git rev-parse --show-toplevel)
+exec "$ROOT/scripts/hooks/launch.sh" pre-push "$@"
+Exit status: 0
+
+FORMAT CHECK
+Command: PATH="$HOME/.nvm/versions/node/v22.23.2/bin:$PATH" npm run format:check
+Input: complete modified repository tree
+Literal output:
+> stellar-marketpay@1.0.0 format:check
+> prettier --check .
+
+Checking formatting...
+All matched files use Prettier code style!
+Exit status: 0
+
+DOCTOR
+Command: PATH="$HOME/.nvm/versions/node/v22.23.2/bin:$PATH" npm run hooks:doctor
+Input: installed root, frontend, and backend dependencies plus local Git/Rust configuration
+Literal output:
+PASS Node.js: v22.23.2
+PASS Git hooks: core.hooksPath=.husky/_
+PASS Husky runtime: .husky/_/h exists
+PASS pre-commit: LF and executable
+PASS commit-msg: LF and executable
+PASS pre-push: LF and executable
+PASS Hook launcher: LF and executable
+PASS Root dependencies: Prettier is installed locally
+PASS frontend dependencies: installed
+PASS backend dependencies: installed
+PASS Rust toolchain: /home/emmanuel-ogheneovo/.cargo/bin/cargo
+WARN sccache: not installed; the persistent Cargo target cache is still active
+     Optional: install sccache for faster dependency rebuilds.
+PASS Local state: /home/emmanuel-ogheneovo/Grant 6/Stellar-MarketPay/.git/marketpay-hooks
+
+Hook doctor: 0 failure(s), 1 warning(s)
+Exit status: 0
+
+HOOK REGRESSION SUITE
+Command: PATH="$HOME/.nvm/versions/node/v22.23.2/bin:$PATH" MARKETPAY_HOOK_ENFORCE_BUDGET=1 npm run test:hooks
+Input: scripts/hooks/tests/*.test.mjs
+Literal output summary:
+1..20
+# tests 20
+# suites 0
+# pass 20
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+Exit status: 0
+
+SHELL AND PATCH HYGIENE
+Command: sh -n .husky/pre-commit .husky/pre-push .husky/commit-msg scripts/hooks/*.sh
+Input: modified POSIX shell entry points
+Literal output: <empty>
+Exit status: 0
+Command: git diff --check
+Input: complete task diff
+Literal output: <empty>
+Exit status: 0
+
+AFFECTED PRE-PUSH ROUTES (uncached)
+Command: MARKETPAY_HOOK_CACHE=0 node scripts/hooks/cli.mjs pre-push (with each recorded affected-file fixture)
+Inputs and literal outputs:
+- backend/src/services/profileService.js -> 1 suite, 12 tests passed; BACKEND_REPORT totalMs=686; exit 0
+- frontend/utils/format.ts -> 2 suites, 24 tests, 13 snapshots passed; FRONTEND_REPORT totalMs=2000; exit 0
+- contracts/marketpay-contract/src/lib.rs -> 90 tests passed; CONTRACTS_REPORT totalMs=4342; exit 0
+
+CI-EQUIVALENT PROJECT RESULTS
+Exact commands were executed before branch isolation against the same hook implementation and unchanged project sources:
+- npm --prefix backend test -> 61 suites, 559 tests passed, 1 suite/test skipped; exit 0
+- npm --prefix backend run lint && npm --prefix backend run build -> exit 0
+- frontend unit/accessibility/type/lint/build/Storybook/E2E/visual commands -> 8 E2E passed, 1 skipped; 3 visual passed; exit 0
+- cargo test --features std -> 91 tests passed; exit 0
+- cargo clippy --all-targets --features std -- -D warnings -> exit 0
+- contract WASM check/build and cargo audit -> exit 0 (two explicitly allowed unmaintained warnings)

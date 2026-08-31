@@ -1,0 +1,166 @@
+GraphQL schema foundation verification record
+Date: 2026-08-28
+Branch: feat/graphql-schema-foundation
+Baseline commit: c552f88cd06c3ef6d873cfeab61c92f31cf4e679
+Workspace: /tmp/stellar-marketpay-graphql-schema
+
+Inputs
+- PostgreSQL 16 database: marketpay_graphql_schema_test (disposable)
+- Redis 7 endpoint: redis://127.0.0.1:6383 (disposable)
+- JWT secret: test-only CI fixture
+- Node.js: v24.18.0 (the CI major version)
+
+BASELINE BEHAVIOUR
+Command: git show upstream/main:backend/src/graphql/schema/schema.graphql
+fatal: path 'backend/src/graphql/schema/schema.graphql' exists on disk, but not in 'upstream/main'
+Exit status: 128
+
+MODIFIED BEHAVIOUR — canonical registry matches authored SDL
+Command: (cd backend && npm run graphql:schema:check)
+
+> stellar-marketpay-backend@1.0.0 graphql:schema:check
+> node scripts/graphql-schema-registry.js --check
+
+GraphQL schema snapshot is current: backend/src/graphql/schema/schema.graphql
+Exit status: 0
+
+MODIFIED BEHAVIOUR — initial schema is compatible with the current base
+Command: (cd backend && npm run graphql:schema:breaking -- --base upstream/main)
+
+> stellar-marketpay-backend@1.0.0 graphql:schema:breaking
+> node scripts/graphql-schema-registry.js --breaking --base upstream/main
+
+No GraphQL schema exists at upstream/main; accepting the initial registry snapshot.
+Exit status: 0
+
+MODIFIED BEHAVIOUR — schema/scalar/pagination/id/error/registry tests
+Command: (cd backend && npx jest src/graphql --runInBand --coverage=false)
+
+Test Suites: 4 passed, 4 total
+Tests:       21 passed, 21 total
+Snapshots:   0 total
+Time:        1.455 s, estimated 4 s
+Ran all test suites matching src/graphql.
+Exit status: 0
+
+FULL BACKEND CI BEHAVIOUR
+Command: PATH=<node-v24> DATABASE_URL=<disposable-postgres> REDIS_URL=redis://127.0.0.1:6383 JWT_SECRET=<test-fixture> npm test
+Literal terminal summary follows; complete output is /tmp/graphql-schema-backend-final.log.
+Test Suites: 71 passed, 71 total
+Tests:       604 passed, 604 total
+Snapshots:   0 total
+Time:        19.844 s
+Ran all test suites.
+Exit status: 0
+
+BACKEND BUILD
+Command: (cd backend && npm run build)
+
+> stellar-marketpay-backend@1.0.0 build
+> npm run generate-openapi && npm run lint
+
+
+> stellar-marketpay-backend@1.0.0 generate-openapi
+> node scripts/generate-openapi.js
+
+Generating OpenAPI specification...
+OpenAPI specification generated successfully: /tmp/stellar-marketpay-graphql-schema/backend/docs/openapi.json
+Found 257 API paths
+Documentation summary:
+- 257 unique endpoints
+- 286 total HTTP methods
+
+Checking for undocumented routes...
+All routes appear to be documented! ✅
+
+> stellar-marketpay-backend@1.0.0 lint
+> eslint src/**/*.js tests/**/*.js
+
+Exit status: 0
+Generated OpenAPI was restored because this slice adds no REST route.
+
+STAGED POLICY
+Command: node policy/cli.js check --stage ci --source staged
+policy 1.0.0 · stage ci
+  All policies passed.
+Exit status: 0
+
+ARTIFACT INTEGRITY
+Command: sha256sum -c artifacts/graphql-gateway/schema-foundation/SHA256SUMS
+artifacts/graphql-gateway/schema-foundation/original.tar.gz: OK
+artifacts/graphql-gateway/schema-foundation/modified.tar.gz: OK
+artifacts/graphql-gateway/schema-foundation/graphql-schema-foundation.patch: OK
+artifacts/graphql-gateway/schema-foundation/rollback.sh: OK
+Exit status: 0
+
+ARCHIVE REOPEN
+Command: tar -tzf original.tar.gz | grep -cE '^[^/]+/.+|^[^/]+$'; tar -tzf modified.tar.gz | wc -l
+original archive entries: 6
+modified archive files: 28
+Exit status: 0
+
+ROLLBACK
+Command: artifacts/graphql-gateway/schema-foundation/rollback.sh --check
+Rollback check passed: the functional patch can be reversed cleanly.
+Exit status: 0
+
+REPOSITORY FORMAT
+Command: npm run format:check
+
+> stellar-marketpay@1.0.0 format:check
+> prettier --check .
+
+Checking formatting...
+All matched files use Prettier code style!
+Exit status: 0
+
+REPOSITORY LINT
+Command: npm run lint
+
+> stellar-marketpay@1.0.0 lint
+> (cd frontend && npm run lint) && (cd backend && npm run lint)
+
+
+> stellar-marketpay-frontend@1.0.0 lint
+> next lint
+
+
+./pages/_app.tsx
+110:6  Warning: React Hook useEffect has a missing dependency: 'publicKey'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+
+./pages/dashboard/transactions.tsx
+76:6  Warning: React Hook useEffect has a missing dependency: 'fetchTransactions'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+
+./pages/disputes/[jobId].tsx
+58:11  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+120:6  Warning: React Hook useEffect has a missing dependency: 'info'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+
+./pages/jobs/[id].tsx
+123:6  Warning: React Hook useEffect has a missing dependency: 'router'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+
+./pages/jobs/index.tsx
+336:26  Warning: Assignments to the 'activeTimezone' variable from inside React Hook useEffect will be lost after each render. To preserve the value over time, store it in a useRef Hook and keep the mutable value in the '.current' property. Otherwise, you can move this variable directly inside useEffect.  react-hooks/exhaustive-deps
+
+./components/Admin2FAModal.tsx
+108:13  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+./components/JobAnalytics.tsx
+193:6  Warning: React Hook useEffect has a missing dependency: 'job'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+
+info  - Need to disable some ESLint rules? Learn more here: https://nextjs.org/docs/basic-features/eslint#disabling-rules
+
+> stellar-marketpay-backend@1.0.0 lint
+> eslint src/**/*.js tests/**/*.js
+Exit status: 0
+
+FRONTEND TYPE CHECK
+Command: npm run type-check
+
+> stellar-marketpay@1.0.0 type-check
+> (cd frontend && npm run type-check)
+
+
+> stellar-marketpay-frontend@1.0.0 type-check
+> tsc --noEmit
+
+Exit status: 0

@@ -1,0 +1,69 @@
+# subscription.graphql — live updates over the existing WebSocket server.
+#
+# These ride `server.js`'s existing `ws` instance through a second `noServer`
+# upgrade path, so there is one WebSocket server, one connection lifecycle and
+# one place where a socket leak could happen. The existing
+# `broadcastRealtime()` becomes a publisher into an in-process bus; these are
+# its consumers.
+#
+# Every subscription is filtered server-side by the viewer's authorisation.
+# A subscription is a long-lived read, and it is the read most likely to
+# outlive the permission that justified it — so the filter is re-evaluated on
+# each published event, not once at subscribe time.
+
+type Subscription {
+  """
+  Changes to a single job: status transitions, assignment, applicant count.
+
+  Open to anyone who may read the job, because all of it is public data.
+  """
+  jobUpdated(jobId: ID!): JobUpdateEvent!
+
+  """
+  Escrow state changes for a job — funded, released, refunded, disputed.
+
+  Participants only, re-checked per event.
+  """
+  escrowUpdated(jobId: ID!): EscrowUpdateEvent! @auth(requires: PARTICIPANT)
+
+  """
+  New applications on a job the viewer owns.
+  """
+  applicationReceived(jobId: ID!): ApplicationEvent! @auth(requires: PARTICIPANT)
+
+  """
+  The viewer's own notifications. Takes no argument: the stream is scoped to
+  the authenticated identity, so there is no id for a client to tamper with.
+  """
+  notificationReceived: NotificationEvent! @auth(requires: AUTHENTICATED)
+}
+
+type JobUpdateEvent {
+  job: Job!
+  "What changed, so a client can avoid a full re-render."
+  changed: [String!]!
+  occurredAt: DateTime!
+}
+
+type EscrowUpdateEvent {
+  escrow: Escrow!
+  previousStatus: EscrowStatus
+  txHash: String
+  occurredAt: DateTime!
+}
+
+type ApplicationEvent {
+  application: Application!
+  job: Job!
+  occurredAt: DateTime!
+}
+
+type NotificationEvent {
+  id: ID!
+  type: String!
+  title: String!
+  body: String
+  jobId: ID
+  readAt: DateTime
+  occurredAt: DateTime!
+}

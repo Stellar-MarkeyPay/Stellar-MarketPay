@@ -1,0 +1,17 @@
+* text=auto
+
+# Hooks are launched by POSIX sh under Linux, macOS, Git Bash, and WSL.
+.husky/* text eol=lf
+*.sh text eol=lf
+*.mjs text eol=lf
+*.js text eol=lf
+*.ts text eol=lf
+*.tsx text eol=lf
+
+# Stored Git patches contain diff marker whitespace by design.
+artifacts/**/*.patch -whitespace
+
+# Native Windows scripts keep their platform line endings.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf

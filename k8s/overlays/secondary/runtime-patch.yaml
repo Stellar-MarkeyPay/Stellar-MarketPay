@@ -3,5 +3,8 @@ kind: ConfigMap
 metadata:
   name: marketpay-runtime-config
 data:
-  CLUSTER_ROLE: passive
+  CLUSTER_ROLE: active
   REGION: secondary-cluster
+  PRIMARY_REGION: primary-cluster
+  ENABLE_ACTIVE_ACTIVE: "true"
+  FENCING_LEASE_KEY: global_financial_authority

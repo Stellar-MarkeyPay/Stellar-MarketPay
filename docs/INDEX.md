@@ -20,13 +20,15 @@ Welcome to Stellar MarketPay documentation. This index helps you find what you n
 
 - **[Architecture Overview](./architecture.md)** - System design and components
 - **[Deployment Guide](./deployment.md)** - How to deploy Stellar MarketPay
-- **[Multi-cluster DR Architecture](./dr/architecture.md)** - Active-passive topology, RTO/RPO, and state replication (decision recorded in [ADR-008](./ADR-008-multi-cluster-kubernetes-dr.md))
-- **[DR and Blue-Green Runbook](./dr/runbook.md)** - Failover, deployment rollback, failback, and game-day procedures
-- **[Latest DR Game-Day Report](./dr/game-day-report.md)** - Measured recovery evidence and qualification
+- **[Multi-Region Active-Active Architecture](./dr/architecture.md)** - Active-active multi-region topology, consistency matrix, fencing, and RTO/RPO targets (decision recorded in [ADR-013](./ADR-013-multi-region-active-active-postgres.md))
+- **[DR and Replication Runbook](./dr/runbook.md)** - Failover, fencing inspection, planned switchover, deliberate failback, and game-day procedures
+- **[Active-Active Game-Day Report](./dr/active-active-game-day-report.md)** - Measured partition recovery evidence, split-brain prevention, and RTO/RPO verification
+- **[Legacy Multi-Cluster DR](./dr/game-day-report.md)** - Legacy active-passive baseline report (ADR-008)
 - **[Soroban Contract Deployment](./contract-deployment.md)** - Build, deploy, and configure the escrow contract
 - **[Contract Contributor Guide](./contract-contributor-guide.md)** - Local setup, test snapshots, fund-moving review bar, storage compatibility, and a worked entrypoint example
 - **[Environment Variables](./environment-variables.md)** - Single source of truth for runtime config
 - **[CDN Strategy](./CDN_STRATEGY.md)** - Multi-CDN edge caching, event-driven invalidation, cache-key/TTL strategy, stampede protection (decision recorded in [ADR-007](./ADR-007-multi-cdn-edge-strategy.md))
+- **[Enterprise Federation Architecture](./ADR-012-enterprise-federation.md)** - Per-organisation SAML/OIDC identity, wallet-authority separation, deprovisioning, and phased SCIM/controls delivery
 
 ### Formal Verification
 
@@ -42,6 +44,8 @@ length, what has not.
 - **[API Documentation](./API_DOCUMENTATION.md)** - REST API endpoints
 - **[API Reference](./api.md)** - Detailed API reference
 - **[Scope WebSocket Protocol](./websocket-scope-protocol.md)** - Realtime session protocol and client schema
+- **[GraphQL Gateway Guide](./GRAPHQL.md)** - Domain schema conventions, registry checks, migration status, and REST boundaries
+- **[GraphQL Gateway Design](./GRAPHQL_DESIGN_COMMENT.md)** - Architecture, data model, safety posture, and phased rollout for issue #318
 
 ---
 
@@ -194,6 +198,58 @@ Decisions that shaped Stellar MarketPay's architecture:
 - O(1) revocation via a single `earliestInvalidatedEpoch` scalar
 - Measured on-chain verification cost: cheap for `dispute_free`, not yet viable in one transaction for `rating_threshold`/`earnings_band` — honest numbers, not an assumed yes
 - The contiguous-leaf-range scope decision and what it does and doesn't hide
+
+**Status**: ✅ Accepted
+
+---
+
+### ADR-011: Sandboxed Plugin Platform for Third-Party Marketplace Extensions
+
+**File**: [ADR-011-plugin-platform.md](./ADR-011-plugin-platform.md)
+
+**Decision**: Isolated V8 execution sandboxes with scoped API brokers and SHA-256 integrity verification
+
+**Key Points**:
+
+- Manifest-driven permission system
+- Sandboxed IPC broker with fine-grained capability checks
+- Multi-tier plugin isolation and resource limits
+
+**Status**: ✅ Accepted
+
+---
+
+### ADR-012: Enterprise Federation and Transaction Authority Separation
+
+**File**: [ADR-012-enterprise-federation.md](./ADR-012-enterprise-federation.md)
+
+**Decision**: Treat SAML/OIDC authentication as an organisation membership
+session and require an independent linked-wallet or passkey signing proof for
+every escrow-sensitive transaction.
+
+**Key Points**:
+
+- Per-organisation provider and federated-identity model with atomic replay barriers
+- Linked wallet first; passkey account later; no platform-custodied employee keys
+- Deprovisioning immediately removes off-chain access without misrepresenting existing on-chain authority
+- Additive six-PR migration plan that leaves existing wallet users unchanged
+
+**Status**: ✅ Accepted for phased delivery
+
+---
+
+### ADR-013: Multi-Region Active-Active PostgreSQL with Conflict Resolution and Fencing
+
+**File**: [ADR-013-multi-region-active-active-postgres.md](./ADR-013-multi-region-active-active-postgres.md)
+
+**Decision**: Active-active multi-region topology with table-by-table consistency tiers, ULID/CRDT conflict-free models, distributed generation-token lease fencing, and on-chain Soroban escrow reconciliation
+
+**Key Points**:
+
+- Formal CAP position: CP with hard fencing for financial records (Class 1); Causal for marketplace state (Class 2); AP with CRDTs for analytics/notifications (Class 3)
+- Monotonic ULIDs and Positive-Negative (PN) Counter CRDTs eliminating coordinate locks and write collisions
+- Distributed generation-token lease fencing preventing split-brain during regional partitions
+- Post-failover on-chain Soroban escrow reconciliation guaranteeing zero financial divergence
 
 **Status**: ✅ Accepted
 
@@ -483,6 +539,20 @@ stellar-marketpay/
 - See [CONTRIBUTING.md](../CONTRIBUTING.md) for guidelines
 - Check [TODO.md](../TODO.md) for outstanding tasks
 - Review [ROADMAP.md](../ROADMAP.md) for planned features
+
+### Merge Policy & Supply Chain
+
+The rules that gate a merge are defined once and executed identically by the
+local hooks and by a required CI check, so bypassing a hook changes when you
+learn about a violation, never whether it is enforced.
+
+- **[Policy Catalogue](./POLICY_CATALOGUE.md)** - Every rule, the incident behind it, its severity per stage, and the override mechanism
+- **[Policy Engine](./POLICY_ENGINE.md)** - Architecture, the parity guarantee, warn-only rollout, and how to add a rule
+- **[Git Hooks & Commits](./GIT_HOOKS_AND_COMMITS.md)** - The local hook runner the policy stages plug into
+- **[Branch Protection & Merge Queue](./BRANCH_PROTECTION.md)** - Required checks, the merge queue, and the administrator-override decision
+- **[Commit Signing](./COMMIT_SIGNING.md)** - One-command enrolment and the server-side rollout path
+- **[Secrets: Prevention and Response](./SECRET_RESPONSE.md)** - Scanning locally and remotely, the allowlist, and what to do when a credential leaks
+- **[Build Provenance](./PROVENANCE.md)** - Attesting the release wasm and verifying a deployed contract
 
 ---
 

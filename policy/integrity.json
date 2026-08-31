@@ -1,0 +1,30 @@
+{
+  "$comment": "SHA-256 of every file that governs the policy gate. Regenerate with `npm run policy:integrity -- --write` whenever a hook or the engine changes, so the new digest lands in the diff a reviewer reads. Verified by the hook-integrity rule.",
+  "algorithm": "sha256",
+  "generatedFrom": [".husky/", "policy/engine/", "policy/policies.json", "policy/cli.js"],
+  "files": {
+    ".husky/commit-msg": "e77e6a4ae69087f286d3d2b4929d20c8827f18c51d35adb9daec223824255229",
+    ".husky/pre-commit": "3b4d2ebe71e95992e3d5247ce93771bcb288a0614b9cf92f8dc03a1667d6c94a",
+    ".husky/pre-push": "b29f3dd7774676a642b5e1d8f8195dd198fd2926aca7f31e11484269bd4fb37c",
+    "policy/cli.js": "953800e952f39f382b7d2cbee7b8356e2d9196927c92a3682c922b8e0cf1b5f9",
+    "policy/engine/checks/cargo-lock-integrity.js": "cf9031176c8ac64f0ef54b14e3f2338cd16b78499fda30f32dd21e4adb6b247c",
+    "policy/engine/checks/contract-entrypoint-tests.js": "aeb262cb5e507888e7998709f34dada245cb72a1dc5cb998a59d8c5af88de971",
+    "policy/engine/checks/helpers.js": "e1792cee90642da206dc3534895fb89bf8e45a6abaf519be2ebdfad0058c8d74",
+    "policy/engine/checks/hook-integrity.js": "0ee8cf6760728ee793ab6412470bc8de458a1bc020c8ea4d447a2e62dd9d495b",
+    "policy/engine/checks/index.js": "7d91545e0a594b8b6951ec8c97d8a21af2b2d7f5d651ad2998c61aeaa62ea356",
+    "policy/engine/checks/migration-down-tested.js": "1161fe37b57d0ddd26d011fcda4f1faa55aeb5b041989fd8b5dabae31e341724",
+    "policy/engine/checks/new-module-tests.js": "85963237c4e7fe514d0bb72463c9fe9ce24d275e4a4c1fc9b928876158b03a39",
+    "policy/engine/checks/no-root-scripts.js": "750a605d80cb4417160a0b80111e39c3226fc078976e5495c4ed0228dce368cd",
+    "policy/engine/checks/no-secrets.js": "5c9a0d61bf0ad98e5eb567755f0c31c3436420145381ba907641858fbba5507e",
+    "policy/engine/checks/no-wallclock-tests.js": "41e50a7dc23594787286ba11545a99c9824aad8e2fcdd0d8bd722f7830c06cc5",
+    "policy/engine/checks/signed-commits.js": "c7575c4c455eccd20d7721e6ce4ba891e17484e6f4e9759f63589835d7bb1120",
+    "policy/engine/checks/storage-compat-ack.js": "2eb873686e6a60ce390fc57806b66a90e678702af0bb427184cd693a42ee1bb7",
+    "policy/engine/context.js": "cbcf763f96f358a5af0b6b669c419e9e4f9768f8bfba15af810487a0e1b8dce4",
+    "policy/engine/diff.js": "821219925f834df1b74d663fad0c65965ef664da513ba16a4ff481a972160489",
+    "policy/engine/index.js": "28b27d549df7521fd93e696579f825df9a846228c2d00e4ca6e7224d4b36078a",
+    "policy/engine/manifest.js": "a7d85366935260b6d5bc868acfbd4729cf5caec61f1a7389d3a69250813edf56",
+    "policy/engine/report.js": "54ebc71569ade35c375544f326387d913a83811cd5932e8331a71a8f5f92c311",
+    "policy/engine/severity.js": "203b4916a6387eb3f333835822fd4644668b84905103963933d8ce75b61e6dd3",
+    "policy/policies.json": "93e9ad912307a2a4eb64c669701ef980b3f45bd6072a98cb33869f133f7868fd"
+  }
+}

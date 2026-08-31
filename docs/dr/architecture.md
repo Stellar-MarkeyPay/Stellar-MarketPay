@@ -1,91 +1,74 @@
-# Multi-cluster disaster-recovery architecture
+# Multi-region Active-Active Disaster Recovery Architecture
 
-## Decision
+## 1. Architecture Overview
 
-MarketPay uses an **active-passive, two-region topology**. PostgreSQL is the
-authoritative mutable store and the current application is not designed for
-conflict resolution, so active-active writes would create an unacceptable
-split-brain risk for escrow and marketplace records.
+MarketPay uses an **active-active multi-region topology** with PostgreSQL bidirectional logical replication, table-by-table consistency classifications, monotonic ULIDs, Positive-Negative (PN) Counter CRDTs, distributed fencing leases, and on-chain Soroban escrow reconciliation (decision recorded in [ADR-013](../ADR-013-multi-region-active-active-postgres.md), superseding the legacy active-passive baseline from ADR-008).
 
-Each region has a warm Kubernetes cluster with two frontend and two backend
-replicas. K8GB publishes only healthy Ingress targets and uses a failover
-strategy with `primary-cluster` as the preferred geo tag. DNS TTL is 30 seconds.
-The passive cluster runs continuously. `/health/standby` lets its Rollouts and
-Pods prove dependencies are reachable while PostgreSQL is read-only. A separate
-traffic-gate Deployment calls `/health/ready`; it has no Ready endpoints until
-PostgreSQL is writable. The gate is part of the GSLB Ingress host, so K8GB
-cannot advertise the cluster before database promotion.
+Both regions (`primary-cluster` and `secondary-cluster`) run active application tiers and regional database nodes, serving local reads and writes with sub-millisecond query performance:
 
 ```text
                           marketpay.example.com
                                    |
-                      K8GB authoritative DNS (TTL 30s)
-                         /                         \
-             primary-cluster                 secondary-cluster
-            NGINX -> active Service          NGINX -> active Service
-               Argo Rollouts                    Argo Rollouts
-                         \                         /
-                 managed PostgreSQL global database
-                  writer          async regional replica
+                     K8GB Authoritative Geo-DNS (TTL 30s)
+                         /                      \
+            primary-cluster                    secondary-cluster
+          (e.g., us-east-1)                    (e.g., eu-west-1)
+       NGINX Ingress Controller             NGINX Ingress Controller
+                  |                                    |
+          Backend App Tier                     Backend App Tier
+      (Pool + Router + Fencing)            (Pool + Router + Fencing)
+                  \                                    /
+          +----------------------------------------------------+
+          |      PostgreSQL Bidirectional Replication Mesh     |
+          |                                                    |
+          | - Class 1 (Financial): Authority Lease Fenced (CP) |
+          | - Class 2 (Causal):    Version Vector Merged       |
+          | - Class 3 (Eventual):  CRDT PN-Counters (AP)       |
+          +----------------------------------------------------+
 ```
 
-K8GB uses native Pod readiness when deciding which regional Ingress addresses
-are eligible. Database promotion is owned by the managed PostgreSQL control
-plane. The secondary cannot receive traffic until promotion makes its regional
-endpoint writable and `/health/ready` returns 200.
+---
 
-## Recovery objectives
+## 2. Table Consistency Classification and CAP Position
 
-| Objective | Target         | Budget and justification                                                                                                                                                  |
-| --------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| RTO       | **10 minutes** | 5 minutes for managed-DB detection/promotion, 2 minutes for application readiness, 1 minute for K8GB detection/reconciliation, and up to 2 minutes for DNS/client caching |
-| RPO       | **60 seconds** | Asynchronous cross-region PostgreSQL replay must remain below 60 seconds; alert at 30 seconds and block planned game-day injection above 60 seconds                       |
+| Consistency Tier                       | Consistency Level             | Table Coverage                                                                                                                                                                                                                                                                                                                                | Conflict Resolution Policy                         | Routing Target         | Silent LWW Allowed?                   |
+| :------------------------------------- | :---------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------- | :--------------------- | :------------------------------------ |
+| **Class 1: Financial & Security (CP)** | **Strict Linearizability**    | `escrows`, `referral_payouts`, `platform_fee_payouts`, `multi_level_payouts`, `insurance_claims`, `insurance_premiums_paid`, `sla_violations`, `ratings`, `dispute_evidence`, `reputation_commitments`, `reputation_revocations`, `reputation_epochs`, `frozen_wallets`, `api_keys`, `admin_profiles`, `webauthn_credentials`                 | `REJECT_UNLESS_LEASE_HOLDER`                       | Authority Writer Pool  | **NO (Hard Reject)**                  |
+| **Class 2: Core Marketplace (Causal)** | **Causal / Read-Your-Writes** | `jobs`, `applications`, `profiles`, `dao_proposals`, `dao_votes`, `private_messages`, `messages`, `progress_updates`, `referrals`, `referral_tree`, `contract_events`, `skill_certificates`, `audit_logs`, `plugins`, `plugin_versions`, `plugin_installations`, `assessment_skills`, `assessment_questions`, `insured_files`, `fraud_alerts` | `STATE_MACHINE_VALIDATED` / `VERSION_VECTOR_MERGE` | Local / Authority Pool | **NO (Validated State Progression)**  |
+| **Class 3: Telemetry & Counters (AP)** | **Eventual Consistency**      | `crdt_pn_counters`, `job_views`, `notifications`, `notification_preferences`, `job_drafts`, `saved_searches`, `scope_sessions`, `ml_ranking_shadow_events`, `plugin_invocation_logs`, `availability_check_history`, `oracle_proofs`, `api_key_usage_daily`                                                                                    | `CRDT_PN_COUNTER` / `LWW_TIMESTAMP_TIEBREAK`       | Any Local Pool         | Yes (Loss-tolerant telemetry / CRDTs) |
 
-These are service objectives, not guarantees. A production game day is required
-quarterly, and a result outside either target blocks releases until the gap has
-an owner and remediation date.
+---
 
-## State and configuration
+## 3. Recovery Objectives (RTO & RPO Targets)
 
-| Dependency       | DR treatment                                                                                                                                                                                                                                   |
-| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| PostgreSQL       | Provider-managed cross-region asynchronous replica, continuous WAL/PITR backup, automatic promotion, deletion protection, and a regional endpoint per cluster. Enable synchronous durability within each region.                               |
-| Redis            | Per-cluster, non-persistent cache. No replication is required; all entries must be reconstructable from PostgreSQL or external APIs.                                                                                                           |
-| Secrets          | A regionally replicated vault is the source of truth. External Secrets refreshes `marketpay/production/backend` and `marketpay/production/frontend` every five minutes in both clusters. Kubernetes Secrets are never copied between clusters. |
-| IPFS evidence    | CIDs are stored in PostgreSQL. Pinata credentials come from the replicated vault. Production must pin each CID with a second independent pinning account/provider; game day verifies retrieval through both gateways.                          |
-| Container images | Immutable tags in GHCR. The same digest must be pullable by both regions before promotion.                                                                                                                                                     |
-| Stellar state    | Escrow funds and contract state remain on Stellar and are not cluster-local. Contract IDs and network selection are replicated configuration.                                                                                                  |
+| Operation Class                                    | RTO Target        | RPO Target              | Budget and Justification                                                                                      |
+| :------------------------------------------------- | :---------------- | :---------------------- | :------------------------------------------------------------------------------------------------------------ |
+| **Class 1 Financial (Escrows, Disputes, Payouts)** | **<= 10 seconds** | **0 seconds (RPO = 0)** | Fencing lease mutual exclusion ensures zero lost writes or double payouts. Hard rejection on un-leased nodes. |
+| **Class 2 Causal Marketplace State**               | **<= 5 seconds**  | **<= 1 second**         | Asynchronous bidirectional replay; deterministic state-machine conflict resolution.                           |
+| **Class 3 Eventual CRDTs & Telemetry**             | **<= 2 seconds**  | **<= 5 seconds**        | Conflict-free PN-counters and Add-Wins OR-Sets merge cleanly post-partition.                                  |
 
-Required backend secret keys include `DATABASE_URL`, `JWT_SECRET`,
-`CONTRACT_ID`, `PINATA_API_KEY`, and `PINATA_SECRET_KEY`. The secondary
-`DATABASE_URL` must resolve to its regional replica and remain stable when that
-replica is promoted.
+---
 
-## Failure safety
+## 4. Split-Brain Prevention and Lease Fencing
 
-- Liveness checks only process health; dependency failures do not cause restart
-  loops.
-- Warm-standby readiness checks PostgreSQL and Horizon reachability.
-- The GSLB traffic gate additionally requires database writability.
-- K8GB shifts traffic only to a cluster with Ready application Pods.
-- DNS failover is automatic; DNS failback is deliberately manual.
-- If neither regional database is known to be the writer, both regions remain
-  unavailable. Operators must establish database authority before changing DNS.
-- A promoted former secondary is never reattached as a replica without
-  rebuilding the old primary from the new writer.
+1. **Generation-Token Leases (`region_fencing_leases`):**
+   - Active authority holds lease `global_financial_authority` with monotonic generation token $G$.
+   - Heartbeat interval: **2 seconds**; Lease TTL: **6 seconds**.
+2. **Autonomous Partition Fencing:**
+   - If the active authority loses WAN connection or misses 3 consecutive heartbeats, it enters `FENCED_READ_ONLY` mode.
+   - All Class 1 financial write queries are immediately rejected with HTTP 409 (`55000: Object not in prerequisite state`).
+3. **Lease Promotion & Takeover:**
+   - Secondary node promotes to active authority by incrementing generation token ($G_{new} = G_{old} + 1$).
+   - In-flight writes are drained with a 5-second timeout (`pool.drainWrites()`).
+4. **Post-Failover On-Chain Escrow Reconciliation:**
+   - `ChainReconciliationService` continuously compares off-chain database rows with on-chain Soroban contract events and Stellar ledger sequences, auto-healing any lagged state transitions.
 
-## Blue-green releases
+---
 
-Argo Rollouts maintains active and preview Services for both applications.
-Every new immutable image:
+## 5. Failure Safety and Health Probes
 
-1. starts on the preview ReplicaSet;
-2. passes three smoke-test Jobs against preview frontend and backend;
-3. switches the active Service selector without replacing the stable pods;
-4. passes six post-cutover checks over one minute;
-5. becomes stable only after analysis succeeds.
-
-Failed pre-promotion analysis prevents cutover. Failed post-promotion analysis
-aborts the rollout and switches the active Service back to the previous stable
-ReplicaSet. Stable pods are retained for five minutes, and three revisions are
-kept in the fast rollback window.
+- `/health/live`: Process liveness only (independent of external dependencies).
+- `/health/standby`: Database and Horizon reachability (passes on read-only replicas).
+- `/health/ready`: Database connectivity + writability + fencing status (`fenced=false`).
+- `/api/replication/status`: Live telemetry for replication replay lag, cross-region RTT, fencing lease status, and pool connection counts.
+- `/api/replication/conflicts`: Structured audit log of all detected replication conflicts and applied resolution strategies.

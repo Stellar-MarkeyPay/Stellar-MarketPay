@@ -1,0 +1,1456 @@
+diff --git a/backend/.env.example b/backend/.env.example
+index b00d259..c75a0a4 100644
+--- a/backend/.env.example
++++ b/backend/.env.example
+@@ -3,6 +3,10 @@ NODE_ENV=development
+ DATABASE_URL=postgresql://stellarwork:stellarwork_dev@localhost:5432/stellarwork
+ # Required. Server startup fails if JWT_SECRET is unset.
+ JWT_SECRET=replace-with-a-long-random-secret
++
++# Required before enterprise SAML/OIDC is enabled in production. Exactly 32
++# bytes encoded as base64 or 64 hexadecimal characters; keep separate from JWT.
++FEDERATION_HASH_KEY=REPLACE_WITH_32_BYTE_BASE64_KEY
+ STELLAR_NETWORK=testnet
+ HORIZON_URL=https://horizon-testnet.stellar.org
+ # Soroban escrow contract ID (see docs/contract-deployment.md)
+diff --git a/backend/src/db/migrate.test.js b/backend/src/db/migrate.test.js
+index 4e10c61..5ca2edb 100644
+--- a/backend/src/db/migrate.test.js
++++ b/backend/src/db/migrate.test.js
+@@ -33,6 +33,7 @@ describe("named migration journal", () => {
+       expect.arrayContaining([
+         "V12__decentralized_storage_insurance",
+         "V12__fraud_detection_alerts",
++        "V22__enterprise_federation_foundation",
+       ])
+     );
+     expect(new Set(insertedNames).size).toBe(insertedNames.length);
+@@ -53,4 +54,24 @@ describe("named migration journal", () => {
+       [21, "V21__compliance_core"]
+     );
+   });
++
++  it("executes the enterprise federation rollback before removing its journal entry", async () => {
++    mockQuery.mockImplementation(async (sql) => {
++      if (/SELECT version, name/.test(sql)) {
++        return { rows: [{ version: 22, name: "V22__enterprise_federation_foundation" }] };
++      }
++      return { rows: [] };
++    });
++
++    await expect(rollbackLastMigration()).resolves.toBe(22);
++    const rollbackSqlCall = mockQuery.mock.calls.find(([sql]) =>
++      /DROP TABLE IF EXISTS organisation_authentication_events/.test(sql)
++    );
++    expect(rollbackSqlCall).toBeDefined();
++    expect(rollbackSqlCall[0]).toMatch(/DROP TABLE IF EXISTS organisations/);
++    expect(mockQuery).toHaveBeenCalledWith(
++      "DELETE FROM schema_migrations WHERE version = $1 AND name = $2",
++      [22, "V22__enterprise_federation_foundation"]
++    );
++  });
+ });
+diff --git a/backend/src/db/migrations/V22__enterprise_federation_foundation.down.sql b/backend/src/db/migrations/V22__enterprise_federation_foundation.down.sql
+new file mode 100644
+index 0000000..00c14bc
+--- /dev/null
++++ b/backend/src/db/migrations/V22__enterprise_federation_foundation.down.sql
+@@ -0,0 +1,12 @@
++-- Rollback for the additive, pre-enforcement federation foundation.
++-- RESTRICT relationships make accidental removal visible if a later phase has
++-- already populated dependent records; in that case deploy forward instead.
++
++DROP TABLE IF EXISTS organisation_authentication_events;
++DROP TABLE IF EXISTS federated_signing_bindings;
++DROP TABLE IF EXISTS federation_replay_keys;
++DROP TABLE IF EXISTS federation_auth_transactions;
++DROP TABLE IF EXISTS federated_identities;
++DROP TABLE IF EXISTS organisation_identity_providers;
++DROP TABLE IF EXISTS organisation_memberships;
++DROP TABLE IF EXISTS organisations;
+diff --git a/backend/src/db/migrations/V22__enterprise_federation_foundation.up.sql b/backend/src/db/migrations/V22__enterprise_federation_foundation.up.sql
+new file mode 100644
+index 0000000..879acea
+--- /dev/null
++++ b/backend/src/db/migrations/V22__enterprise_federation_foundation.up.sql
+@@ -0,0 +1,207 @@
++-- Enterprise federation foundation (Issue #317).
++--
++-- This migration is deliberately additive. Existing wallet/WebAuthn users do
++-- not acquire an organisation membership and their authentication path is not
++-- changed. Protocol handlers and enforced SSO are enabled by later migrations.
++
++CREATE TABLE IF NOT EXISTS organisations (
++  id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
++  slug                TEXT NOT NULL UNIQUE
++                       CHECK (slug = lower(slug) AND slug ~ '^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$'),
++  name                TEXT NOT NULL CHECK (char_length(name) BETWEEN 1 AND 160),
++  status              TEXT NOT NULL DEFAULT 'active'
++                       CHECK (status IN ('active', 'suspended', 'archived')),
++  created_by_address  TEXT NOT NULL REFERENCES profiles(public_key) ON DELETE RESTRICT,
++  created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
++  updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
++);
++
++CREATE TABLE IF NOT EXISTS organisation_memberships (
++  id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
++  organisation_id     UUID NOT NULL REFERENCES organisations(id) ON DELETE RESTRICT,
++  profile_public_key  TEXT REFERENCES profiles(public_key) ON DELETE RESTRICT,
++  role_key            TEXT NOT NULL DEFAULT 'member'
++                       CHECK (role_key ~ '^[a-z][a-z0-9_.:-]{0,63}$'),
++  status              TEXT NOT NULL DEFAULT 'pending'
++                       CHECK (status IN ('pending', 'active', 'suspended', 'deprovisioned')),
++  provisioning_source TEXT NOT NULL DEFAULT 'manual'
++                       CHECK (provisioning_source IN ('manual', 'saml', 'oidc', 'scim')),
++  deprovisioned_at    TIMESTAMPTZ,
++  created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
++  updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
++  UNIQUE (organisation_id, id),
++  CHECK ((status = 'deprovisioned') = (deprovisioned_at IS NOT NULL))
++);
++
++CREATE UNIQUE INDEX IF NOT EXISTS organisation_memberships_profile_idx
++  ON organisation_memberships(organisation_id, profile_public_key)
++  WHERE profile_public_key IS NOT NULL AND status <> 'deprovisioned';
++CREATE INDEX IF NOT EXISTS organisation_memberships_profile_lookup_idx
++  ON organisation_memberships(profile_public_key, status)
++  WHERE profile_public_key IS NOT NULL;
++CREATE INDEX IF NOT EXISTS organisation_memberships_status_idx
++  ON organisation_memberships(organisation_id, status);
++
++CREATE TABLE IF NOT EXISTS organisation_identity_providers (
++  id                          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
++  organisation_id             UUID NOT NULL REFERENCES organisations(id) ON DELETE RESTRICT,
++  protocol                    TEXT NOT NULL CHECK (protocol IN ('saml', 'oidc')),
++  display_name                TEXT NOT NULL CHECK (char_length(display_name) BETWEEN 1 AND 120),
++  issuer                      TEXT NOT NULL CHECK (char_length(issuer) BETWEEN 1 AND 2048),
++  status                      TEXT NOT NULL DEFAULT 'draft'
++                               CHECK (status IN ('draft', 'enabled', 'disabled', 'retired')),
++  is_default                  BOOLEAN NOT NULL DEFAULT FALSE,
++  jit_provisioning_enabled    BOOLEAN NOT NULL DEFAULT FALSE,
++  idp_initiated_login_enabled BOOLEAN NOT NULL DEFAULT FALSE,
++  public_configuration        JSONB NOT NULL DEFAULT '{}'::jsonb
++                               CHECK (jsonb_typeof(public_configuration) = 'object'),
++  credentials_envelope        JSONB
++                               CHECK (credentials_envelope IS NULL OR jsonb_typeof(credentials_envelope) = 'object'),
++  attribute_mapping           JSONB NOT NULL DEFAULT '{}'::jsonb
++                               CHECK (jsonb_typeof(attribute_mapping) = 'object'),
++  configuration_version       INTEGER NOT NULL DEFAULT 1 CHECK (configuration_version > 0),
++  created_by_membership_id    UUID,
++  created_at                  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
++  updated_at                  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
++  UNIQUE (organisation_id, id),
++  UNIQUE (organisation_id, protocol, issuer),
++  FOREIGN KEY (organisation_id, created_by_membership_id)
++    REFERENCES organisation_memberships(organisation_id, id) ON DELETE RESTRICT
++);
++
++CREATE UNIQUE INDEX IF NOT EXISTS organisation_identity_providers_default_idx
++  ON organisation_identity_providers(organisation_id)
++  WHERE is_default AND status <> 'retired';
++CREATE INDEX IF NOT EXISTS organisation_identity_providers_enabled_idx
++  ON organisation_identity_providers(organisation_id, protocol)
++  WHERE status = 'enabled';
++
++CREATE TABLE IF NOT EXISTS federated_identities (
++  id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
++  organisation_id       UUID NOT NULL REFERENCES organisations(id) ON DELETE RESTRICT,
++  provider_id           UUID NOT NULL,
++  membership_id         UUID NOT NULL,
++  external_subject_hash TEXT NOT NULL
++                         CHECK (external_subject_hash ~ '^[0-9a-f]{64}$'),
++  attributes_envelope   JSONB
++                         CHECK (attributes_envelope IS NULL OR jsonb_typeof(attributes_envelope) = 'object'),
++  status                TEXT NOT NULL DEFAULT 'active'
++                         CHECK (status IN ('active', 'suspended', 'deprovisioned')),
++  last_authenticated_at TIMESTAMPTZ,
++  deprovisioned_at      TIMESTAMPTZ,
++  created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
++  updated_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
++  UNIQUE (provider_id, external_subject_hash),
++  UNIQUE (organisation_id, id),
++  FOREIGN KEY (organisation_id, provider_id)
++    REFERENCES organisation_identity_providers(organisation_id, id) ON DELETE RESTRICT,
++  FOREIGN KEY (organisation_id, membership_id)
++    REFERENCES organisation_memberships(organisation_id, id) ON DELETE RESTRICT,
++  CHECK ((status = 'deprovisioned') = (deprovisioned_at IS NOT NULL))
++);
++
++CREATE INDEX IF NOT EXISTS federated_identities_membership_idx
++  ON federated_identities(organisation_id, membership_id, status);
++
++CREATE TABLE IF NOT EXISTS federation_auth_transactions (
++  id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
++  organisation_id     UUID NOT NULL REFERENCES organisations(id) ON DELETE RESTRICT,
++  provider_id         UUID NOT NULL,
++  flow_direction      TEXT NOT NULL CHECK (flow_direction IN ('sp_initiated', 'idp_initiated')),
++  request_id_hash     TEXT CHECK (request_id_hash IS NULL OR request_id_hash ~ '^[0-9a-f]{64}$'),
++  state_hash          TEXT CHECK (state_hash IS NULL OR state_hash ~ '^[0-9a-f]{64}$'),
++  nonce_hash          TEXT CHECK (nonce_hash IS NULL OR nonce_hash ~ '^[0-9a-f]{64}$'),
++  secret_envelope     JSONB
++                       CHECK (secret_envelope IS NULL OR jsonb_typeof(secret_envelope) = 'object'),
++  redirect_uri        TEXT CHECK (redirect_uri IS NULL OR char_length(redirect_uri) <= 2048),
++  outcome             TEXT NOT NULL DEFAULT 'pending'
++                       CHECK (outcome IN ('pending', 'succeeded', 'failed', 'cancelled')),
++  expires_at          TIMESTAMPTZ NOT NULL,
++  consumed_at         TIMESTAMPTZ,
++  created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
++  FOREIGN KEY (organisation_id, provider_id)
++    REFERENCES organisation_identity_providers(organisation_id, id) ON DELETE RESTRICT,
++  CHECK (expires_at > created_at),
++  CHECK ((outcome = 'pending') = (consumed_at IS NULL))
++);
++
++CREATE UNIQUE INDEX IF NOT EXISTS federation_auth_request_once_idx
++  ON federation_auth_transactions(provider_id, request_id_hash)
++  WHERE request_id_hash IS NOT NULL;
++CREATE UNIQUE INDEX IF NOT EXISTS federation_auth_state_once_idx
++  ON federation_auth_transactions(provider_id, state_hash)
++  WHERE state_hash IS NOT NULL;
++CREATE INDEX IF NOT EXISTS federation_auth_expiry_idx
++  ON federation_auth_transactions(expires_at)
++  WHERE outcome = 'pending';
++
++CREATE TABLE IF NOT EXISTS federation_replay_keys (
++  provider_id       UUID NOT NULL REFERENCES organisation_identity_providers(id) ON DELETE RESTRICT,
++  key_type          TEXT NOT NULL
++                    CHECK (key_type IN ('saml_response', 'saml_assertion', 'oidc_code', 'oidc_id_token')),
++  value_hash        TEXT NOT NULL CHECK (value_hash ~ '^[0-9a-f]{64}$'),
++  expires_at        TIMESTAMPTZ NOT NULL,
++  created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
++  PRIMARY KEY (provider_id, key_type, value_hash),
++  CHECK (expires_at > created_at)
++);
++
++CREATE INDEX IF NOT EXISTS federation_replay_expiry_idx
++  ON federation_replay_keys(expires_at);
++
++CREATE TABLE IF NOT EXISTS federated_signing_bindings (
++  id                        UUID PRIMARY KEY DEFAULT gen_random_uuid(),
++  organisation_id           UUID NOT NULL REFERENCES organisations(id) ON DELETE RESTRICT,
++  membership_id             UUID NOT NULL,
++  profile_public_key        TEXT NOT NULL REFERENCES profiles(public_key) ON DELETE RESTRICT,
++  signing_method            TEXT NOT NULL CHECK (signing_method IN ('linked_wallet', 'passkey_account')),
++  credential_reference_hash TEXT NOT NULL
++                             CHECK (credential_reference_hash ~ '^[0-9a-f]{64}$'),
++  status                    TEXT NOT NULL DEFAULT 'pending'
++                             CHECK (status IN ('pending', 'active', 'suspended', 'revoked')),
++  is_primary                BOOLEAN NOT NULL DEFAULT FALSE,
++  transaction_enabled       BOOLEAN NOT NULL DEFAULT FALSE,
++  verified_at               TIMESTAMPTZ,
++  revoked_at                TIMESTAMPTZ,
++  created_at                TIMESTAMPTZ NOT NULL DEFAULT NOW(),
++  updated_at                TIMESTAMPTZ NOT NULL DEFAULT NOW(),
++  FOREIGN KEY (organisation_id, membership_id)
++    REFERENCES organisation_memberships(organisation_id, id) ON DELETE RESTRICT,
++  UNIQUE (membership_id, signing_method, credential_reference_hash),
++  CHECK (status <> 'active' OR verified_at IS NOT NULL),
++  CHECK (status <> 'revoked' OR revoked_at IS NOT NULL),
++  CHECK (NOT transaction_enabled OR (status = 'active' AND verified_at IS NOT NULL))
++);
++
++CREATE UNIQUE INDEX IF NOT EXISTS federated_signing_primary_idx
++  ON federated_signing_bindings(membership_id)
++  WHERE is_primary AND status = 'active';
++CREATE INDEX IF NOT EXISTS federated_signing_profile_idx
++  ON federated_signing_bindings(profile_public_key, status);
++
++CREATE TABLE IF NOT EXISTS organisation_authentication_events (
++  id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
++  chain_sequence        BIGSERIAL NOT NULL UNIQUE,
++  organisation_id       UUID NOT NULL REFERENCES organisations(id) ON DELETE RESTRICT,
++  provider_id           UUID,
++  membership_id         UUID,
++  event_type            TEXT NOT NULL CHECK (char_length(event_type) BETWEEN 1 AND 80),
++  outcome               TEXT NOT NULL CHECK (outcome IN ('success', 'failure', 'denied', 'observed')),
++  correlation_id        TEXT NOT NULL CHECK (char_length(correlation_id) BETWEEN 1 AND 160),
++  subject_hash          TEXT CHECK (subject_hash IS NULL OR subject_hash ~ '^[0-9a-f]{64}$'),
++  source_ip_hash        TEXT CHECK (source_ip_hash IS NULL OR source_ip_hash ~ '^[0-9a-f]{64}$'),
++  user_agent_hash       TEXT CHECK (user_agent_hash IS NULL OR user_agent_hash ~ '^[0-9a-f]{64}$'),
++  metadata              JSONB NOT NULL DEFAULT '{}'::jsonb CHECK (jsonb_typeof(metadata) = 'object'),
++  previous_event_hash   TEXT CHECK (previous_event_hash IS NULL OR previous_event_hash ~ '^[0-9a-f]{64}$'),
++  event_hash            TEXT NOT NULL UNIQUE CHECK (event_hash ~ '^[0-9a-f]{64}$'),
++  created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
++  FOREIGN KEY (organisation_id, provider_id)
++    REFERENCES organisation_identity_providers(organisation_id, id) ON DELETE RESTRICT,
++  FOREIGN KEY (organisation_id, membership_id)
++    REFERENCES organisation_memberships(organisation_id, id) ON DELETE RESTRICT
++);
++
++CREATE INDEX IF NOT EXISTS organisation_authentication_events_org_idx
++  ON organisation_authentication_events(organisation_id, chain_sequence DESC);
++CREATE INDEX IF NOT EXISTS organisation_authentication_events_correlation_idx
++  ON organisation_authentication_events(correlation_id, created_at);
+diff --git a/backend/src/services/federation/errors.js b/backend/src/services/federation/errors.js
+new file mode 100644
+index 0000000..632a6c4
+--- /dev/null
++++ b/backend/src/services/federation/errors.js
+@@ -0,0 +1,17 @@
++"use strict";
++
++class FederationError extends Error {
++  constructor(status, code, message, details) {
++    super(message);
++    this.name = "FederationError";
++    this.status = status;
++    this.code = code;
++    if (details !== undefined) this.details = details;
++  }
++}
++
++function federationError(status, code, message, details) {
++  return new FederationError(status, code, message, details);
++}
++
++module.exports = { FederationError, federationError };
+diff --git a/backend/src/services/federation/errors.test.js b/backend/src/services/federation/errors.test.js
+new file mode 100644
+index 0000000..0fd323b
+--- /dev/null
++++ b/backend/src/services/federation/errors.test.js
+@@ -0,0 +1,20 @@
++"use strict";
++
++const { FederationError, federationError } = require("./errors");
++
++describe("federation errors", () => {
++  it("carries a stable HTTP status, machine code and optional details", () => {
++    const error = federationError(409, "FEDERATED_IDENTITY_CONFLICT", "Identity already linked", {
++      providerId: "provider-1",
++    });
++
++    expect(error).toBeInstanceOf(FederationError);
++    expect(error).toMatchObject({
++      name: "FederationError",
++      status: 409,
++      code: "FEDERATED_IDENTITY_CONFLICT",
++      message: "Identity already linked",
++      details: { providerId: "provider-1" },
++    });
++  });
++});
+diff --git a/backend/src/services/federation/index.js b/backend/src/services/federation/index.js
+new file mode 100644
+index 0000000..10b69c0
+--- /dev/null
++++ b/backend/src/services/federation/index.js
+@@ -0,0 +1,9 @@
++"use strict";
++
++module.exports = {
++  ...require("./errors"),
++  ...require("./provider"),
++  ...require("./security"),
++  ...require("./stateMachines"),
++  ...require("./transactionAuthorization"),
++};
+diff --git a/backend/src/services/federation/provider.js b/backend/src/services/federation/provider.js
+new file mode 100644
+index 0000000..c803b70
+--- /dev/null
++++ b/backend/src/services/federation/provider.js
+@@ -0,0 +1,158 @@
++"use strict";
++
++const { federationError } = require("./errors");
++const { requireOpaqueValue } = require("./security");
++
++const PROTOCOLS = Object.freeze(["saml", "oidc"]);
++const ATTRIBUTE_TARGETS = Object.freeze([
++  "email",
++  "displayName",
++  "firstName",
++  "lastName",
++  "groups",
++  "role",
++]);
++const FORBIDDEN_PATH_SEGMENTS = new Set(["__proto__", "prototype", "constructor"]);
++
++function isPlainObject(value) {
++  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
++  const prototype = Object.getPrototypeOf(value);
++  return prototype === Object.prototype || prototype === null;
++}
++
++function readAttributePath(attributes, path) {
++  const segments = String(path || "").split(".");
++  if (
++    segments.length === 0 ||
++    segments.length > 8 ||
++    segments.some((segment) => !segment || FORBIDDEN_PATH_SEGMENTS.has(segment))
++  ) {
++    throw federationError(400, "INVALID_ATTRIBUTE_MAPPING", "Attribute path is invalid");
++  }
++
++  let current = attributes;
++  for (const segment of segments) {
++    if (!isPlainObject(current) || !Object.prototype.hasOwnProperty.call(current, segment)) {
++      return undefined;
++    }
++    current = current[segment];
++  }
++  return current;
++}
++
++function normalizeString(value, field, maxLength) {
++  if (value == null || value === "") return undefined;
++  if (!["string", "number", "boolean"].includes(typeof value)) {
++    throw federationError(400, "INVALID_ATTRIBUTE_VALUE", `${field} must be a scalar value`);
++  }
++  return requireOpaqueValue(String(value).normalize("NFC").trim(), field, maxLength);
++}
++
++function mapFederatedAttributes(attributes, mapping) {
++  if (!isPlainObject(attributes) || !isPlainObject(mapping)) {
++    throw federationError(
++      400,
++      "INVALID_ATTRIBUTE_MAPPING",
++      "Federated attributes and attribute mapping must be objects"
++    );
++  }
++
++  for (const target of Object.keys(mapping)) {
++    if (!ATTRIBUTE_TARGETS.includes(target)) {
++      throw federationError(400, "INVALID_ATTRIBUTE_TARGET", `Unsupported target ${target}`);
++    }
++  }
++
++  const mapped = {};
++  for (const target of ATTRIBUTE_TARGETS) {
++    if (!mapping[target]) continue;
++    if (typeof mapping[target] !== "string") {
++      throw federationError(400, "INVALID_ATTRIBUTE_MAPPING", "Attribute path must be a string");
++    }
++    const value = readAttributePath(attributes, mapping[target]);
++    if (value == null) continue;
++
++    if (target === "groups") {
++      const groups = Array.isArray(value) ? value : [value];
++      mapped.groups = [
++        ...new Set(
++          groups
++            .slice(0, 200)
++            .map((group) => normalizeString(group, "group", 256))
++            .filter(Boolean)
++        ),
++      ];
++      continue;
++    }
++
++    const maxLength = target === "email" ? 320 : 256;
++    mapped[target] = normalizeString(value, target, maxLength);
++  }
++
++  if (mapped.email) mapped.email = mapped.email.toLocaleLowerCase("en-US");
++  return mapped;
++}
++
++function parseInstant(value, field) {
++  const instant = value instanceof Date ? new Date(value) : new Date(value);
++  if (!Number.isFinite(instant.getTime())) {
++    throw federationError(400, "INVALID_FEDERATED_PRINCIPAL", `${field} is invalid`);
++  }
++  return instant;
++}
++
++function normalizeFederatedPrincipal(input) {
++  if (!isPlainObject(input) || !PROTOCOLS.includes(input.protocol)) {
++    throw federationError(400, "INVALID_FEDERATED_PRINCIPAL", "Protocol must be saml or oidc");
++  }
++
++  const issuedAt = parseInstant(input.issuedAt, "issuedAt");
++  const expiresAt = parseInstant(input.expiresAt, "expiresAt");
++  if (expiresAt <= issuedAt) {
++    throw federationError(400, "INVALID_FEDERATED_PRINCIPAL", "expiresAt must follow issuedAt");
++  }
++
++  return Object.freeze({
++    protocol: input.protocol,
++    organisationId: requireOpaqueValue(input.organisationId, "organisationId", 128),
++    providerId: requireOpaqueValue(input.providerId, "providerId", 128),
++    issuer: requireOpaqueValue(input.issuer, "issuer", 2048),
++    subject: requireOpaqueValue(input.subject, "subject"),
++    responseId: requireOpaqueValue(input.responseId, "responseId", 2048),
++    assertionId: input.assertionId
++      ? requireOpaqueValue(input.assertionId, "assertionId", 2048)
++      : undefined,
++    audience: requireOpaqueValue(input.audience, "audience", 2048),
++    issuedAt,
++    expiresAt,
++    authenticationContext: normalizeString(
++      input.authenticationContext,
++      "authenticationContext",
++      2048
++    ),
++    attributes: isPlainObject(input.attributes) ? Object.freeze({ ...input.attributes }) : {},
++  });
++}
++
++function assertProviderAdapter(adapter, expectedProtocol) {
++  const requiredMethods = ["buildAuthenticationRequest", "consumeAuthenticationResponse"];
++  if (!adapter || adapter.protocol !== expectedProtocol || !PROTOCOLS.includes(expectedProtocol)) {
++    throw federationError(500, "INVALID_PROVIDER_ADAPTER", "Provider adapter protocol mismatch");
++  }
++  for (const method of requiredMethods) {
++    if (typeof adapter[method] !== "function") {
++      throw federationError(500, "INVALID_PROVIDER_ADAPTER", `Provider adapter lacks ${method}`);
++    }
++  }
++  return adapter;
++}
++
++module.exports = {
++  ATTRIBUTE_TARGETS,
++  PROTOCOLS,
++  assertProviderAdapter,
++  isPlainObject,
++  mapFederatedAttributes,
++  normalizeFederatedPrincipal,
++  readAttributePath,
++};
+diff --git a/backend/src/services/federation/provider.test.js b/backend/src/services/federation/provider.test.js
+new file mode 100644
+index 0000000..9d09ef9
+--- /dev/null
++++ b/backend/src/services/federation/provider.test.js
+@@ -0,0 +1,91 @@
++"use strict";
++
++const {
++  assertProviderAdapter,
++  mapFederatedAttributes,
++  normalizeFederatedPrincipal,
++  readAttributePath,
++} = require("./provider");
++
++describe("protocol-neutral federation provider contract", () => {
++  it("normalizes the result shared by SAML and OIDC adapters", () => {
++    const principal = normalizeFederatedPrincipal({
++      protocol: "saml",
++      organisationId: "org-1",
++      providerId: "provider-1",
++      issuer: "https://idp.example.test/metadata",
++      subject: "subject-123",
++      responseId: "response-1",
++      assertionId: "assertion-1",
++      audience: "https://marketpay.example.test/saml/metadata/org-1",
++      issuedAt: "2026-08-28T05:00:00.000Z",
++      expiresAt: "2026-08-28T05:05:00.000Z",
++      authenticationContext: "urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport",
++      attributes: { mail: "member@example.test" },
++    });
++
++    expect(principal.protocol).toBe("saml");
++    expect(principal.issuedAt).toEqual(new Date("2026-08-28T05:00:00.000Z"));
++    expect(Object.isFrozen(principal)).toBe(true);
++  });
++
++  it("rejects malformed lifetimes and incomplete principals", () => {
++    const valid = {
++      protocol: "oidc",
++      organisationId: "org-1",
++      providerId: "provider-1",
++      issuer: "https://idp.example.test",
++      subject: "subject-123",
++      responseId: "token-1",
++      audience: "client-1",
++      issuedAt: "2026-08-28T05:05:00.000Z",
++      expiresAt: "2026-08-28T05:00:00.000Z",
++    };
++    expect(() => normalizeFederatedPrincipal(valid)).toThrow("expiresAt must follow issuedAt");
++    expect(() => normalizeFederatedPrincipal({ ...valid, protocol: "oauth" })).toThrow(
++      "Protocol must be saml or oidc"
++    );
++  });
++
++  it("maps configured JIT attributes and normalizes email and groups", () => {
++    const mapped = mapFederatedAttributes(
++      {
++        claims: {
++          mail: "STAFF@Example.Test",
++          name: "Staff Member",
++          groups: ["engineering", "engineering", "reviewers"],
++        },
++      },
++      {
++        email: "claims.mail",
++        displayName: "claims.name",
++        groups: "claims.groups",
++      }
++    );
++
++    expect(mapped).toEqual({
++      email: "staff@example.test",
++      displayName: "Staff Member",
++      groups: ["engineering", "reviewers"],
++    });
++  });
++
++  it("does not traverse prototype-sensitive or unconfigured paths", () => {
++    expect(() => readAttributePath({}, "__proto__.polluted")).toThrow("Attribute path is invalid");
++    expect(() => mapFederatedAttributes({}, { walletSeed: "claims.seed" })).toThrow(
++      "Unsupported target walletSeed"
++    );
++  });
++
++  it("requires adapters to implement the shared request/response boundary", () => {
++    const adapter = {
++      protocol: "oidc",
++      buildAuthenticationRequest: jest.fn(),
++      consumeAuthenticationResponse: jest.fn(),
++    };
++    expect(assertProviderAdapter(adapter, "oidc")).toBe(adapter);
++    expect(() => assertProviderAdapter({ protocol: "oidc" }, "oidc")).toThrow(
++      "Provider adapter lacks buildAuthenticationRequest"
++    );
++  });
++});
+diff --git a/backend/src/services/federation/security.js b/backend/src/services/federation/security.js
+new file mode 100644
+index 0000000..c483b5c
+--- /dev/null
++++ b/backend/src/services/federation/security.js
+@@ -0,0 +1,101 @@
++"use strict";
++
++const crypto = require("crypto");
++const { federationError } = require("./errors");
++
++const HASH_DOMAIN = "marketpay-enterprise-federation-v1";
++
++function decodeKey(value) {
++  if (Buffer.isBuffer(value)) return Buffer.from(value);
++  if (typeof value !== "string" || value.length === 0) return Buffer.alloc(0);
++  if (/^[0-9a-f]{64}$/i.test(value)) return Buffer.from(value, "hex");
++  return Buffer.from(value, "base64");
++}
++
++function getFederationHashKey(env = process.env) {
++  const configured = decodeKey(env.FEDERATION_HASH_KEY);
++  if (configured.length === 32) return configured;
++
++  if (env.NODE_ENV === "production") {
++    throw federationError(
++      500,
++      "FEDERATION_HASH_KEY_REQUIRED",
++      "FEDERATION_HASH_KEY must contain exactly 32 bytes in production"
++    );
++  }
++
++  return crypto
++    .createHash("sha256")
++    .update(`${env.JWT_SECRET || "local"}:${HASH_DOMAIN}:local-only`)
++    .digest();
++}
++
++function requireOpaqueValue(value, fieldName, maxLength = 4096) {
++  if (typeof value !== "string") {
++    throw federationError(400, "INVALID_FEDERATION_VALUE", `${fieldName} must be a string`);
++  }
++  if (value.trim().length === 0 || value.length > maxLength || value.includes("\u0000")) {
++    throw federationError(
++      400,
++      "INVALID_FEDERATION_VALUE",
++      `${fieldName} must contain between 1 and ${maxLength} characters`
++    );
++  }
++  // Subjects, state, nonce, codes and assertion IDs are opaque and
++  // case/whitespace-sensitive. Do not trim or Unicode-normalize them.
++  return value;
++}
++
++function blindIndex(namespace, context, value, key = getFederationHashKey()) {
++  const normalizedNamespace = requireOpaqueValue(namespace, "namespace", 80);
++  const normalizedContext = requireOpaqueValue(context, "context", 2048);
++  const normalizedValue = requireOpaqueValue(value, "value");
++  const decodedKey = decodeKey(key);
++  if (decodedKey.length !== 32) {
++    throw federationError(500, "INVALID_FEDERATION_HASH_KEY", "Federation hash key is invalid");
++  }
++
++  return crypto
++    .createHmac("sha256", decodedKey)
++    .update(
++      `${HASH_DOMAIN}\u0000${normalizedNamespace}\u0000${normalizedContext}\u0000${normalizedValue}`
++    )
++    .digest("hex");
++}
++
++function hashFederatedSubject(providerId, subject, key) {
++  return blindIndex("external-subject", providerId, subject, key);
++}
++
++function hashOneTimeValue(providerId, kind, value, key) {
++  const allowedKinds = new Set([
++    "saml-request",
++    "saml-response",
++    "saml-assertion",
++    "oidc-state",
++    "oidc-nonce",
++    "oidc-code",
++    "oidc-id-token",
++  ]);
++  if (!allowedKinds.has(kind)) {
++    throw federationError(400, "INVALID_ONE_TIME_VALUE_KIND", "Unknown one-time value kind");
++  }
++  return blindIndex(kind, providerId, value, key);
++}
++
++function hashesEqual(left, right) {
++  if (!/^[0-9a-f]{64}$/i.test(left || "") || !/^[0-9a-f]{64}$/i.test(right || "")) {
++    return false;
++  }
++  return crypto.timingSafeEqual(Buffer.from(left, "hex"), Buffer.from(right, "hex"));
++}
++
++module.exports = {
++  blindIndex,
++  decodeKey,
++  getFederationHashKey,
++  hashesEqual,
++  hashFederatedSubject,
++  hashOneTimeValue,
++  requireOpaqueValue,
++};
+diff --git a/backend/src/services/federation/security.test.js b/backend/src/services/federation/security.test.js
+new file mode 100644
+index 0000000..21d60ee
+--- /dev/null
++++ b/backend/src/services/federation/security.test.js
+@@ -0,0 +1,64 @@
++"use strict";
++
++const {
++  blindIndex,
++  getFederationHashKey,
++  hashesEqual,
++  hashFederatedSubject,
++  hashOneTimeValue,
++} = require("./security");
++
++const KEY = Buffer.alloc(32, 7);
++
++describe("federation blind indexes", () => {
++  it("is deterministic for one provider and subject without storing the subject", () => {
++    const first = hashFederatedSubject("provider-1", "opaque-subject", KEY);
++    const second = hashFederatedSubject("provider-1", "opaque-subject", KEY);
++
++    expect(first).toMatch(/^[0-9a-f]{64}$/);
++    expect(first).toBe(second);
++    expect(first).not.toContain("opaque-subject");
++  });
++
++  it("domain-separates providers and one-time value kinds", () => {
++    const values = new Set([
++      hashFederatedSubject("provider-1", "same-value", KEY),
++      hashFederatedSubject("provider-2", "same-value", KEY),
++      hashOneTimeValue("provider-1", "oidc-state", "same-value", KEY),
++      hashOneTimeValue("provider-1", "oidc-nonce", "same-value", KEY),
++      blindIndex("custom", "provider-1", "same-value", KEY),
++    ]);
++    expect(values.size).toBe(5);
++  });
++
++  it("preserves opaque subject and protocol-value bytes", () => {
++    expect(hashFederatedSubject("provider-1", "subject", KEY)).not.toBe(
++      hashFederatedSubject("provider-1", " subject ", KEY)
++    );
++    expect(hashOneTimeValue("provider-1", "oidc-state", "State", KEY)).not.toBe(
++      hashOneTimeValue("provider-1", "oidc-state", "state", KEY)
++    );
++  });
++
++  it("compares only well-formed hashes in constant-time code", () => {
++    const hash = hashOneTimeValue("provider-1", "saml-assertion", "assertion-1", KEY);
++    expect(hashesEqual(hash, hash)).toBe(true);
++    expect(hashesEqual(hash, "f".repeat(64))).toBe(false);
++    expect(hashesEqual(hash, "not-a-hash")).toBe(false);
++  });
++
++  it("requires an independent 32-byte key in production", () => {
++    expect(() => getFederationHashKey({ NODE_ENV: "production", JWT_SECRET: "jwt" })).toThrow(
++      "FEDERATION_HASH_KEY"
++    );
++    expect(
++      getFederationHashKey({ NODE_ENV: "production", FEDERATION_HASH_KEY: KEY.toString("base64") })
++    ).toEqual(KEY);
++  });
++
++  it("rejects unknown replay-value namespaces", () => {
++    expect(() => hashOneTimeValue("provider-1", "relay-state", "value", KEY)).toThrow(
++      "Unknown one-time value kind"
++    );
++  });
++});
+diff --git a/backend/src/services/federation/stateMachines.js b/backend/src/services/federation/stateMachines.js
+new file mode 100644
+index 0000000..bca4604
+--- /dev/null
++++ b/backend/src/services/federation/stateMachines.js
+@@ -0,0 +1,54 @@
++"use strict";
++
++const { federationError } = require("./errors");
++
++const MEMBERSHIP_TRANSITIONS = Object.freeze({
++  pending: ["active", "deprovisioned"],
++  active: ["suspended", "deprovisioned"],
++  suspended: ["active", "deprovisioned"],
++  deprovisioned: [],
++});
++
++const PROVIDER_TRANSITIONS = Object.freeze({
++  draft: ["enabled", "retired"],
++  enabled: ["disabled", "retired"],
++  disabled: ["enabled", "retired"],
++  retired: [],
++});
++
++const IDENTITY_TRANSITIONS = Object.freeze({
++  active: ["suspended", "deprovisioned"],
++  suspended: ["active", "deprovisioned"],
++  deprovisioned: [],
++});
++
++const SIGNING_BINDING_TRANSITIONS = Object.freeze({
++  pending: ["active", "revoked"],
++  active: ["suspended", "revoked"],
++  suspended: ["active", "revoked"],
++  revoked: [],
++});
++
++function transition(table, from, to, model) {
++  if (from === to) return to;
++  if (!table[from] || !table[from].includes(to)) {
++    throw federationError(
++      409,
++      "ILLEGAL_FEDERATION_TRANSITION",
++      `${model} transition ${from} -> ${to} is not allowed`
++    );
++  }
++  return to;
++}
++
++module.exports = {
++  IDENTITY_TRANSITIONS,
++  MEMBERSHIP_TRANSITIONS,
++  PROVIDER_TRANSITIONS,
++  SIGNING_BINDING_TRANSITIONS,
++  transitionIdentity: (from, to) => transition(IDENTITY_TRANSITIONS, from, to, "Identity"),
++  transitionMembership: (from, to) => transition(MEMBERSHIP_TRANSITIONS, from, to, "Membership"),
++  transitionProvider: (from, to) => transition(PROVIDER_TRANSITIONS, from, to, "Provider"),
++  transitionSigningBinding: (from, to) =>
++    transition(SIGNING_BINDING_TRANSITIONS, from, to, "Signing binding"),
++};
+diff --git a/backend/src/services/federation/stateMachines.test.js b/backend/src/services/federation/stateMachines.test.js
+new file mode 100644
+index 0000000..4beec65
+--- /dev/null
++++ b/backend/src/services/federation/stateMachines.test.js
+@@ -0,0 +1,38 @@
++"use strict";
++
++const {
++  IDENTITY_TRANSITIONS,
++  MEMBERSHIP_TRANSITIONS,
++  PROVIDER_TRANSITIONS,
++  SIGNING_BINDING_TRANSITIONS,
++  transitionIdentity,
++  transitionMembership,
++  transitionProvider,
++  transitionSigningBinding,
++} = require("./stateMachines");
++
++describe("federation lifecycle state machines", () => {
++  it.each([
++    [MEMBERSHIP_TRANSITIONS, transitionMembership],
++    [PROVIDER_TRANSITIONS, transitionProvider],
++    [IDENTITY_TRANSITIONS, transitionIdentity],
++    [SIGNING_BINDING_TRANSITIONS, transitionSigningBinding],
++  ])("allows only documented lifecycle edges", (table, transition) => {
++    const states = Object.keys(table);
++    for (const from of states) {
++      for (const to of states) {
++        if (from === to || table[from].includes(to)) {
++          expect(transition(from, to)).toBe(to);
++        } else {
++          expect(() => transition(from, to)).toThrow("is not allowed");
++        }
++      }
++    }
++  });
++
++  it("makes deprovisioned and revoked records terminal", () => {
++    expect(MEMBERSHIP_TRANSITIONS.deprovisioned).toEqual([]);
++    expect(IDENTITY_TRANSITIONS.deprovisioned).toEqual([]);
++    expect(SIGNING_BINDING_TRANSITIONS.revoked).toEqual([]);
++  });
++});
+diff --git a/backend/src/services/federation/transactionAuthorization.js b/backend/src/services/federation/transactionAuthorization.js
+new file mode 100644
+index 0000000..208913e
+--- /dev/null
++++ b/backend/src/services/federation/transactionAuthorization.js
+@@ -0,0 +1,64 @@
++"use strict";
++
++const ALLOWED_SIGNING_METHODS = new Set(["linked_wallet", "passkey_account"]);
++const DEFAULT_REAUTH_MAX_AGE_MS = 5 * 60 * 1000;
++const DEFAULT_SIGNING_PROOF_MAX_AGE_MS = 2 * 60 * 1000;
++
++function ageIsFresh(value, now, maxAgeMs) {
++  const timestamp = new Date(value).getTime();
++  return Number.isFinite(timestamp) && timestamp <= now && now - timestamp <= maxAgeMs;
++}
++
++function evaluateTransactionAuthorization(
++  { organisation, membership, federatedIdentity, session, signingBinding, signingProof },
++  options = {}
++) {
++  const now = new Date(options.now || Date.now()).getTime();
++  const reauthMaxAgeMs = options.reauthMaxAgeMs || DEFAULT_REAUTH_MAX_AGE_MS;
++  const signingProofMaxAgeMs = options.signingProofMaxAgeMs || DEFAULT_SIGNING_PROOF_MAX_AGE_MS;
++  const reasons = [];
++
++  if (organisation?.status !== "active") reasons.push("ORGANISATION_NOT_ACTIVE");
++  if (membership?.status !== "active" || membership?.deprovisionedAt) {
++    reasons.push("MEMBERSHIP_NOT_ACTIVE");
++  }
++  if (federatedIdentity?.status !== "active") reasons.push("FEDERATED_IDENTITY_NOT_ACTIVE");
++
++  const sessionExpiresAt = new Date(session?.expiresAt).getTime();
++  if (
++    session?.status !== "active" ||
++    !Number.isFinite(sessionExpiresAt) ||
++    sessionExpiresAt <= now
++  ) {
++    reasons.push("SESSION_NOT_ACTIVE");
++  }
++  if (!ageIsFresh(session?.sensitiveActionReauthenticatedAt, now, reauthMaxAgeMs)) {
++    reasons.push("FRESH_REAUTH_REQUIRED");
++  }
++
++  if (
++    signingBinding?.status !== "active" ||
++    signingBinding?.transactionEnabled !== true ||
++    !ALLOWED_SIGNING_METHODS.has(signingBinding?.signingMethod)
++  ) {
++    reasons.push("SIGNING_BINDING_REQUIRED");
++  }
++
++  if (
++    signingProof?.verified !== true ||
++    signingProof?.bindingId !== signingBinding?.id ||
++    !signingProof?.transactionHash ||
++    !ageIsFresh(signingProof?.verifiedAt, now, signingProofMaxAgeMs)
++  ) {
++    reasons.push("FRESH_TRANSACTION_BOUND_SIGNING_PROOF_REQUIRED");
++  }
++
++  return Object.freeze({ allowed: reasons.length === 0, reasons: Object.freeze(reasons) });
++}
++
++module.exports = {
++  ALLOWED_SIGNING_METHODS,
++  DEFAULT_REAUTH_MAX_AGE_MS,
++  DEFAULT_SIGNING_PROOF_MAX_AGE_MS,
++  evaluateTransactionAuthorization,
++};
+diff --git a/backend/src/services/federation/transactionAuthorization.test.js b/backend/src/services/federation/transactionAuthorization.test.js
+new file mode 100644
+index 0000000..9ba586d
+--- /dev/null
++++ b/backend/src/services/federation/transactionAuthorization.test.js
+@@ -0,0 +1,86 @@
++"use strict";
++
++const { evaluateTransactionAuthorization } = require("./transactionAuthorization");
++
++const NOW = "2026-08-28T06:00:00.000Z";
++
++function eligibleContext() {
++  return {
++    organisation: { status: "active" },
++    membership: { status: "active", deprovisionedAt: null },
++    federatedIdentity: { status: "active" },
++    session: {
++      status: "active",
++      expiresAt: "2026-08-28T06:10:00.000Z",
++      sensitiveActionReauthenticatedAt: "2026-08-28T05:58:00.000Z",
++    },
++    signingBinding: {
++      id: "binding-1",
++      status: "active",
++      signingMethod: "linked_wallet",
++      transactionEnabled: true,
++    },
++    signingProof: {
++      bindingId: "binding-1",
++      verified: true,
++      verifiedAt: "2026-08-28T05:59:00.000Z",
++      transactionHash: "transaction-hash-1",
++    },
++  };
++}
++
++describe("federated transaction authorization invariant", () => {
++  it("denies an SSO-authenticated session without an independent signing credential", () => {
++    const context = eligibleContext();
++    delete context.signingBinding;
++    delete context.signingProof;
++
++    const result = evaluateTransactionAuthorization(context, { now: NOW });
++    expect(result.allowed).toBe(false);
++    expect(result.reasons).toEqual(
++      expect.arrayContaining([
++        "SIGNING_BINDING_REQUIRED",
++        "FRESH_TRANSACTION_BOUND_SIGNING_PROOF_REQUIRED",
++      ])
++    );
++  });
++
++  it("allows an active member only after fresh reauthentication and transaction-bound proof", () => {
++    expect(evaluateTransactionAuthorization(eligibleContext(), { now: NOW })).toEqual({
++      allowed: true,
++      reasons: [],
++    });
++  });
++
++  it("immediately denies a deprovisioned member even with an otherwise valid proof", () => {
++    const context = eligibleContext();
++    context.membership = {
++      status: "deprovisioned",
++      deprovisionedAt: "2026-08-28T05:59:30.000Z",
++    };
++    expect(evaluateTransactionAuthorization(context, { now: NOW })).toEqual({
++      allowed: false,
++      reasons: ["MEMBERSHIP_NOT_ACTIVE"],
++    });
++  });
++
++  it("does not treat a custodial key as a supported signing mode", () => {
++    const context = eligibleContext();
++    context.signingBinding.signingMethod = "custodial";
++    const result = evaluateTransactionAuthorization(context, { now: NOW });
++    expect(result.allowed).toBe(false);
++    expect(result.reasons).toContain("SIGNING_BINDING_REQUIRED");
++  });
++
++  it("rejects stale reauthentication, stale proof, or proof for a different binding", () => {
++    const stale = eligibleContext();
++    stale.session.sensitiveActionReauthenticatedAt = "2026-08-28T05:40:00.000Z";
++    stale.signingProof.verifiedAt = "2026-08-28T05:40:00.000Z";
++    stale.signingProof.bindingId = "binding-2";
++    const result = evaluateTransactionAuthorization(stale, { now: NOW });
++    expect(result.reasons).toEqual([
++      "FRESH_REAUTH_REQUIRED",
++      "FRESH_TRANSACTION_BOUND_SIGNING_PROOF_REQUIRED",
++    ]);
++  });
++});
+diff --git a/docs/ADR-012-enterprise-federation.md b/docs/ADR-012-enterprise-federation.md
+new file mode 100644
+index 0000000..7f57da0
+--- /dev/null
++++ b/docs/ADR-012-enterprise-federation.md
+@@ -0,0 +1,277 @@
++# ADR-012: Enterprise Federation and Transaction Authority Separation
++
++**Status:** Accepted for phased delivery
++**Date:** 2026-08-28
++**Issue:** [#317](https://github.com/Stellar-MarkeyPay/Stellar-MarketPay/issues/317)
++**Related:** [#255](https://github.com/Stellar-MarkeyPay/Stellar-MarketPay/issues/255)
++
++## Context
++
++MarketPay currently treats a Stellar public key as both a login identity and
++the authority that signs escrow transactions. Enterprise identity providers
++solve a different problem: they tell the platform which employee has passed
++an organisation's authentication policy. Treating that assertion as a wallet
++credential would collapse two trust boundaries and let an identity-provider
++compromise become a funds compromise.
++
++Issue #317 therefore has two independent axes:
++
++1. federation and lifecycle management (SAML, OIDC, JIT and SCIM); and
++2. possession-based authority to sign a specific Stellar transaction.
++
++Issue #255 owns the broader organisation/RBAC product. It has not landed yet.
++This foundation supplies only the minimum additive organisation and membership
++seam required to scope federation records. It does not claim to implement the
++permission matrix, invitations, organisation UI or organisation-owned escrow
++work tracked by #255. The `role_key` column is intentionally an opaque key that
++can become a foreign key to that epic's role catalogue without rewriting
++federated identities.
++
++The required design/claim comment was posted on #317 before this branch was
++created. This ADR turns that review proposal into a repository-owned decision
++record and describes the migration and rollback boundaries for each phase.
++
++## Decision
++
++### 1. Keep authentication identity separate from signing authority
++
++A successful SAML or OIDC response creates an authenticated **membership
++session**, not a Stellar signer. A federated membership may have no linked
++profile or wallet at all. Escrow-sensitive actions require all of:
++
++- an active organisation, membership and federated identity;
++- an unexpired session and fresh organisation reauthentication;
++- an active, transaction-enabled signing binding; and
++- fresh proof from that binding, bound to the exact transaction hash.
++
++`transactionAuthorization.js` encodes this intersection as a fail-closed pure
++policy. The regression test begins from the most important negative case: a
++valid SSO session with no signing credential is denied.
++
++The first supported signing arrangement will be a **linked personal wallet**.
++The member proves control when linking it and continues to sign each Stellar
++transaction in the wallet. A **passkey account contract** is the second
++supported arrangement once its on-chain verification and recovery rules are
++available. A platform-custodied employee key is deliberately not in the schema
++enum: it would turn MarketPay into the key custodian, create a new recovery and
++insider-risk system, and make IdP compromise materially closer to funds.
++
++| Arrangement              | Authentication             | Transaction proof                              | Main risk                                           | Decision                               |
++| ------------------------ | -------------------------- | ---------------------------------------------- | --------------------------------------------------- | -------------------------------------- |
++| Linked wallet            | SSO + organisation session | Wallet signs exact transaction                 | Member key loss / offboarding hand-off              | First implementation                   |
++| Passkey account contract | SSO + organisation session | Passkey/account contract authorises exact call | Contract recovery and device lifecycle              | Supported schema, later implementation |
++| Platform custody         | SSO + organisation session | Platform-held key signs                        | IdP/platform compromise can become funds compromise | Excluded                               |
++
++The backend policy is defense in depth; the Soroban contract remains the final
++signature/authority boundary.
++
++### 2. Normalise protocol output behind one adapter contract
++
++SAML and OIDC handlers will implement the same narrow boundary:
++
++```text
++buildAuthenticationRequest(context) -> redirect/form + one-time state
++consumeAuthenticationResponse(context) -> NormalizedFederatedPrincipal
++```
++
++The normalized principal includes protocol, organisation, provider, issuer,
++immutable subject, response/assertion identifier, audience, authentication
++context, timestamps and raw attributes. Protocol code must complete signature,
++encryption, issuer, recipient/audience, time-window, nonce/state and replay
++validation **before** constructing it. JIT mapping happens afterwards through
++an explicit allowlist of target attributes. Wallet seeds, private keys and
++arbitrary object paths are not mapping targets.
++
++### 3. Use per-organisation provider records
++
++Every provider belongs to exactly one organisation. Cross-organisation foreign
++keys use `(organisation_id, id)` pairs where tenant confusion would otherwise
++be possible. One organisation may have several SAML/OIDC providers but only one
++non-retired default. Configuration is versioned and moves through
++`draft -> enabled <-> disabled -> retired`; retirement is terminal.
++
++Provider configuration is split into:
++
++- `public_configuration`: endpoints, entity/client identifiers, certificates
++  intended for metadata and other non-secret material;
++- `credentials_envelope`: authenticated encryption envelope for client secrets,
++  decryption keys and signing private keys; and
++- `attribute_mapping`: explicit IdP-claim to platform-field mapping.
++
++No protocol phase may write a plaintext secret to the public JSON column,
++logs, audit metadata or assertions table.
++
++### 4. Make one-time values non-recoverable and single-use
++
++External subjects, SAML request/response/assertion IDs, OIDC state, nonce,
++authorization code and ID-token fingerprints are stored as domain-separated
++HMAC-SHA-256 blind indexes. `FEDERATION_HASH_KEY` is a dedicated 32-byte
++production key, independent from JWT signing. The database stores no raw state,
++nonce, authorization code or subject.
++
++`federation_auth_transactions` stores a bounded authentication ceremony. A
++pending row becomes succeeded, failed or cancelled exactly once and records a
++consumption timestamp. `federation_replay_keys` uses a primary key across
++provider, key type and hash so concurrent duplicates lose atomically at the
++database boundary rather than relying on an in-process cache.
++
++Secrets that must be recovered briefly, such as an OIDC PKCE verifier, belong
++in `secret_envelope` with authenticated encryption and authentication-
++transaction context as AAD. A later protocol PR adds that keyring implementation
++before writing any such value.
++
++### 5. Treat IdP-initiated SAML as a separate, opt-in flow
++
++Unsolicited responses lack an SP-created request to correlate. They are disabled
++per provider by default. When enabled, the SAML phase will require:
++
++- a configured organisation/provider selected from trusted issuer metadata,
++  never from an arbitrary RelayState URL;
++- a signed response and signed assertion according to the configured policy;
++- valid destination, recipient, audience, issuer and time restrictions;
++- encrypted assertions where the organisation policy requires them;
++- one-time response and assertion IDs committed atomically before login; and
++- RelayState resolving only to a server-issued, same-origin destination token.
++
++IdP-initiated login does not weaken transaction-signing requirements.
++
++### 6. Make deprovisioning immediate off-chain and conservative on-chain
++
++SCIM or administrator deprovisioning transitions the membership and every
++federated identity to `deprovisioned`, revokes sessions and disables signing
++bindings in one database transaction. Deprovisioned state is terminal; a later
++rehire creates a new membership so audit history is not silently resurrected.
++
++An active escrow may still name the employee's wallet on-chain. Removing a
++database row cannot change that fact. The later wallet-reconciliation phase
++will implement a controlled hand-off:
++
++1. freeze new organisation-sensitive actions for the membership;
++2. inventory owned jobs and in-flight escrow authority;
++3. select a replacement who already has the required organisation permission
++   and signing binding;
++4. require independent organisation approval plus the contract-authorised
++   signature/multisig path for reassignment; and
++5. record each decision and on-chain transaction in the audit trail.
++
++Until the contract supports a verified hand-off for a given escrow version,
++that escrow remains operable only by its existing on-chain authority or its
++documented dispute/timeout path. The platform must surface that condition; it
++must not claim an off-chain reassignment moved on-chain power.
++
++### 7. Record authentication events without raw identity material
++
++`organisation_authentication_events` is an append-oriented organisation log.
++It stores event/outcome, correlation ID and HMAC fingerprints for subject, IP
++and user agent. Metadata is for bounded non-secret decision facts. Sequence and
++hash fields allow the controls phase to implement tamper-evident chaining.
++Rows use `RESTRICT`, not identity cascades, so deprovisioning does not erase the
++record of who authenticated or was denied.
++
++## Data model
++
++| Table                                | Purpose                                                    |
++| ------------------------------------ | ---------------------------------------------------------- |
++| `organisations`                      | Minimal tenant boundary shared with future #255 work       |
++| `organisation_memberships`           | Stable corporate principal; optional linked profile/wallet |
++| `organisation_identity_providers`    | Versioned per-tenant SAML/OIDC configuration               |
++| `federated_identities`               | Provider subject blind index mapped to one membership      |
++| `federation_auth_transactions`       | Expiring, single-consumption login ceremony                |
++| `federation_replay_keys`             | Atomic response/assertion/code/token replay barrier        |
++| `federated_signing_bindings`         | Explicit wallet/passkey authority, disabled by default     |
++| `organisation_authentication_events` | Tenant-scoped authentication audit history                 |
++
++Important constraints:
++
++- identity provider, identity, membership and audit references cannot cross an
++  organisation boundary;
++- a live profile can have only one non-deprovisioned membership per
++  organisation;
++- a provider subject is unique within its provider;
++- only one active primary signing binding exists per membership;
++- `transaction_enabled` requires an active, verified binding; and
++- deprovisioned membership/identity rows require a timestamp.
++
++## Migration plan
++
++### PR 1 — foundation (this change)
++
++- Add the tables above through `V22__enterprise_federation_foundation`.
++- Add protocol-neutral principal, attribute-mapping, blind-index, lifecycle and
++  transaction-authorisation primitives.
++- Do not mount routes, change JWTs or enable SSO. Existing users are unchanged.
++
++Rollback is safe while the foundation is unpopulated: apply the down migration,
++which drops tables in reverse dependency order. `RESTRICT` makes later data a
++visible stop condition rather than silently deleting identity/audit records.
++
++### PR 2 — SAML service provider
++
++- Add SP metadata and certificate rotation.
++- Validate signed responses/assertions and decrypt encrypted assertions.
++- Enforce audience/recipient/destination/time and atomic replay checks.
++- Add opt-in IdP-initiated flow and JIT provisioning.
++
++The phase remains disabled until a provider is explicitly enabled.
++
++### PR 3 — OIDC relying party
++
++- Discover issuer metadata from the configured issuer.
++- Use authorization code flow with S256 PKCE, state and nonce.
++- Validate issuer, audience, authorized party and token lifetime.
++- Reuse the same identity/JIT and replay boundaries as SAML.
++
++### PR 4 — wallet reconciliation
++
++- Implement linked-wallet proof and transaction-bound sensitive-action proof.
++- Integrate passkey account authority only after its contract boundary is
++  specified and tested.
++- Add controlled authority reassignment and risk-assessment evidence.
++
++### PR 5 — SCIM
++
++- Implement RFC 7643/7644 Users, Groups and Bulk resources.
++- Make external IDs/idempotency keys tenant-scoped.
++- Apply group-to-role updates and deprovision/reassignment transactionally.
++- Return per-operation Bulk responses without rolling successful independent
++  operations into an inconsistent aggregate state.
++
++### PR 6 — enterprise controls
++
++- Enforced SSO checks at every wallet/WebAuthn session-issuance and refresh
++  boundary, not only the login UI.
++- Absolute/idle/reauth session policy.
++- Domain challenge verification and conflict handling.
++- Organisation audit query/retention controls and security integration tests.
++
++## Security invariants
++
++1. SSO success alone never authorises an escrow transaction.
++2. Tenant-selected identifiers never permit cross-organisation provider use.
++3. Assertion, response, state, nonce, code and token replay is rejected
++   atomically.
++4. JIT provisioning maps only configured fields and never grants wallet
++   authority.
++5. Deprovisioning denies new sessions and sensitive actions immediately while
++   preserving on-chain truth and audit history.
++6. Direct wallet/WebAuthn login remains unchanged until enforced SSO is
++   explicitly enabled; once enabled, the controls phase checks every session
++   issuance/refresh path.
++
++## Consequences
++
++### Positive
++
++- Protocol work has one normalized contract and one tenant/replay model.
++- The highest-risk wallet question is decided before login handlers exist.
++- Existing individual accounts remain releasable throughout the sequence.
++- Blind indexes and encrypted envelopes avoid building a raw-assertion archive.
++
++### Negative
++
++- The minimal organisation seam overlaps the data-model portion of #255 and
++  must be evolved jointly when that epic lands.
++- Off-chain deprovisioning cannot retroactively replace a signer in an existing
++  contract. Contract-version-specific reassignment work remains mandatory.
++- Audit hash chaining, envelope key rotation and session revocation are schema
++  hooks in this foundation, not active behavior until their named phases land.
+diff --git a/docs/INDEX.md b/docs/INDEX.md
+index 7496000..c20d3e9 100644
+--- a/docs/INDEX.md
++++ b/docs/INDEX.md
+@@ -27,6 +27,7 @@ Welcome to Stellar MarketPay documentation. This index helps you find what you n
+ - **[Contract Contributor Guide](./contract-contributor-guide.md)** - Local setup, test snapshots, fund-moving review bar, storage compatibility, and a worked entrypoint example
+ - **[Environment Variables](./environment-variables.md)** - Single source of truth for runtime config
+ - **[CDN Strategy](./CDN_STRATEGY.md)** - Multi-CDN edge caching, event-driven invalidation, cache-key/TTL strategy, stampede protection (decision recorded in [ADR-007](./ADR-007-multi-cdn-edge-strategy.md))
++- **[Enterprise Federation Architecture](./ADR-012-enterprise-federation.md)** - Per-organisation SAML/OIDC identity, wallet-authority separation, deprovisioning, and phased SCIM/controls delivery
+ 
+ ### Formal Verification
+ 
+@@ -199,6 +200,25 @@ Decisions that shaped Stellar MarketPay's architecture:
+ 
+ ---
+ 
++### ADR-012: Enterprise Federation and Transaction Authority Separation
++
++**File**: [ADR-012-enterprise-federation.md](./ADR-012-enterprise-federation.md)
++
++**Decision**: Treat SAML/OIDC authentication as an organisation membership
++session and require an independent linked-wallet or passkey signing proof for
++every escrow-sensitive transaction.
++
++**Key Points**:
++
++- Per-organisation provider and federated-identity model with atomic replay barriers
++- Linked wallet first; passkey account later; no platform-custodied employee keys
++- Deprovisioning immediately removes off-chain access without misrepresenting existing on-chain authority
++- Additive six-PR migration plan that leaves existing wallet users unchanged
++
++**Status**: ✅ Accepted for phased delivery
++
++---
++
+ ## ❓ FAQ & Help
+ 
+ ### Frequently Asked Questions
+diff --git a/docs/PR_ENTERPRISE_FEDERATION_FOUNDATION.md b/docs/PR_ENTERPRISE_FEDERATION_FOUNDATION.md
+new file mode 100644
+index 0000000..a968def
+--- /dev/null
++++ b/docs/PR_ENTERPRISE_FEDERATION_FOUNDATION.md
+@@ -0,0 +1,59 @@
++# PR: Enterprise federation foundation (phase 1 of issue #317)
++
++## Summary
++
++This is the first independently mergeable slice of #317. It adds the tenant,
++identity-provider, federated-identity, replay, signing-binding and authentication
++audit foundations without changing the existing wallet/WebAuthn login path.
++
++## What changed
++
++- Added reversible `V22__enterprise_federation_foundation` migrations.
++- Added cross-tenant database constraints and single-use authentication/replay
++  records.
++- Added domain-separated HMAC blind indexes for external subjects and protocol
++  one-time values.
++- Added a shared SAML/OIDC adapter/principal contract and allowlisted JIT
++  attribute mapping.
++- Added explicit lifecycle state machines for membership, provider, identity and
++  signing bindings.
++- Added a fail-closed transaction-authorisation policy proving that SSO alone is
++  insufficient to move escrowed funds.
++- Documented architecture, wallet risk decision, deprovisioning limits, data
++  model, migration/rollback and the remaining phased delivery in ADR-012.
++
++## Compatibility and rollout
++
++The migration is additive. No routes are mounted, no provider is enabled, JWT
++contents do not change and individual wallet/passkey users keep the same
++behavior. The down migration removes the unpopulated foundation in reverse
++dependency order; `RESTRICT` prevents silent data loss after later phases begin
++using it.
++
++## Security decisions
++
++- Linked personal wallets are the first signing model.
++- Passkey account contracts remain a supported later binding type.
++- Platform-custodied employee keys are excluded.
++- Provider subjects and protocol one-time values are stored only as keyed blind
++  indexes.
++- IdP-initiated SAML remains disabled by default and does not weaken signing.
++- A deprovisioned membership is terminal and immediately fails the transaction
++  policy, even if an old session and signing proof are presented.
++
++## Validation
++
++- Federation unit/security tests
++- Named migration apply/rollback tests
++- Backend unit suite and lint
++- Repository formatting and merge-policy checks
++
++## Follow-up sequence
++
++1. SAML SP metadata, signed/encrypted assertion validation and JIT
++2. OIDC authorization code + S256 PKCE
++3. Wallet/passkey transaction authority and reassignment
++4. SCIM Users/Groups/Bulk and deprovisioning
++5. Enforced SSO, session/domain controls and audit APIs
++
++References #317. Related organisation/RBAC work: #255.
+diff --git a/docs/environment-variables.md b/docs/environment-variables.md
+index 9a6a16b..04d78e5 100644
+--- a/docs/environment-variables.md
++++ b/docs/environment-variables.md
+@@ -42,6 +42,14 @@ This page is the single reference for runtime configuration in Stellar MarketPay
+ | `ML_DRIFT_MIN_SAMPLES`              |                          No | `100`                                   | Minimum samples required for drift detection.                                                                                           | `100`                                             |
+ | `ML_DRIFT_WINDOW_HOURS`             |                          No | `24`                                    | Look-back window (hours) for drift detection.                                                                                           | `24`                                              |
+ 
++### Enterprise federation key
++
++Before enabling enterprise SAML/OIDC in production, set `FEDERATION_HASH_KEY`
++to exactly 32 random bytes encoded as base64 or 64 hexadecimal characters. It
++blind-indexes external subjects and one-time protocol values and must be
++independent from `JWT_SECRET`. Development and test environments derive a
++local-only fallback; production rejects a missing or malformed key.
++
+ ## Frontend
+ 
+ | Variable                        |                        Required | Default                               | Description                                                                                                                     | Example                               |

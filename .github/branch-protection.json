@@ -1,0 +1,65 @@
+{
+  "$comment": "Desired server-side protection for the branches this repository merges into. This file is the reviewable, revertible record of a configuration that otherwise lives only in GitHub's settings UI, where a change leaves no diff and no author. Apply it with `bash scripts/apply-branch-protection.sh --apply`; check for drift with `--verify` (which is what the scheduled audit runs). Rationale for each field: docs/BRANCH_PROTECTION.md.",
+  "branches": {
+    "main": {
+      "required_status_checks": {
+        "strict": true,
+        "$strict_comment": "Require the branch to be up to date before merging, so a policy that passed against a stale base cannot slip through.",
+        "contexts": [
+          "Merge policy",
+          "Local/CI parity",
+          "Frontend (Next.js)",
+          "Backend (Node.js)",
+          "Soroban Contract (Rust)",
+          "Commit Lint Compliance",
+          "Prettier, Type & Format Check"
+        ]
+      },
+      "required_pull_request_reviews": {
+        "required_approving_review_count": 1,
+        "dismiss_stale_reviews": true,
+        "require_code_owner_reviews": false
+      },
+      "required_signatures": true,
+      "$required_signatures_comment": "Server-side commit signing. Turn this on only after docs/COMMIT_SIGNING.md enrolment is complete and the signed-commits rule has been at `warn` long enough to show a clean measurement; enabling it early blocks every contributor at once.",
+      "enforce_admins": false,
+      "$enforce_admins_comment": "Deliberate, and documented in docs/BRANCH_PROTECTION.md#administrator-override. Admins can bypass required checks so a production incident is not gated behind a twenty-minute Playwright run. The cost is that the bypass is possible at all, which is why every use is logged and reviewed rather than silent.",
+      "allow_force_pushes": false,
+      "allow_deletions": false,
+      "required_linear_history": true,
+      "block_creations": false,
+      "required_conversation_resolution": true,
+      "merge_queue": {
+        "enabled": true,
+        "$comment": "Two individually passing pull requests can combine into a broken main — that is precisely what produced the dropped-declarations merge. The queue tests the combined result before it lands.",
+        "merge_method": "SQUASH",
+        "grouping_strategy": "ALLGREEN",
+        "max_entries_to_build": 5,
+        "max_entries_to_merge": 5,
+        "min_entries_to_merge": 1,
+        "min_entries_to_merge_wait_minutes": 5,
+        "check_response_timeout_minutes": 60
+      },
+      "allow_auto_merge": false,
+      "$allow_auto_merge_comment": "PR #96 merged before its CI run reported. Auto-merge is off; the merge queue is the supported path to unattended merging, and it waits for checks to report rather than to be requested."
+    },
+    "develop": {
+      "required_status_checks": {
+        "strict": true,
+        "contexts": ["Merge policy", "Local/CI parity", "Commit Lint Compliance"]
+      },
+      "required_pull_request_reviews": {
+        "required_approving_review_count": 1,
+        "dismiss_stale_reviews": false,
+        "require_code_owner_reviews": false
+      },
+      "required_signatures": false,
+      "enforce_admins": false,
+      "allow_force_pushes": false,
+      "allow_deletions": false,
+      "required_linear_history": false,
+      "required_conversation_resolution": false,
+      "allow_auto_merge": false
+    }
+  }
+}

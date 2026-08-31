@@ -1,0 +1,4 @@
+f230bc22a9c28fe5cf7f1169b692984d8e563b0e2574346046371ede4d0185ed  artifacts/graphql-gateway/schema-foundation/original.tar.gz
+1d561f8fb363080f950f5c63eef164fbd33ca24997abb65d2d769f04904367a2  artifacts/graphql-gateway/schema-foundation/modified.tar.gz
+c1f2e664355f3545e5d31b676bf451cc2b7cd38be0675e9558e957e77ded5fbc  artifacts/graphql-gateway/schema-foundation/graphql-schema-foundation.patch
+638f2d0a1fc31c119b8941b70500562de56b8b38eacf0079734bc471572edc96  artifacts/graphql-gateway/schema-foundation/rollback.sh

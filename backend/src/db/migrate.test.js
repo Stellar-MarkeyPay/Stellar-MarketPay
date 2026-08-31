@@ -38,6 +38,7 @@ describe("named migration journal", () => {
       expect.arrayContaining([
         "V12__decentralized_storage_insurance",
         "V12__fraud_detection_alerts",
+        "V22__enterprise_federation_foundation",
       ])
     );
     expect(new Set(insertedNames).size).toBe(insertedNames.length);
@@ -56,6 +57,46 @@ describe("named migration journal", () => {
     expect(mockQuery).toHaveBeenCalledWith(
       "DELETE FROM schema_migrations WHERE version = $1 AND name = $2",
       [21, "V21__compliance_core"]
+    );
+  });
+
+  it("executes the enterprise federation rollback before removing its journal entry", async () => {
+    mockQuery.mockImplementation(async (sql) => {
+      if (/SELECT version, name/.test(sql)) {
+        return { rows: [{ version: 22, name: "V22__enterprise_federation_foundation" }] };
+      }
+      return { rows: [] };
+    });
+
+    await expect(rollbackLastMigration()).resolves.toBe(22);
+    const rollbackSqlCall = mockQuery.mock.calls.find(([sql]) =>
+      /DROP TABLE IF EXISTS organisation_authentication_events/.test(sql)
+    );
+    expect(rollbackSqlCall).toBeDefined();
+    expect(rollbackSqlCall[0]).toMatch(/DROP TABLE IF EXISTS organisations/);
+    expect(mockQuery).toHaveBeenCalledWith(
+      "DELETE FROM schema_migrations WHERE version = $1 AND name = $2",
+      [22, "V22__enterprise_federation_foundation"]
+    );
+  });
+
+  it("executes the multi-region active-active rollback before removing its journal entry", async () => {
+    mockQuery.mockImplementation(async (sql) => {
+      if (/SELECT version, name/.test(sql)) {
+        return { rows: [{ version: 19, name: "V19__multi_region_active_active_replication" }] };
+      }
+      return { rows: [] };
+    });
+
+    await expect(rollbackLastMigration()).resolves.toBe(19);
+    const rollbackSqlCall = mockQuery.mock.calls.find(([sql]) =>
+      /DROP TABLE IF EXISTS crdt_pn_counters/.test(sql)
+    );
+    expect(rollbackSqlCall).toBeDefined();
+    expect(rollbackSqlCall[0]).toMatch(/DROP TABLE IF EXISTS replication_nodes/);
+    expect(mockQuery).toHaveBeenCalledWith(
+      "DELETE FROM schema_migrations WHERE version = $1 AND name = $2",
+      [19, "V19__multi_region_active_active_replication"]
     );
   });
 });

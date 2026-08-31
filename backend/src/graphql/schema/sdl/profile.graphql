@@ -1,0 +1,154 @@
+# profile.graphql — the identity a job, application, escrow and rating all
+# point at.
+#
+# Profile is where field-level authorisation earns its keep. Most of it is
+# public by design (a marketplace needs browsable freelancers), and a few
+# fields are not. Because a public `Job` reaches a `Profile` through
+# `applications.edges.node.applicant`, protecting those fields at the query
+# root would protect nothing.
+
+"A marketplace participant. The same profile may act as client and freelancer."
+type Profile implements Node @cacheControl(maxAge: 60, scope: PUBLIC) {
+  id: ID!
+
+  "The Stellar account. This is the profile's real primary key."
+  address: PublicKey!
+
+  displayName: String
+  bio: String
+  avatarUrl: String
+  skills: [String!]!
+  location: String
+  languages: [String!]!
+  hourlyRate: Decimal
+  availability: AvailabilityStatus
+
+  "Freelancer tier, derived from completed work and ratings."
+  tier: FreelancerTier
+
+  "When the profile first appeared."
+  createdAt: DateTime!
+  updatedAt: DateTime
+
+  # --- private --------------------------------------------------------------
+  #
+  # Reachable from a public job through the applicant edge, which is exactly
+  # why the guard is on the field.
+
+  "Contact email. Visible only to the profile's owner and to administrators."
+  email: String @auth(requires: SELF) @cacheControl(maxAge: 0, scope: PRIVATE)
+
+  """
+  Whether this profile has completed KYC.
+
+  Not merely private but regulated: exposing it would leak a compliance
+  determination about a third party.
+  """
+  kycStatus: KycStatus @auth(requires: SELF) @cacheControl(maxAge: 0, scope: PRIVATE)
+
+  "Notification preferences. Owner only."
+  notificationPreferences: JSON @auth(requires: SELF) @cacheControl(maxAge: 0, scope: PRIVATE)
+
+  """
+  Lifetime spend as a client.
+
+  Owner only. A competitor could otherwise price against a client's budget
+  history, and an applicant could tailor a bid to it.
+  """
+  totalSpent: Decimal @auth(requires: SELF) @cacheControl(maxAge: 0, scope: PRIVATE)
+
+  "Lifetime earnings as a freelancer. Owner only, for the same reason."
+  totalEarned: Decimal @auth(requires: SELF) @cacheControl(maxAge: 0, scope: PRIVATE)
+
+  # --- edges ----------------------------------------------------------------
+
+  "Aggregate public statistics. Cheap; derived from counters, not scans."
+  stats: ProfileStats @cost(complexity: 5)
+
+  "Ratings this profile has received."
+  ratings(first: Int = 20, after: Cursor): RatingConnection!
+    @cost(complexity: 2, multipliers: ["first"])
+
+  "Skill endorsements from other participants."
+  endorsements(first: Int = 20, after: Cursor): SkillEndorsementConnection!
+    @cost(complexity: 2, multipliers: ["first"])
+
+  "Jobs this profile posted."
+  jobsAsClient(first: Int = 20, after: Cursor, status: JobStatus): JobConnection!
+    @cost(complexity: 3, multipliers: ["first"])
+
+  "Jobs this profile was assigned."
+  jobsAsFreelancer(first: Int = 20, after: Cursor, status: JobStatus): JobConnection!
+    @cost(complexity: 3, multipliers: ["first"])
+
+  """
+  Applications this profile has submitted.
+
+  Visible only to the profile's owner: an applicant's bid history is
+  commercially sensitive, and on a sealed-bid job it is the bid itself.
+  """
+  applications(first: Int = 20, after: Cursor): ApplicationConnection!
+    @auth(requires: SELF)
+    @cost(complexity: 3, multipliers: ["first"])
+    @cacheControl(maxAge: 0, scope: PRIVATE)
+}
+
+type ProfileStats @cacheControl(maxAge: 300, scope: PUBLIC) {
+  jobsCompleted: Int!
+  jobsPosted: Int!
+  averageRating: Float
+  ratingCount: Int!
+  "Median hours to first response on an application, when known."
+  responseTimeHours: Float
+}
+
+enum AvailabilityStatus {
+  AVAILABLE
+  BUSY
+  UNAVAILABLE
+}
+
+enum FreelancerTier {
+  BRONZE
+  SILVER
+  GOLD
+  PLATINUM
+}
+
+enum KycStatus {
+  NOT_STARTED
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+type SkillEndorsement implements Node @cacheControl(maxAge: 300, scope: PUBLIC) {
+  id: ID!
+  skill: String!
+  endorser: Profile
+  createdAt: DateTime!
+}
+
+type ProfileEdge {
+  node: Profile!
+  cursor: Cursor!
+}
+
+type ProfileConnection {
+  edges: [ProfileEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type SkillEndorsementEdge {
+  node: SkillEndorsement!
+  cursor: Cursor!
+}
+
+type SkillEndorsementConnection {
+  edges: [SkillEndorsementEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+union ProfileResult = Profile | NotFoundError
