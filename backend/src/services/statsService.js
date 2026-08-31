@@ -29,7 +29,7 @@ async function computeStats() {
     RETURNING *
   `;
 
-  const result = await pool.query(query);
+  const result = await pool.analyticsQuery(query);
   return result.rows[0];
 }
 
@@ -46,7 +46,7 @@ async function getStats() {
     WHERE id = 1
   `;
 
-  const result = await pool.query(query);
+  const result = await pool.analyticsQuery(query);
   if (!result.rows[0]) {
     return await computeStats();
   }
@@ -65,7 +65,7 @@ async function getJobTrends(days = 90) {
     ORDER BY date DESC
   `;
 
-  const result = await pool.query(query, [`${days} days`]);
+  const result = await pool.analyticsQuery(query, [`${days} days`]);
   return result.rows;
 }
 
@@ -81,7 +81,7 @@ async function getEscrowTrends(days = 90) {
     ORDER BY date DESC
   `;
 
-  const result = await pool.query(query, [`${days} days`]);
+  const result = await pool.analyticsQuery(query, [`${days} days`]);
   return result.rows;
 }
 
@@ -98,7 +98,7 @@ async function getTopCategories(limit = 10) {
     LIMIT $1
   `;
 
-  const result = await pool.query(query, [limit]);
+  const result = await pool.analyticsQuery(query, [limit]);
   return result.rows;
 }
 

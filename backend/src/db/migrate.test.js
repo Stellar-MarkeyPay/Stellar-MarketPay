@@ -5,6 +5,11 @@ const mockRelease = jest.fn();
 
 jest.mock("./pool", () => ({
   connect: jest.fn().mockResolvedValue({ query: mockQuery, release: mockRelease }),
+  setLocalTimeouts: jest.fn().mockResolvedValue(undefined),
+  timeoutConfig: {
+    migrationStatementTimeoutMs: 120_000,
+    migrationLockTimeoutMs: 5_000,
+  },
 }));
 
 const { migrate, rollbackLastMigration } = require("./migrate");

@@ -1,9 +1,11 @@
 "use strict";
 
 const mockQuery = jest.fn();
+const mockAnalyticsQuery = jest.fn();
 
 jest.mock("../db/pool", () => ({
   query: mockQuery,
+  analyticsQuery: mockAnalyticsQuery,
 }));
 
 const { trainRegressionModel, predictJobCompletion } = require("./analytics");
@@ -11,11 +13,12 @@ const { trainRegressionModel, predictJobCompletion } = require("./analytics");
 describe("analytics service", () => {
   beforeEach(() => {
     mockQuery.mockReset();
+    mockAnalyticsQuery.mockReset();
   });
 
   describe("trainRegressionModel", () => {
     it("uses heuristic defaults when there is insufficient history", async () => {
-      mockQuery.mockResolvedValueOnce({ rows: [] });
+      mockAnalyticsQuery.mockResolvedValueOnce({ rows: [] });
 
       const result = await trainRegressionModel();
 
@@ -26,7 +29,7 @@ describe("analytics service", () => {
     it("trains on completed jobs when enough history exists", async () => {
       const created = new Date("2026-01-01T00:00:00Z");
       const completed = new Date("2026-01-11T00:00:00Z");
-      mockQuery.mockResolvedValueOnce({
+      mockAnalyticsQuery.mockResolvedValueOnce({
         rows: [
           {
             budget: "100",
