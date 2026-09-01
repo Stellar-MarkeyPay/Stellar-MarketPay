@@ -1,4 +1,4 @@
--- V13 rollback: drop referral tree tables and columns
+-- rollback: destructive. This deletes referral-tree payouts and hierarchy data.
 
 DROP VIEW IF EXISTS referral_tree_stats;
 DROP TABLE IF EXISTS multi_level_payouts;

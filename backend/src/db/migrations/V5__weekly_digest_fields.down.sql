@@ -1,4 +1,4 @@
--- V5 rollback: remove weekly digest columns from profiles
+-- rollback: destructive. This deletes profile email and digest-token values.
 
 DROP INDEX IF EXISTS profiles_digest_unsubscribe_token_idx;
 

@@ -1,4 +1,4 @@
--- Issue #340 rollback
+-- rollback: destructive. This removes the generated job search vector.
 DROP INDEX IF EXISTS profiles_public_key_rating_idx;
 DROP INDEX IF EXISTS ratings_rated_created_idx;
 DROP INDEX IF EXISTS applications_job_created_idx;

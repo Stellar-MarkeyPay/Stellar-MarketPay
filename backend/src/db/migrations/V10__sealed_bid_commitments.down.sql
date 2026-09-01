@@ -1,4 +1,4 @@
--- Issue #338: sealed-bid commitments rollback
+-- rollback: destructive. This removes sealed-bid values and timing data.
 ALTER TABLE applications
   DROP COLUMN IF EXISTS revealed_at,
   DROP COLUMN IF EXISTS revealed_bid_amount,

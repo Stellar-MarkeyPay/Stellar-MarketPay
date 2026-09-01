@@ -1,4 +1,4 @@
--- V14 rollback: drop platform fee payout table and escrow referrer column
+-- rollback: destructive. This deletes platform-fee payout and referrer data.
 
 DROP TABLE IF EXISTS platform_fee_payouts;
 

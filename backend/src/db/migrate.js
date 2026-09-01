@@ -167,4 +167,4 @@ if (require.main === module) {
     });
 }
 
-module.exports = { migrate, rollbackLastMigration };
+module.exports = { loadMigrationPairs, migrate, rollbackLastMigration };
