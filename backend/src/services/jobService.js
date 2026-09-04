@@ -296,6 +296,13 @@ async function createJob({ title, description, budget, currency, category, skill
     : [];
   const safeMilestones = validateMilestones(milestones, budget);
 
+  await pool.query(
+    `INSERT INTO profiles (public_key, created_at, updated_at)
+     VALUES ($1, NOW(), NOW())
+     ON CONFLICT (public_key) DO NOTHING`,
+    [clientAddress],
+  );
+
   const { rows } = await pool.query(
     `
     INSERT INTO jobs

@@ -24,11 +24,11 @@ jest.mock("../services/indexerService", () => {
   }));
 });
 
-jest.mock("../services/priceAlertService", () => {
-  return jest.fn().mockImplementation(() => ({
+jest.mock("../services/priceAlertService", () => ({
+  PriceAlertService: jest.fn().mockImplementation(() => ({
     start: jest.fn(),
-  }));
-});
+  })),
+}));
 
 jest.mock("../db/migrate", () => ({
   migrate: jest.fn().mockResolvedValue(undefined),
@@ -41,15 +41,16 @@ jest.mock("../routes/notifications", () => {
   return router;
 });
 
-const { Utils, Keypair } = require("@stellar/stellar-sdk");
+const { WebAuth, Keypair } = require("@stellar/stellar-sdk");
 
 jest.mock("@stellar/stellar-sdk", () => {
   const actual = jest.requireActual("@stellar/stellar-sdk");
   return {
     ...actual,
-    Utils: {
+    WebAuth: {
       buildChallengeTx: jest.fn(),
-      verifyChallengeTx: jest.fn(),
+      readChallengeTx: jest.fn(),
+      verifyChallengeTxSigners: jest.fn(),
     },
   };
 });
@@ -78,7 +79,7 @@ describe("SEP-10 Authentication Flow", () => {
 
   describe("GET /api/auth — generate challenge", () => {
     it("returns a challenge transaction for a valid account", async () => {
-      Utils.buildChallengeTx.mockReturnValue(CHALLENGE_XDR);
+      WebAuth.buildChallengeTx.mockReturnValue(CHALLENGE_XDR);
 
       const res = await request(app)
         .get("/api/auth")
@@ -86,11 +87,12 @@ describe("SEP-10 Authentication Flow", () => {
 
       expect(res.status).toBe(200);
       expect(res.body.transaction).toBe(CHALLENGE_XDR);
-      expect(Utils.buildChallengeTx).toHaveBeenCalledWith(
+      expect(WebAuth.buildChallengeTx).toHaveBeenCalledWith(
         expect.anything(),
         TEST_KEYPAIR.publicKey(),
         expect.any(String),
         300,
+        expect.any(String),
         expect.any(String),
       );
     });
@@ -105,7 +107,7 @@ describe("SEP-10 Authentication Flow", () => {
 
   describe("POST /api/auth — verify and receive JWT", () => {
     it("valid flow: returns JWT with correct public key", async () => {
-      Utils.verifyChallengeTx.mockReturnValue(TEST_KEYPAIR.publicKey());
+      WebAuth.readChallengeTx.mockReturnValue({ clientAccountID: TEST_KEYPAIR.publicKey() });
 
       const res = await request(app)
         .post("/api/auth")
@@ -122,7 +124,7 @@ describe("SEP-10 Authentication Flow", () => {
     });
 
     it("refreshes and rotates access tokens", async () => {
-      Utils.verifyChallengeTx.mockReturnValue(TEST_KEYPAIR.publicKey());
+      WebAuth.readChallengeTx.mockReturnValue({ clientAccountID: TEST_KEYPAIR.publicKey() });
 
       const loginRes = await request(app)
         .post("/api/auth")
@@ -149,7 +151,7 @@ describe("SEP-10 Authentication Flow", () => {
     });
 
     it("logout invalidates the refresh token", async () => {
-      Utils.verifyChallengeTx.mockReturnValue(TEST_KEYPAIR.publicKey());
+      WebAuth.readChallengeTx.mockReturnValue({ clientAccountID: TEST_KEYPAIR.publicKey() });
 
       const loginRes = await request(app)
         .post("/api/auth")
@@ -171,7 +173,7 @@ describe("SEP-10 Authentication Flow", () => {
     });
 
     it("invalid signature: returns 401 for tampered transaction", async () => {
-      Utils.verifyChallengeTx.mockImplementation(() => {
+      WebAuth.readChallengeTx.mockImplementation(() => {
         throw new Error("Invalid challenge signature");
       });
 
@@ -184,7 +186,7 @@ describe("SEP-10 Authentication Flow", () => {
     });
 
     it("expired challenge: returns 401 for old challenge", async () => {
-      Utils.verifyChallengeTx.mockImplementation(() => {
+      WebAuth.readChallengeTx.mockImplementation(() => {
         throw new Error("Challenge has expired");
       });
 
@@ -197,7 +199,7 @@ describe("SEP-10 Authentication Flow", () => {
     });
 
     it("wrong account: returns 200 with different public key in JWT", async () => {
-      Utils.verifyChallengeTx.mockReturnValue(WRONG_KEYPAIR.publicKey());
+      WebAuth.readChallengeTx.mockReturnValue({ clientAccountID: WRONG_KEYPAIR.publicKey() });
 
       const res = await request(app)
         .post("/api/auth")

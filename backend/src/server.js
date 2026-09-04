@@ -45,6 +45,7 @@ const referralRoutes  = require("./routes/referrals");
 const eventsRoutes    = require("./routes/events");
 const invitationRoutes = require("./routes/invitations");
 const statsRoutes      = require("./routes/stats");
+const daoRoutes        = require("./routes/dao");
 const gasEstimatorRoutes = require("./routes/gasEstimator");
 const cdnRoutes        = require("./routes/cdn");
 const rankingRoutes    = require("./routes/ranking");
@@ -52,7 +53,7 @@ const rankingRoutes    = require("./routes/ranking");
 const pool            = require("./db/pool");
 const { migrate } = require("./db/migrate");
 const IndexerService  = require("./services/indexerService");
-const PriceAlertService = require("./services/priceAlertService");
+const { PriceAlertService } = require("./services/priceAlertService");
 const CdnService = require("./services/cdn/cdnService");
 const CdnInvalidationService = require("./services/cdn/invalidationService");
 const { createProvidersFromEnv } = require("./services/cdn/providers");
@@ -280,9 +281,17 @@ app.use((req, res, next) => {
   next();
 });
 
+// 150 requests / 15 min is a sensible production default, but a local dev
+// session exhausts it within minutes -- hot reload plus the app's own polling
+// (notifications, prices, job lists) burns through it, which then surfaces as
+// apparently random 429s and "Something went wrong" all over the UI.
+// Production behaviour is unchanged; override with RATE_LIMIT_MAX if needed.
+const RATE_LIMIT_MAX = Number(process.env.RATE_LIMIT_MAX)
+  || (process.env.NODE_ENV === "production" ? 150 : 10000);
+
 app.use(rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 150,
+  max: RATE_LIMIT_MAX,
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: (req) => getClientIp(req),
@@ -320,6 +329,7 @@ app.use("/api/referrals",     referralRoutes);
 app.use("/api/events",        eventsRoutes);
 app.use("/api/invitations",   invitationRoutes);
 app.use("/api/stats",         statsRoutes);
+app.use("/api/dao",           daoRoutes);
 app.use("/api/gas-estimate", gasEstimatorRoutes);
 app.use("/api/cdn",          cdnRoutes);
 app.use("/api/ranking",      rankingRoutes);

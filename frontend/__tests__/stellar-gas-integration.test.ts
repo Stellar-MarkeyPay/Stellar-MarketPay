@@ -17,6 +17,7 @@ jest.mock("@/lib/env", () => ({
 // Mock config/tokens
 jest.mock("@/lib/config/tokens", () => ({
   getUsdcContractId: () => "MOCK_USDC_CONTRACT",
+  tokenAddressForCurrency: () => "MOCK_TOKEN_CONTRACT",
   USDC_CONTRACT_BY_NETWORK: {},
 }));
 
@@ -49,7 +50,19 @@ jest.mock("@stellar/stellar-sdk", () => {
     Contract: jest.fn().mockImplementation(() => ({ call: jest.fn() })),
     Address: { fromString: jest.fn().mockReturnValue({ toScVal: jest.fn() }) },
     nativeToScVal: jest.fn(),
-    xdr: {},
+    xdr: {
+      ScMapEntry: jest.fn().mockImplementation((val) => val),
+      ScVal: {
+        scvSymbol: jest.fn().mockReturnValue({}),
+        scvVoid: jest.fn().mockReturnValue({}),
+        scvI128: jest.fn().mockReturnValue({}),
+        scvVec: jest.fn().mockReturnValue({}),
+        scvMap: jest.fn().mockReturnValue({}),
+      },
+      Int128Parts: jest.fn().mockImplementation((val) => val),
+      Uint64: jest.fn().mockImplementation((val) => val),
+      Int64: jest.fn().mockImplementation((val) => val),
+    },
     Horizon: { Server: jest.fn() },
     Operation: {
       payment: jest.fn().mockReturnValue({}),

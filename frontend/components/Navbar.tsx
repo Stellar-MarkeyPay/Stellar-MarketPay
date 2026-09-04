@@ -144,11 +144,15 @@ export default function Navbar({ publicKey, onConnect, onDisconnect }: NavbarPro
         </span>
 
         {/* Desktop Nav links */}
-        <div className="hidden md:flex items-center gap-1">
+        <div
+          // min-w-0 lets this row shrink instead of pushing the wallet button
+          // off-screen; overflow-x-auto keeps every link reachable when it does.
+          className="hidden md:flex items-center gap-1 min-w-0 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
           {links.map((l) => (
             <Link key={l.href} href={l.href} locale={false}
               className={clsx(
-                "px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150 relative min-h-[44px] flex items-center",
+                "px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150 relative min-h-[44px] flex items-center whitespace-nowrap",
                 router.pathname === l.href
                   ? "bg-market-500/12 text-market-300"
                   : "text-amber-700 hover:text-amber-300 hover:bg-market-500/8"

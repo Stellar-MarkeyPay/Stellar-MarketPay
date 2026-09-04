@@ -72,6 +72,7 @@ export default function JobDetail({ publicKey, onConnect }: JobDetailProps) {
   const [disputeReason, setDisputeReason] = useState("");
   const [disputeDescription, setDisputeDescription] = useState("");
   const [raisingDispute, setRaisingDispute] = useState(false);
+  const [acceptingAppId, setAcceptingAppId] = useState<string | null>(null);
   // Escrow timeout state
   const [timeoutLedger, setTimeoutLedger] = useState<number | null>(null);
   const [currentLedger, setCurrentLedger] = useState(0);
@@ -108,8 +109,9 @@ export default function JobDetail({ publicKey, onConnect }: JobDetailProps) {
   }, [jobId, router.isReady]);
 
   const handleAcceptApplication = async (applicationId: string) => {
-    if (!publicKey || !jobId) return;
+    if (!publicKey || !jobId || acceptingAppId) return;
     try {
+      setAcceptingAppId(applicationId);
       setActionError(null);
       await acceptApplication(applicationId, publicKey);
       const [updatedJob, updatedApplications] = await Promise.all([
@@ -118,8 +120,11 @@ export default function JobDetail({ publicKey, onConnect }: JobDetailProps) {
       ]);
       setJob(updatedJob);
       setApplications(updatedApplications);
-    } catch {
-      setActionError("Failed to accept application.");
+    } catch (err: any) {
+      const msg = err?.response?.data?.error || err?.message || "Failed to accept application.";
+      setActionError(msg);
+    } finally {
+      setAcceptingAppId(null);
     }
   };
 
@@ -367,9 +372,17 @@ export default function JobDetail({ publicKey, onConnect }: JobDetailProps) {
                   {application.status === "pending" && job.status === "open" && (
                     <button
                       onClick={() => handleAcceptApplication(application.id)}
-                      className="btn-secondary text-xs sm:text-sm py-2 px-4 min-h-[44px] flex items-center w-full sm:w-auto"
+                      disabled={acceptingAppId === application.id}
+                      className="btn-secondary text-xs sm:text-sm py-2 px-4 min-h-[44px] flex items-center justify-center gap-2 w-full sm:w-auto disabled:opacity-50"
                     >
-                      Accept Proposal
+                      {acceptingAppId === application.id ? (
+                        <>
+                          <Spinner />
+                          <span>Accepting...</span>
+                        </>
+                      ) : (
+                        "Accept Proposal"
+                      )}
                     </button>
                   )}
                 </div>

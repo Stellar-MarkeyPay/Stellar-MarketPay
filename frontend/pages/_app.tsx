@@ -1,5 +1,5 @@
 import type { AppProps } from "next/app";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Head from "next/head";
 import { useRouter } from "next/router";
 import Navbar from "@/components/Navbar";
@@ -17,6 +17,7 @@ import {
   setJwtToken,
   logout,
   registerReferral,
+  refreshAccessToken,
 } from "@/lib/api";
 import "@/styles/globals.css";
 import { ToastProvider } from "@/components/Toast";
@@ -74,8 +75,14 @@ function App({ Component, pageProps }: AppProps) {
   const isJobDetailPage = router.pathname === "/jobs/[id]";
 
   // Background sync: refresh the current page when the SW replays queued requests
+  const handleSyncComplete = useCallback(() => {
+    if (process.env.NODE_ENV === "production") {
+      router.replace(router.asPath);
+    }
+  }, [router]);
+
   useBackgroundSync({
-    onSyncComplete: () => router.replace(router.asPath),
+    onSyncComplete: handleSyncComplete,
   });
 
   // Capture ?ref= query param and persist it until the user connects a wallet
@@ -162,26 +169,70 @@ function App({ Component, pageProps }: AppProps) {
     }
   };
 
+  // Restore the session on load. The access token is held in memory only, so a
+  // reload always starts with no token -- but the refresh cookie from the last
+  // successful sign-in can mint a new one silently. Try that first and only ask
+  // the wallet to sign when it fails, otherwise Freighter prompts on every
+  // single page load and hot reload.
+  const sessionRestored = useRef(false);
+
   useEffect(() => {
+    if (sessionRestored.current) return;
+    sessionRestored.current = true;
+
     getConnectedPublicKey().then(async (pk) => {
-      if (pk) {
-        const authenticated = await handleAuthAndConnect(pk);
-        if (authenticated) {
-          persistPublicKey(pk);
-          await maybeRegisterReferral(pk);
-        } else {
-          persistPublicKey(null);
-        }
+      if (!pk) return;
+
+      try {
+        await refreshAccessToken();
+        persistPublicKey(pk);
+        await maybeRegisterReferral(pk);
+        return;
+      } catch {
+        // No usable refresh cookie -- fall through to a full signature.
+      }
+
+      const authenticated = await handleAuthAndConnect(pk);
+      if (authenticated) {
+        persistPublicKey(pk);
+        await maybeRegisterReferral(pk);
+      } else {
+        persistPublicKey(null);
       }
     });
   }, [maybeRegisterReferral, persistPublicKey]);
 
   useEffect(() => {
-    if (typeof window !== "undefined" && "serviceWorker" in navigator) {
+    if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
+
+    // The service worker pre-caches the app shell ("/", "/jobs") and serves
+    // _next bundles cache-first. That is correct in production and fatal in
+    // development: every recompile changes the webpack hash, but the cached
+    // HTML still points at the old one, so its hot-update.json 404s and Fast
+    // Refresh performs a full reload -- which serves the same stale HTML again,
+    // looping several times a second.
+    //
+    // Register only in production. In development, actively tear down any
+    // worker and caches a previous session installed: simply not registering
+    // is not enough, because an already-installed worker keeps controlling the
+    // page and the loop survives server restarts.
+    if (process.env.NODE_ENV === "production") {
       navigator.serviceWorker.register("/sw.js").catch((error) => {
         console.log("Service worker registration failed:", error);
       });
+      return;
     }
+
+    navigator.serviceWorker
+      .getRegistrations()
+      .then((registrations) =>
+        Promise.all(registrations.map((registration) => registration.unregister()))
+      )
+      .then(() => (typeof caches !== "undefined" ? caches.keys() : []))
+      .then((keys) => Promise.all(keys.map((key) => caches.delete(key))))
+      .catch(() => {
+        // Nothing to clean up, or the browser blocked it -- not fatal.
+      });
   }, []);
 
   useEffect(() => {

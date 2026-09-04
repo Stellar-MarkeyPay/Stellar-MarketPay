@@ -22,6 +22,7 @@ const { notifyEscrowEvent, EVENT_TYPES } = require("../services/notificationServ
 const { getJob } = require("../services/jobService");
 const { analyzeBidEvent } = require("../services/fraudDetectionService");
 const { createServiceLogger } = require("../utils/logger");
+const cache = require("../services/cacheService");
 
 const applicationLogger = createServiceLogger("applications");
 
@@ -218,6 +219,12 @@ router.post("/", applicationRateLimiter, async (req, res, next) => {
         });
       }
     }
+
+    try {
+      await cache.del(cache.jobDetailKey(app.jobId));
+    } catch (cacheErr) {
+      applicationLogger.warn({ error: cacheErr.message }, "Failed to invalidate job cache");
+    }
     
     res.status(201).json({ success: true, data: app });
   } catch (e) { next(e); }
@@ -273,6 +280,12 @@ router.post("/:id/accept", applicationRateLimiter, async (req, res, next) => {
         currency: job.currency,
       },
     });
+
+    try {
+      await cache.del(cache.jobDetailKey(app.jobId));
+    } catch (cacheErr) {
+      applicationLogger.warn({ error: cacheErr.message }, "Failed to invalidate job cache");
+    }
 
     res.json({ success: true, data: app });
   } catch (e) { next(e); }

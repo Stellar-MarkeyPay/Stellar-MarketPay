@@ -213,6 +213,25 @@ async function submitApplication({
     throw e;
   }
 
+  // Ensure the freelancer profile exists in profiles table so foreign key constraint is satisfied
+  await pool.query(
+    `INSERT INTO profiles (public_key, created_at, updated_at)
+     VALUES ($1, NOW(), NOW())
+     ON CONFLICT (public_key) DO NOTHING`,
+    [freelancerAddress],
+  );
+
+  let safeReferredBy = null;
+  if (referredBy) {
+    const refCheck = await pool.query(
+      "SELECT public_key FROM profiles WHERE public_key = $1",
+      [referredBy],
+    );
+    if (refCheck.rows.length > 0) {
+      safeReferredBy = referredBy;
+    }
+  }
+
   // Insert; the UNIQUE(job_id, freelancer_address) constraint handles duplicates.
   let appRow;
   try {
@@ -226,7 +245,7 @@ async function submitApplication({
         proposal.trim(),
         parseFloat(bidAmount).toFixed(7),
         screeningAnswers || {},
-        referredBy || null,
+        safeReferredBy,
         bidCommitment || null,
         bidNonce || null,
       ],
@@ -236,6 +255,11 @@ async function submitApplication({
     if (err.code === "23505") {
       const e = new Error("You have already applied to this job");
       e.status = 409;
+      throw e;
+    }
+    if (err.code === "23503") {
+      const e = new Error("Invalid reference: " + (err.detail || "referenced record not found"));
+      e.status = 400;
       throw e;
     }
     throw err;
@@ -445,6 +469,15 @@ async function acceptApplication(applicationId, clientAddress) {
   if (job.clientAddress !== clientAddress) {
     const e = new Error("Only the job client can accept applications");
     e.status = 403;
+    throw e;
+  }
+  if (app.status === "accepted") {
+    // Idempotent: this application has already been accepted
+    return rowToApp(app);
+  }
+  if (app.status !== "pending") {
+    const e = new Error(`Application cannot be accepted because it is ${app.status}`);
+    e.status = 400;
     throw e;
   }
   if (job.status !== "open") {

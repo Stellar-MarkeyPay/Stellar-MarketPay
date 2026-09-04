@@ -3,7 +3,7 @@
  * Browse all open jobs with category filtering and search autocomplete.
  */
 import JobCard, { JobCardSkeleton } from "@/components/JobCard";
-import { fetchJobs, fetchMlRankedJobs, fetchRecommendedJobs, fetchJobSuggestions, type JobSuggestion as APISuggestion, type RankedJob } from "@/lib/api";
+import { fetchJobs, fetchJobSuggestions, type JobSuggestion as APISuggestion } from "@/lib/api";
 import StateMessage from "@/components/StateMessage";
 import { JOB_CATEGORIES, CATEGORY_ICONS, categoryToSlug } from "@/utils/format";
 import type { Job } from "@/utils/types";
@@ -11,7 +11,7 @@ import clsx from "clsx";
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { useTranslation } from "@/lib/i18n";
 import JobFiltersPanel, {
   ActiveFilterChips,
@@ -63,9 +63,6 @@ export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
-  const [recommended, setRecommended] = useState<RankedJob[]>([]);
-  const [rankingSource, setRankingSource] = useState<"ml" | "baseline" | null>(null);
-  const [recLoading, setRecLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -107,7 +104,10 @@ export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
       .catch(() => {});
   }, [publicKey]);
 
-  let activeTimezone = manualTimezone || (useGeolocation ? userTimezone : "");
+  const activeTimezone = useMemo(
+    () => manualTimezone || (useGeolocation ? userTimezone : ""),
+    [manualTimezone, useGeolocation, userTimezone]
+  );
   const category = (router.query.category as string) || "";
   const status = (router.query.status as string) || "open";
   const minBudget = (router.query.minBudget as string) || "";
@@ -237,29 +237,6 @@ export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
     }).catch(() => {});
   }, []);
 
-  // Fetch ML-ranked jobs when wallet is connected (fallback to legacy recommendations)
-  useEffect(() => {
-    if (!publicKey) { setRecommended([]); setRankingSource(null); return; }
-    setRecLoading(true);
-    fetchMlRankedJobs(publicKey, 6)
-      .then(({ jobs, meta }) => {
-        setRecommended(jobs);
-        setRankingSource(meta.source);
-      })
-      .catch(() =>
-        fetchRecommendedJobs(publicKey)
-          .then((jobs) => {
-            setRecommended(jobs);
-            setRankingSource("baseline");
-          })
-          .catch(() => {
-            setRecommended([]);
-            setRankingSource(null);
-          }),
-      )
-      .finally(() => setRecLoading(false));
-  }, [publicKey]);
-
   // Handle geolocation-based timezone detection
   const handleGeolocation = () => {
     setGeoLoading(true);
@@ -301,8 +278,6 @@ export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
         let loadedNextCursor: string | null = null;
         let pagesLoaded = 0;
         let allJobs: Job[] = [];
-
-        activeTimezone = manualTimezone || (useGeolocation ? userTimezone : "");
 
         for (let page = 1; page <= pageFromQuery; page += 1) {
           const result = await fetchJobs({
@@ -351,9 +326,7 @@ export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
     status,
     pageFromQuery,
     router.isReady,
-    manualTimezone,
-    useGeolocation,
-    userTimezone,
+    activeTimezone,
     viewerAddress,
     minBudget,
     maxBudget,
@@ -457,7 +430,6 @@ export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
     )
     : jobs;
 
-  activeTimezone = manualTimezone || (useGeolocation ? userTimezone : "");
   const filtered = activeTimezone
     ? searchFiltered.filter((j) => isTimezoneCompatible(j.timezone))
     : searchFiltered;
@@ -477,8 +449,6 @@ export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
     setError(null);
 
     try {
-      activeTimezone = manualTimezone || (useGeolocation ? userTimezone : "");
-
       const result = await fetchJobs({
         category: category || undefined,
         status: status || undefined,
@@ -533,38 +503,6 @@ export default function JobsPage({ publicKey }: { publicKey?: string | null }) {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10 animate-fade-in">
-
-      {/* Recommended for you */}
-      {publicKey && (recLoading || recommended.length > 0) && (
-        <div className="mb-10">
-          <div className="flex items-center gap-3 mb-4">
-            <h2 className="font-display text-xl font-bold text-amber-100">{t("jobs.recommended")}</h2>
-            {rankingSource === "ml" && (
-              <span className="text-[10px] uppercase tracking-wider text-market-400/80 border border-market-500/20 px-2 py-0.5 rounded-full">
-                ML ranked
-              </span>
-            )}
-          </div>
-          {recLoading ? (
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {Array.from({ length: 3 }).map((_, i) => <JobCardSkeleton key={`rec-skeleton-${i}`} />)}
-            </div>
-          ) : (
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {recommended.map((job) => (
-                <div key={job.id} className="relative">
-                  <JobCard job={job} />
-                  {job.matchScore > 0 && (
-                    <span className="absolute top-3 right-3 bg-market-500/20 text-market-300 text-[10px] font-bold px-2 py-0.5 rounded-full border border-market-500/30">
-                      {job.matchScore}% match
-                    </span>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">

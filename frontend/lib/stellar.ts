@@ -14,7 +14,7 @@ import {
 } from "@stellar/stellar-sdk";
 import * as SorobanRpc from "@stellar/stellar-sdk/rpc";
 import { optionalClientEnv, requireClientEnv } from "./env";
-import { getUsdcContractId } from "./config/tokens";
+import { getUsdcContractId, tokenAddressForCurrency, PaymentCurrency } from "./config/tokens";
 import { fetchDynamicFeeTiers, pickTierFeeStroops } from "./sorobanFees";
 
 /** Fee tier preference for transaction builders. Defaults to "medium". */
@@ -76,11 +76,23 @@ export interface EscrowParams {
   /** Budget amount in the selected currency */
   budget: number;
   /** Payment currency for escrow lock */
-  currency?: "XLM" | "USDC";
+  currency?: PaymentCurrency;
   /** @deprecated Use budget */
   budgetXlm?: number;
   /** Fee tier preference for gas estimation (default: "medium") */
   feeTier?: FeeTierPreference;
+  /** Freelancer recipient address (defaults to clientPublicKey if pending hire) */
+  freelancerPublicKey?: string;
+  /** Optional custom token contract address override */
+  tokenAddress?: string;
+  /** Optional milestones in stroops */
+  milestones?: bigint[];
+  /** Optional timeout ledgers */
+  timeoutLedgers?: number;
+  /** Optional referrer address */
+  referrer?: string;
+  /** Optional arbitrator address */
+  arbitrator?: string;
 }
 
 export interface EscrowResult {
@@ -131,6 +143,56 @@ async function getFreighter() {
 // Core: build the Soroban create_escrow transaction
 // ---------------------------------------------------------------------------
 
+export function buildCreateEscrowParamsScVal(params: {
+  freelancerPublicKey: string;
+  tokenAddress: string;
+  amountStroops: bigint;
+  milestones?: bigint[];
+  timeoutLedgers?: number;
+  referrer?: string;
+  arbitrator?: string;
+}): xdr.ScVal {
+  const mapEntries = [
+    new xdr.ScMapEntry({
+      key: xdr.ScVal.scvSymbol("amount"),
+      val: nativeToScVal(params.amountStroops, { type: "i128" }),
+    }),
+    new xdr.ScMapEntry({
+      key: xdr.ScVal.scvSymbol("arbitrator"),
+      val: params.arbitrator
+        ? Address.fromString(params.arbitrator).toScVal()
+        : xdr.ScVal.scvVoid(),
+    }),
+    new xdr.ScMapEntry({
+      key: xdr.ScVal.scvSymbol("freelancer"),
+      val: Address.fromString(params.freelancerPublicKey).toScVal(),
+    }),
+    new xdr.ScMapEntry({
+      key: xdr.ScVal.scvSymbol("milestones"),
+      val: params.milestones && params.milestones.length > 0
+        ? xdr.ScVal.scvVec(params.milestones.map((m) => nativeToScVal(m, { type: "i128" })))
+        : xdr.ScVal.scvVoid(),
+    }),
+    new xdr.ScMapEntry({
+      key: xdr.ScVal.scvSymbol("referrer"),
+      val: params.referrer
+        ? Address.fromString(params.referrer).toScVal()
+        : xdr.ScVal.scvVoid(),
+    }),
+    new xdr.ScMapEntry({
+      key: xdr.ScVal.scvSymbol("timeout_ledgers"),
+      val: params.timeoutLedgers != null
+        ? nativeToScVal(params.timeoutLedgers, { type: "u32" })
+        : xdr.ScVal.scvVoid(),
+    }),
+    new xdr.ScMapEntry({
+      key: xdr.ScVal.scvSymbol("token"),
+      val: Address.fromString(params.tokenAddress).toScVal(),
+    }),
+  ];
+  return xdr.ScVal.scvMap(mapEntries);
+}
+
 export async function buildCreateEscrowTx(
   params: EscrowParams,
 ): Promise<string> {
@@ -148,12 +210,24 @@ export async function buildCreateEscrowTx(
 
   const amountStroops = BigInt(Math.round(budgetXlm * 10_000_000));
   const fee = await resolveFee(feeTier);
+  const token = params.tokenAddress || tokenAddressForCurrency(params.currency || "XLM");
+  const freelancer = params.freelancerPublicKey || clientPublicKey;
+
+  const escrowParamsScVal = buildCreateEscrowParamsScVal({
+    freelancerPublicKey: freelancer,
+    tokenAddress: token,
+    amountStroops,
+    milestones: params.milestones,
+    timeoutLedgers: params.timeoutLedgers,
+    referrer: params.referrer,
+    arbitrator: params.arbitrator,
+  });
 
   const contract = new Contract(CONTRACT_ID);
   const callArgs = [
     nativeToScVal(jobId, { type: "string" }),
     Address.fromString(clientPublicKey).toScVal(),
-    nativeToScVal(amountStroops, { type: "i128" }),
+    escrowParamsScVal,
   ];
 
   const tx = new TransactionBuilder(account, {

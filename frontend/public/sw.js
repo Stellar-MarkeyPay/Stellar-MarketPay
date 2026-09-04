@@ -6,6 +6,26 @@
  * - Background sync for queued form submissions
  */
 
+// ── Development kill-switch ──────────────────────────────────────────────────
+// On localhost this worker does more harm than good: it pre-caches the app
+// shell and serves _next bundles cache-first, so after any recompile the
+// cached HTML points at a dead webpack hash, its hot-update.json 404s, and
+// Fast Refresh full-reloads several times a second, forever.
+//
+// A page stuck in that loop can never run new app code to unregister us --
+// but the browser does re-fetch this file on its own. So self-destruct here.
+if (self.location.hostname === "localhost" || self.location.hostname === "127.0.0.1") {
+  self.addEventListener("install", () => self.skipWaiting());
+  self.addEventListener("activate", (event) => {
+    event.waitUntil(
+      caches
+        .keys()
+        .then((names) => Promise.all(names.map((name) => caches.delete(name))))
+        .then(() => self.registration.unregister())
+    );
+  });
+} else {
+
 const CACHE_VERSION = "v2";
 const CACHE_NAME = `stellar-marketpay-${CACHE_VERSION}`;
 const ASSET_CACHE = `stellar-assets-${CACHE_VERSION}`;
@@ -235,3 +255,5 @@ function storeGetAll(store) {
     req.onerror = (e) => reject(e.target.error);
   });
 }
+
+} // end production-only service worker

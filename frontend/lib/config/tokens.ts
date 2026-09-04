@@ -31,7 +31,22 @@ export function toStroops(amount: number, currency: PaymentCurrency): bigint {
   return BigInt(Math.round(amount * factor));
 }
 
-export function tokenAddressForCurrency(currency: PaymentCurrency): string {
-  if (currency === "USDC") return getUsdcContractId();
-  return "native";
+/** Native XLM Stellar Asset Contract (SAC) addresses per network */
+export const XLM_CONTRACT_BY_NETWORK: Record<string, string> = {
+  testnet:
+    process.env.NEXT_PUBLIC_XLM_CONTRACT_ID ||
+    "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+  mainnet:
+    process.env.NEXT_PUBLIC_XLM_CONTRACT_ID_MAINNET ||
+    "CAS3J7GYLGXMF6TDJBBYYSE3HQ6BBSMLNUQ34T6TZMYMW2EVH34XOWMA",
+};
+
+export function getXlmContractId(): string {
+  return XLM_CONTRACT_BY_NETWORK[NETWORK === "mainnet" ? "mainnet" : "testnet"];
 }
+
+export function tokenAddressForCurrency(currency: PaymentCurrency = "XLM"): string {
+  if (currency === "USDC") return getUsdcContractId();
+  return getXlmContractId();
+}
+

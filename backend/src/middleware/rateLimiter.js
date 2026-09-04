@@ -7,9 +7,13 @@ const { getClientIp } = require("../utils/clientIp");
  * Factory function to create reusable rate limiters
  */
 const createRateLimiter = (maxRequests, windowMinutes) => {
+  const effectiveMax =
+    process.env.NODE_ENV === "development"
+      ? Math.max(maxRequests * 20, 2000)
+      : maxRequests;
   return rateLimit({
     windowMs: windowMinutes * 60 * 1000,
-    max: maxRequests,
+    max: effectiveMax,
     standardHeaders: true,
     legacyHeaders: true,
     keyGenerator: (req) => getClientIp(req),

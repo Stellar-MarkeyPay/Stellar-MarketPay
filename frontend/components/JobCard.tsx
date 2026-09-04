@@ -3,6 +3,7 @@
  * Displays a single job listing in the browse grid.
  */
 import Link from "next/link";
+import { useRouter } from "next/router";
 import { useState, useRef, useEffect } from "react"; // Added for hover logic
 import {
   formatDeadline,
@@ -107,6 +108,7 @@ function CountdownTimer({ deadline }: { deadline: string }) {
 }
 
 export default function JobCard({ job, isFocused = false, onFocus }: JobCardProps) {
+  const router = useRouter();
   const { xlmPriceUsd, currencyMode, priceLoading } = usePriceContext();
   const { isSaved, toggleBookmark } = useBookmarks();
   const saved = isSaved(job.id);
@@ -120,7 +122,7 @@ export default function JobCard({ job, isFocused = false, onFocus }: JobCardProp
 
   const handleMouseEnter = () => {
     // Check if device has a mouse/pointer (Acceptance Criteria: No popover on touch)
-    if (window.matchMedia("(pointer: fine)").matches) {
+    if (typeof window !== "undefined" && window.matchMedia("(pointer: fine)").matches) {
       hoverTimeoutRef.current = setTimeout(() => {
         setShowPreview(true);
       }, 500); // 500ms delay requirement
@@ -149,38 +151,57 @@ export default function JobCard({ job, isFocused = false, onFocus }: JobCardProp
   const showClosedBadge = isStatusClosed || deadlineState === "closed";
   const showClosingSoonBadge = !showClosedBadge && deadlineState === "closing_soon";
 
-  // Helper to get monthly estimate (keeping original logic intact)
-  const getMonthlyEstimate = (budget: string, price: number | null, cur: string) => {
-    const est = formatUSDEquivalent(budget, price, cur);
-    return est ? `Estimated monthly: ${est}` : null;
+  // Card click navigation
+  const handleCardClick = (e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    if (target.closest("button") || target.closest("a") || target.closest("[data-no-card-nav]")) {
+      return;
+    }
+    router.push(`/jobs/${job.id}`);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" || e.key === " ") {
+      const target = e.target as HTMLElement;
+      if (target.closest("button") || target.closest("a") || target.closest("[data-no-card-nav]")) {
+        return;
+      }
+      e.preventDefault();
+      router.push(`/jobs/${job.id}`);
+    }
   };
 
   return (
-      <div
-        className={[
-          "card-hover group animate-fade-in relative cursor-pointer outline-none",
-          isFocused ? "ring-2 ring-market-400/50" : "",
-        ].join(" ")}
-        tabIndex={0}
-        data-job-card-focus={isFocused ? "true" : undefined}
-        onFocus={onFocus}
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
-      >
+    <div
+      className={[
+        "card card-hover group animate-fade-in relative cursor-pointer outline-none flex flex-col justify-between transition-all duration-200 hover:shadow-xl hover:-translate-y-0.5",
+        isFocused ? "ring-2 ring-market-400/50" : "",
+      ].join(" ")}
+      tabIndex={0}
+      role="link"
+      aria-label={`View job: ${job.title}`}
+      data-job-card-focus={isFocused ? "true" : undefined}
+      onFocus={onFocus}
+      onClick={handleCardClick}
+      onKeyDown={handleKeyDown}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
+      <div>
         {/* Header row */}
         <div className="flex items-start justify-between gap-3 mb-3">
-          <Link href={`/jobs/${job.id}`}>
-            <h2 className="font-display font-semibold text-amber-100 text-base leading-snug group-hover:text-market-300 transition-colors line-clamp-2">
-                {job.title}
+          <Link href={`/jobs/${job.id}`} className="hover:underline flex-1">
+            <h2 className="font-display font-semibold text-amber-100 text-lg leading-snug group-hover:text-market-300 transition-colors line-clamp-2">
+              {job.title}
             </h2>
           </Link>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-shrink-0">
             {clientRepBadge && (
               <span
-                className={`group/rep relative inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${clientRepBadge.className}`}
+                className={`group/rep relative inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[10px] font-semibold ${clientRepBadge.className}`}
               >
                 ★ {clientRepBadge.label}
-                <span className="pointer-events-none absolute bottom-full right-0 mb-1 hidden whitespace-nowrap rounded-md border border-market-500/20 bg-ink-900 px-2 py-1 text-[10px] text-amber-200 shadow-lg group-hover/rep:block">
+                <span className="pointer-events-none absolute bottom-full right-0 mb-1 hidden whitespace-nowrap rounded-md border border-market-500/20 bg-ink-900 px-2 py-1 text-[10px] text-amber-200 shadow-lg group-hover/rep:block z-30">
                   {clientRepBadge.hint}
                 </span>
               </span>
@@ -192,34 +213,36 @@ export default function JobCard({ job, isFocused = false, onFocus }: JobCardProp
         </div>
 
         {/* Description */}
-        <p className="text-amber-800/80 text-sm leading-relaxed line-clamp-3 mb-4">
+        <p className="text-amber-700 dark:text-stone-300 text-sm leading-relaxed line-clamp-3 mb-4">
           {job.description}
         </p>
 
         {/* Skills */}
-        {job.skills.length > 0 && (
+        {job.skills && job.skills.length > 0 && (
           <div className="flex flex-wrap gap-1.5 mb-4">
             {job.skills.slice(0, 4).map((s) => (
               <span
                 key={s}
-                className="text-xs bg-market-500/8 text-market-500/80 border border-market-500/15 px-2 py-0.5 rounded-md"
+                className="text-xs bg-market-500/10 text-market-600 dark:text-market-300 border border-market-500/20 px-2.5 py-1 rounded-md font-medium"
               >
                 {s}
               </span>
             ))}
             {job.skills.length > 4 && (
-              <span className="text-xs text-amber-800 px-2 py-0.5">
+              <span className="text-xs text-amber-700 dark:text-amber-400 px-2 py-1 font-medium">
                 +{job.skills.length - 4} more
               </span>
             )}
           </div>
         )}
+      </div>
 
+      <div>
         {/* Footer */}
-        <div className="flex items-center justify-between pt-3 border-t border-[rgba(251,191,36,0.07)] relative">
+        <div className="flex items-center justify-between pt-3 border-t border-[rgba(251,191,36,0.12)] relative">
           <div className="group/tooltip relative">
-            <p className="text-xs text-amber-800 mb-0.5">Budget</p>
-            <p className="font-mono font-semibold text-market-400 text-sm cursor-help">
+            <p className="text-xs text-amber-700 dark:text-amber-400 mb-0.5 font-medium">Budget</p>
+            <p className="font-mono font-bold text-market-500 dark:text-market-400 text-base cursor-help">
               {price.display}
             </p>
             {currencyMode === "XLM" && price.usdEquiv && (
@@ -245,35 +268,37 @@ export default function JobCard({ job, isFocused = false, onFocus }: JobCardProp
                 e.stopPropagation();
                 toggleBookmark(job.id);
               }}
-              className="p-2 sm:p-1.5 rounded-md transition-all flex items-center justify-center hover:bg-amber-500/10 group/bookmark min-h-[44px] min-w-[44px]"
+              className="p-2 sm:p-1.5 rounded-lg transition-all flex items-center justify-center hover:bg-amber-500/10 group/bookmark min-h-[40px] min-w-[40px]"
               title={saved ? "Remove bookmark" : "Save job"}
               aria-label={saved ? "Remove bookmark" : "Save job"}
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                width="16"
-                height="16"
+                width="18"
+                height="18"
                 viewBox="0 0 24 24"
-                fill={isSaved(job.id) ? "currentColor" : "none"}
+                fill={saved ? "currentColor" : "none"}
                 stroke="currentColor"
                 strokeWidth="2"
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                className={`transition-colors group-hover/bookmark:text-amber-400 ${isSaved(job.id) ? 'text-amber-400' : 'text-amber-700/60 group-hover/bookmark:text-amber-400'}`}
+                className={`transition-colors group-hover/bookmark:text-amber-400 ${saved ? 'text-amber-400' : 'text-amber-700/60 dark:text-amber-400/60 group-hover/bookmark:text-amber-400'}`}
               >
-                <path d="m14 20 4-6H4l4 6z"/>
-                <path d="M18 8a4 4 0 1 0-8 0 4 4 0 0 0 8 0z"/>
+                <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/>
               </svg>
             </button>
             <div className="text-right">
-              <p className="text-xs text-amber-800 mb-0.5">
+              <p className="text-xs text-amber-700 dark:text-amber-400 mb-0.5">
                 {job.applicantCount} applicant
                 {job.applicantCount !== 1 ? "s" : ""}
                 {hasValidDeadline ? ` | Due ${formattedDeadline}` : ""}
               </p>
+              <p className="text-xs text-amber-700/70 dark:text-amber-400/60">
+                {timeAgo(job.createdAt)}
+              </p>
             </div>
             {showClosedBadge && (
-              <span className="inline-flex items-center px-2 py-0.5 rounded-full border text-[10px] font-semibold uppercase tracking-wide bg-slate-500/20 text-slate-300 border-slate-400/30 mb-0.5">
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full border text-[10px] font-semibold uppercase tracking-wide bg-slate-500/20 text-slate-300 border-slate-400/30 mb-0.5">
                 Closed
               </span>
             )}
@@ -281,19 +306,16 @@ export default function JobCard({ job, isFocused = false, onFocus }: JobCardProp
               <CountdownTimer deadline={job.deadline} />
             )}
             {showClosingSoonBadge && !showClosedBadge && !job.deadline && (
-              <span className="inline-flex items-center px-2 py-0.5 rounded-full border text-[10px] font-semibold uppercase tracking-wide bg-red-500/20 text-red-300 border-red-400/40 mb-0.5">
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full border text-[10px] font-semibold uppercase tracking-wide bg-red-500/20 text-red-300 border-red-400/40 mb-0.5">
                 Closing soon
               </span>
             )}
-            <p className="text-xs text-amber-800/60">
-              {timeAgo(job.createdAt)}
-            </p>
           </div>
         </div>
 
         {/* Category pill */}
         <div className="mt-3 flex items-center gap-2 flex-wrap">
-          <span className="text-xs text-amber-700 bg-ink-700 px-2.5 py-1 rounded-full border border-[rgba(251,191,36,0.08)]">
+          <span className="text-xs text-amber-700 dark:text-amber-300 bg-ink-700 dark:bg-ink-800 px-2.5 py-1 rounded-full border border-[rgba(251,191,36,0.12)] font-medium">
             {job.category}
           </span>
           {job.boosted && job.boostedUntil && new Date(job.boostedUntil) > new Date() && (
@@ -304,37 +326,38 @@ export default function JobCard({ job, isFocused = false, onFocus }: JobCardProp
         </div>
 
         <JobStatusTimeline job={job} compact />
+      </div>
 
-        {/* ── ISSUE #78: Floating Hover Preview Card ── */}
-        {showPreview && (
-          <div className="absolute z-50 left-0 top-full mt-2 w-full md:left-full md:top-0 md:mt-0 md:ml-4 md:w-80 animate-in fade-in zoom-in duration-200">
-            <div className="bg-ink-900 border border-market-500/40 p-4 rounded-xl shadow-2xl backdrop-blur-lg">
-              <h4 className="text-market-300 font-semibold text-sm mb-2">Job Preview</h4>
-              <p className="text-amber-100/90 text-xs leading-relaxed mb-3">
-                {job.description.substring(0, 300)}
-                {job.description.length > 300 ? "..." : ""}
-              </p>
-              
-              <div className="mb-3">
-                <p className="text-[10px] text-amber-800 uppercase font-bold mb-1">Required Skills</p>
-                <div className="flex flex-wrap gap-1">
-                  {job.skills.map((s) => (
-                    <span key={s} className="text-[10px] bg-market-500/10 text-market-400 border border-market-500/20 px-1.5 py-0.5 rounded">
-                      {s}
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              <div className="pt-2 border-t border-market-500/20">
-                <p className="text-[10px] text-amber-800 mb-0.5 font-bold uppercase">Client Address</p>
-                <p className="text-[10px] font-mono text-amber-100/70 truncate">{job.clientAddress || "Not specified"}</p>
+      {/* ── ISSUE #78: Floating Hover Preview Card ── */}
+      {showPreview && (
+        <div className="absolute z-50 pointer-events-none left-0 top-full mt-2 w-full md:left-full md:top-0 md:mt-0 md:ml-4 md:w-80 animate-in fade-in zoom-in duration-200">
+          <div className="bg-ink-900 border border-market-500/40 p-4 rounded-xl shadow-2xl backdrop-blur-lg">
+            <h4 className="text-market-300 font-semibold text-sm mb-2">Job Preview</h4>
+            <p className="text-amber-100/90 text-xs leading-relaxed mb-3">
+              {job.description.substring(0, 300)}
+              {job.description.length > 300 ? "..." : ""}
+            </p>
+            
+            <div className="mb-3">
+              <p className="text-[10px] text-amber-800 uppercase font-bold mb-1">Required Skills</p>
+              <div className="flex flex-wrap gap-1">
+                {job.skills.map((s) => (
+                  <span key={s} className="text-[10px] bg-market-500/10 text-market-400 border border-market-500/20 px-1.5 py-0.5 rounded">
+                    {s}
+                  </span>
+                ))}
               </div>
             </div>
+
+            <div className="pt-2 border-t border-market-500/20">
+              <p className="text-[10px] text-amber-800 mb-0.5 font-bold uppercase">Client Address</p>
+              <p className="text-[10px] font-mono text-amber-100/70 truncate">{job.clientAddress || "Not specified"}</p>
+            </div>
           </div>
-        )}
-        {/* ───────────────────────────────────────────── */}
-      </div>
+        </div>
+      )}
+      {/* ───────────────────────────────────────────── */}
+    </div>
   );
 }
 

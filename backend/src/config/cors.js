@@ -33,6 +33,12 @@ function createCorsOptions({ env = process.env, logger = console } = {}) {
         return cb(null, true);
       }
 
+      if (env.NODE_ENV !== "production") {
+        if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
+          return cb(null, true);
+        }
+      }
+
       return cb(new Error("CORS blocked"));
     },
     methods: ["GET", "POST", "PATCH", "DELETE"],

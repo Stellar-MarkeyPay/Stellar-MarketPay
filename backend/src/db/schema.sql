@@ -405,8 +405,125 @@ ALTER TABLE job_invitations ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAUL
   CHECK (status IN ('pending', 'accepted', 'declined'));
 
 -- ─────────────────────────────────────────
--- notification_queue additions (in_app type support)
+-- notification_queue
 -- ─────────────────────────────────────────
--- Allow 'in_app' as a notification_type in addition to 'email' and 'webhook'
--- The notification_queue table was created without a CHECK constraint on
--- notification_type so this is a no-op schema change (just documentation).
+CREATE TABLE IF NOT EXISTS notification_queue (
+  id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  recipient_address   TEXT NOT NULL,
+  notification_type   TEXT NOT NULL,
+  event_type          TEXT NOT NULL,
+  job_id              UUID,
+  payload             JSONB NOT NULL DEFAULT '{}'::jsonb,
+  status              TEXT NOT NULL DEFAULT 'pending',
+  retry_count         INTEGER NOT NULL DEFAULT 0,
+  error_message       TEXT,
+  last_attempt_at     TIMESTAMPTZ,
+  sent_at             TIMESTAMPTZ,
+  created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS notification_queue_status_retry_idx
+  ON notification_queue (status, retry_count, created_at);
+
+CREATE INDEX IF NOT EXISTS notification_queue_recipient_idx
+  ON notification_queue (recipient_address);
+
+-- ─────────────────────────────────────────
+-- price_alert_preferences
+-- ─────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS price_alert_preferences (
+  freelancer_address          TEXT PRIMARY KEY,
+  min_xlm_price_usd           NUMERIC(20,7),
+  max_xlm_price_usd           NUMERIC(20,7),
+  email_notifications_enabled BOOLEAN NOT NULL DEFAULT false,
+  email                       TEXT,
+  last_min_alert_at           TIMESTAMPTZ,
+  last_max_alert_at           TIMESTAMPTZ,
+  created_at                  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at                  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- ─────────────────────────────────────────
+-- contract_audit_log
+-- ─────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS contract_audit_log (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  function_name   TEXT NOT NULL,
+  caller_address  TEXT NOT NULL,
+  job_id          UUID REFERENCES jobs(id) ON DELETE SET NULL,
+  tx_hash         TEXT NOT NULL,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS contract_audit_log_job_id_idx ON contract_audit_log(job_id);
+CREATE INDEX IF NOT EXISTS contract_audit_log_caller_idx ON contract_audit_log(caller_address);
+
+-- ─────────────────────────────────────────
+-- disputes
+-- ─────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS disputes (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  job_id          UUID NOT NULL UNIQUE REFERENCES jobs(id) ON DELETE CASCADE,
+  raised_by       TEXT NOT NULL,
+  status          TEXT NOT NULL DEFAULT 'open',
+  resolved_by     TEXT,
+  resolution      TEXT,
+  resolved_at     TIMESTAMPTZ,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS disputes_job_id_idx ON disputes(job_id);
+CREATE INDEX IF NOT EXISTS disputes_status_idx ON disputes(status);
+
+-- ─────────────────────────────────────────
+-- proposal_templates
+-- ─────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS proposal_templates (
+  id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  freelancer_address  TEXT NOT NULL,
+  name                TEXT NOT NULL,
+  content             TEXT NOT NULL,
+  created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS proposal_templates_freelancer_idx ON proposal_templates(freelancer_address);
+
+-- ─────────────────────────────────────────
+-- job_reports
+-- ─────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS job_reports (
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  job_id            UUID REFERENCES jobs(id) ON DELETE CASCADE,
+  reporter_address  TEXT NOT NULL,
+  category          TEXT NOT NULL,
+  description       TEXT,
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS job_reports_job_id_idx ON job_reports(job_id);
+CREATE INDEX IF NOT EXISTS job_reports_reporter_idx ON job_reports(reporter_address);
+
+-- ─────────────────────────────────────────
+-- skill_endorsements
+-- ─────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS skill_endorsements (
+  id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  skill               TEXT NOT NULL,
+  endorser_address    TEXT NOT NULL,
+  recipient_address   TEXT NOT NULL,
+  created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (skill, endorser_address, recipient_address)
+);
+CREATE INDEX IF NOT EXISTS skill_endorsements_recipient_idx ON skill_endorsements(recipient_address);
+
+-- ─────────────────────────────────────────
+-- skill_assessments
+-- ─────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS skill_assessments (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  public_key  TEXT NOT NULL,
+  skill       TEXT NOT NULL,
+  score       INTEGER NOT NULL,
+  passed      BOOLEAN NOT NULL DEFAULT false,
+  taken_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS skill_assessments_public_key_idx ON skill_assessments(public_key, skill);
+
+

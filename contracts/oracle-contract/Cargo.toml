@@ -1,0 +1,37 @@
+[package]
+name = "oracle-contract"
+version = "0.1.0"
+edition = "2021"
+description = "Stellar MarketPay — Soroban Decentralized Oracle Contract for Trustless Milestone and Deliverable Verification"
+license = "MIT"
+resolver = "2"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+soroban-sdk = { version = "=22.0.0", default-features = false }
+stellar-xdr = { version = "=22.0.0", default-features = false, features = ["curr"] }
+base64ct = "=1.6.0"
+zeroize_derive = "=1.4.2"
+time-core = "=0.1.8"
+indexmap = "=2.1.0"
+serde_with = "=3.6.1"
+ethnum = "1.5.3"
+
+[dev-dependencies]
+soroban-sdk = { version = "=22.0.0", default-features = false, features = ["testutils"] }
+
+[features]
+std = ["stellar-xdr/std"]
+testutils = ["soroban-sdk/testutils"]
+
+[profile.release]
+opt-level = "z"
+overflow-checks = true
+debug = 0
+strip = "symbols"
+debug-assertions = false
+panic = "abort"
+codegen-units = 1
+lto = true
