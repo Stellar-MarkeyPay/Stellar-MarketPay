@@ -90,13 +90,13 @@ YourSchema: {
 Run the build command to generate the OpenAPI specification:
 
 ```bash
-npm run build
+pnpm build
 ```
 
 Or generate just the documentation:
 
 ```bash
-npm run generate-openapi
+pnpm --filter backend run generate-openapi
 ```
 
 ## Documentation Standards
@@ -191,7 +191,7 @@ The build process includes:
 Enable debug logging by setting environment variable:
 
 ```bash
-DEBUG=swagger-jsdoc* npm run generate-openapi
+DEBUG=swagger-jsdoc* pnpm --filter backend run generate-openapi
 ```
 
 ## Generated Files

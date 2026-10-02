@@ -26,9 +26,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
-          cache: "npm"
+          cache: "pnpm"
+          cache-dependency-path: pnpm-lock.yaml
 
-      - run: npm ci
+      - run: corepack enable && pnpm install --frozen-lockfile
 
       - name: Configure Git User
         run: |
@@ -36,7 +37,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Run Release Tagging
-        run: npm run release:${{ github.event.inputs.release_type || 'patch' }}
+        run: pnpm run release:${{ github.event.inputs.release_type || 'patch' }}
 
       - name: Push release commit & tags
         run: git push --follow-tags

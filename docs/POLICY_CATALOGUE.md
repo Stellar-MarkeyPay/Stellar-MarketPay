@@ -9,7 +9,7 @@ written twice, so a rule's stated rationale cannot drift from the rule that is
 actually enforced. Regenerate after changing the manifest:
 
 ```bash
-npm run policy:catalogue -- --write
+pnpm policy:catalogue -- --write
 ```
 
 For how the engine works and why it is built this way, see
@@ -71,12 +71,12 @@ Three properties make overrides safe to have:
    exception becomes a permanent one.
 2. **They come from the base branch.** A pull request cannot grant itself an
    override — the exception has to be merged first, which means reviewed first.
-3. **They are audited.** `npm run policy:overrides` fails on an expired entry,
+3. **They are audited.** `pnpm policy:overrides` fails on an expired entry,
    and every run reports overrides that matched nothing, which is how the
    periodic review finds rules the repository has grown out of.
 
 ```bash
-npm run policy:overrides   # audit the exception list
+pnpm policy:overrides   # audit the exception list
 ```
 
 ## Rollout status
@@ -84,7 +84,7 @@ npm run policy:overrides   # audit the exception list
 Every rule was measured against real history before its severity was set:
 
 ```bash
-npm run policy:measure     # how often each rule would fire, over 150 commits
+pnpm policy:measure     # how often each rule would fire, over 150 commits
 ```
 
 The measurement at the time of writing, against the last 150 non-merge
@@ -109,7 +109,7 @@ first.**
 Reproduce it yourself; the numbers move as the repository does:
 
 ```bash
-npm run policy:measure
+pnpm policy:measure
 ```
 
 ### Promotion conditions
@@ -124,7 +124,7 @@ written down rather than left to whoever notices first:
 | `signed-commits`        | Every active contributor has enrolled a key — see [COMMIT_SIGNING.md](COMMIT_SIGNING.md) — at which point `required_signatures` in [`.github/branch-protection.json`](../.github/branch-protection.json) also flips to `true`. |
 
 Promoting a rule is a one-line change to `policy/policies.json` followed by
-`npm run policy:catalogue -- --write`. It is reviewable, attributable and
+`pnpm policy:catalogue -- --write`. It is reviewable, attributable and
 revertible like any other code, which is the point of the rule set being data.
 
 <!-- policy:rules -->
@@ -188,7 +188,7 @@ revertible like any other code, which is the point of the rule set being data.
 
 **Database migrations ship with a tested down migration**
 
-> **Incident.** npm run migrate:rollback exists and is part of the documented rollback path, but nothing required a down migration to be written or executed.
+> **Incident.** pnpm --filter backend run migrate:rollback exists and is part of the documented rollback path, but nothing required a down migration to be written or executed.
 
 **Why.** A forward migration with no reverse is a deploy with no rollback. A reverse that no test ever executes is a rollback nobody has run — which is discovered during the incident it was meant to resolve.
 
@@ -256,7 +256,7 @@ revertible like any other code, which is the point of the rule set being data.
 
 **Why.** Author identity in git is a self-declared string. For a repository holding escrowed-funds code, 'who wrote the change that moved the money' needs an answer that survives scrutiny. Enforcement is server-side; the local run exists to tell a contributor their signing setup is broken before they push twenty commits with it.
 
-**Fix.** Enrol a key once with docs/COMMIT_SIGNING.md (npm run policy:signing-setup), then re-sign the range: git rebase --exec "git commit --amend --no-edit -S" <base>.
+**Fix.** Enrol a key once with docs/COMMIT_SIGNING.md (pnpm policy:signing-setup), then re-sign the range: git rebase --exec "git commit --amend --no-edit -S" <base>.
 
 **Severity.** pre-commit `off`, commit-msg `off`, pre-push `warn`, CI `warn`.
 
@@ -268,7 +268,7 @@ revertible like any other code, which is the point of the rule set being data.
 
 **Why.** A hook that reports success without running anything is a supply-chain problem, and it is invisible because everything looks green. Recording a digest does not stop a hook from changing; it stops the change from being silent, by putting the new digest in the diff a reviewer reads.
 
-**Fix.** If the change to the hook or the policy set is intended, regenerate the manifest: npm run policy:integrity -- --write.
+**Fix.** If the change to the hook or the policy set is intended, regenerate the manifest: pnpm policy:integrity -- --write.
 
 **Severity.** pre-commit `off`, commit-msg `off`, pre-push `warn`, CI `error`.
 

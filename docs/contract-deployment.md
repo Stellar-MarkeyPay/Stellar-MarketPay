@@ -168,7 +168,7 @@ Arguments may not match the contract interface. Compare with `create_escrow` in 
 
 ### Frontend still uses mock escrow
 
-Set `NEXT_PUBLIC_USE_CONTRACT_MOCK=false` and provide a valid `NEXT_PUBLIC_CONTRACT_ID`, then restart `npm run dev`.
+Set `NEXT_PUBLIC_USE_CONTRACT_MOCK=false` and provide a valid `NEXT_PUBLIC_CONTRACT_ID`, then restart `pnpm --filter frontend dev`.
 
 ### Backend cannot read escrow events
 

@@ -8,8 +8,8 @@ and a signature is that answer.
 ## Enrol once
 
 ```bash
-npm run policy:signing-setup          # SSH signing (recommended)
-npm run policy:signing-setup -- --gpg # GPG, if you already use it
+pnpm policy:signing-setup          # SSH signing (recommended)
+pnpm policy:signing-setup -- --gpg # GPG, if you already use it
 ```
 
 The script creates a signing key if you do not have one, configures git to
@@ -27,7 +27,7 @@ Confirm:
 ```bash
 git commit --allow-empty -m "chore(hooks): verify signing"
 git log --show-signature -1
-npm run policy:check    # the signed-commits rule should stop warning
+pnpm policy:check    # the signed-commits rule should stop warning
 ```
 
 ## Why SSH rather than GPG
@@ -69,7 +69,7 @@ The rule ships at `warn`, because no commit in this repository's 559-commit
 history is signed and turning it on today would block every contributor at
 once. The promotion path is written down rather than left to whoever notices:
 
-1. Contributors enrol. `npm run policy:measure` shows the rate falling as they
+1. Contributors enrol. `pnpm policy:measure` shows the rate falling as they
    do.
 2. When the measurement is clean, `signed-commits` moves to `error` at the `ci`
    stage in `policy/policies.json`.

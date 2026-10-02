@@ -544,7 +544,7 @@ export function DisputeDetail({ dispute }: { dispute: DisputeDetail }) {
 
 ```bash
 # Start development server
-npm run dev
+pnpm --filter frontend dev
 
 # Go to dispute form
 # Select a file

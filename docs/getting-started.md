@@ -53,12 +53,7 @@ chmod +x setup-dev.sh
 If not, install dependencies manually:
 
 ```bash
-# Frontend
-cd frontend
-npm install
-
-# Backend
-cd ../backend
+pnpm install
 ```
 
 ### Start the Application
@@ -67,14 +62,12 @@ Open two terminals:
 
 ```bash
 # Terminal 1 - Backend
-cd backend
-npm run dev
+pnpm --filter backend dev
 ```
 
 ```bash
 # Terminal 2 - Frontend
-cd frontend
-npm run dev
+pnpm --filter frontend dev
 ```
 
 Access the App

@@ -101,8 +101,7 @@ const fetchTransactions = async (reset: boolean = false) => {
 
 ```bash
 # Start frontend
-cd frontend
-npm run dev
+pnpm --filter frontend dev
 
 # Navigate to http://localhost:3000/dashboard/transactions
 # Connect wallet

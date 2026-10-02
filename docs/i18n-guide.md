@@ -44,7 +44,7 @@ must exist in `es`, `fr`, and `pt`, or be explicitly listed as pending.
    t("nav.browseFreelancers");
    ```
 
-5. Run the frontend test suite (`cd frontend && npm test`). The i18n
+5. Run the frontend test suite (`pnpm --filter frontend test`). The i18n
    coverage test fails the build if a key exists in `en` but is missing from
    another locale and isn't listed in `i18nPendingKeys.json`.
 

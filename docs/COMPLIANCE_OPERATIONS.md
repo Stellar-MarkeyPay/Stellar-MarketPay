@@ -138,12 +138,12 @@ and returns the authenticated subject's chain.
 
 ## Migration and rollback
 
-Apply with `cd backend && npm run migrate`. `V21__compliance_core.up.sql` is
+Apply with `pnpm --filter backend run migrate`. `V21__compliance_core.up.sql` is
 additive and seeds observe mode only. Legacy `profiles.is_kyc_verified` becomes
 an evidence marker during lazy subject creation; it does not invent a tier or
 copy plaintext.
 
-During the empty observation window, `npm run migrate:rollback` removes V21.
+During the empty observation window, `pnpm --filter backend run migrate:rollback` removes V21.
 After decisions exist, operational rollback is:
 
 1. publish a reviewed observe-mode policy effective immediately;

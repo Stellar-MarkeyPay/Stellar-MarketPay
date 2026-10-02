@@ -45,7 +45,7 @@ Phase 1 (this PR) extends the existing index rather than replacing it:
   matches via full-text search and not only via the separate
   `category = $n` equality filter.
 - `backend/scripts/reindex-job-search-vector.js`
-  (`npm run reindex:job-search` from `backend/`) unconditionally
+  (`pnpm --filter backend run reindex:job-search`) unconditionally
   recomputes `job_search_vector` for every row — the documented recovery
   path if the column ever drifts from the trigger's definition (e.g. a
   bulk import or restored backup that bypassed the trigger).
@@ -118,7 +118,7 @@ None of these are true today.
 - ✅ Facets (Phase 3) can reuse `listJobs()`'s existing filter-building
   code as plain `GROUP BY` queries against the same table, rather than a
   separate facet API against a second system.
-- ✅ A documented, tested recovery path (`npm run reindex:job-search`)
+- ✅ A documented, tested recovery path (`pnpm --filter backend run reindex:job-search`)
   exists for the one case Postgres doesn't protect against automatically:
   writes that bypass the trigger.
 
@@ -153,7 +153,7 @@ None of these are true today.
 - `backend/src/db/migrations/V16__job_search_category_weighting.up.sql` /
   `.down.sql` — this PR: adds `category` as weight `'D'`.
 - `backend/scripts/reindex-job-search-vector.js` — this PR: documented
-  reindex/recovery path (`npm run reindex:job-search`).
+  reindex/recovery path (`pnpm --filter backend run reindex:job-search`).
 - `backend/src/services/jobService.js` (`listJobs()`, search branch) —
   existing query against `job_search_vector`; unchanged by this PR.
 

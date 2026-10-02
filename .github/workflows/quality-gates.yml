@@ -5,8 +5,6 @@ on:
     branches: [main, develop]
   pull_request:
     branches: [main, develop]
-  # Required checks must also report inside the merge queue, or a queued
-  # entry never satisfies branch protection and the queue stalls.
   merge_group:
 
 jobs:
@@ -21,17 +19,21 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.0
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
-          cache: "npm"
+          cache: "pnpm"
+          cache-dependency-path: pnpm-lock.yaml
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
-      - run: npm ci
-      - run: npm run hooks:doctor
+      - run: corepack enable && pnpm install --frozen-lockfile
+      - run: pnpm run hooks:doctor
       - name: Test staged isolation, routing, portability, cache, and budget
-        run: npm run test:hooks
+        run: pnpm run test:hooks
         env:
           MARKETPAY_HOOK_ENFORCE_BUDGET: "1"
 
@@ -42,11 +44,15 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.0
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
-          cache: "npm"
-      - run: npm ci
+          cache: "pnpm"
+          cache-dependency-path: pnpm-lock.yaml
+      - run: corepack enable && pnpm install --frozen-lockfile
       - name: Validate PR commits
         if: github.event_name == 'pull_request'
         run: npx commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }} --verbose
@@ -59,19 +65,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.0
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
-          cache: "npm"
-      - name: Install Root Dependencies
-        run: npm ci
-      - name: Install Frontend Dependencies
-        run: cd frontend && npm ci
-      - name: Install Backend Dependencies
-        run: cd backend && npm ci
+          cache: "pnpm"
+          cache-dependency-path: pnpm-lock.yaml
+      - run: corepack enable && pnpm install --frozen-lockfile
       - name: Check Code Formatting (Prettier)
-        run: npm run format:check
+        run: pnpm run format:check
       - name: Check Frontend Types
-        run: npm run type-check
+        run: pnpm run type-check
       - name: Check Linter
-        run: npm run lint
+        run: pnpm run lint

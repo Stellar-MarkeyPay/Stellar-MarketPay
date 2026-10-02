@@ -21,29 +21,25 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "24"
-          cache: "npm"
-          cache-dependency-path: backend/package-lock.json
+          cache: "pnpm"
+          cache-dependency-path: pnpm-lock.yaml
 
       - name: Install dependencies
         run: |
-          cd backend
-          npm ci
+          corepack enable
+          pnpm install --frozen-lockfile
 
       - name: Check for undocumented routes
         run: |
-          cd backend
-          npm run generate-openapi
+          pnpm --filter backend run generate-openapi
 
       - name: Check if openapi.json was updated
         run: |
-          cd backend
-          if [ -f "docs/openapi.json" ]; then
+          if [ -f "backend/docs/openapi.json" ]; then
             echo "openapi.json generated successfully"
-            # Check if file has content
-            if [ -s "docs/openapi.json" ]; then
+            if [ -s "backend/docs/openapi.json" ]; then
               echo "openapi.json contains content"
-              # Validate JSON
-              node -e "JSON.parse(require('fs').readFileSync('docs/openapi.json', 'utf8')); console.log('Valid JSON');"
+              node -e "JSON.parse(require('fs').readFileSync('backend/docs/openapi.json', 'utf8')); console.log('Valid JSON');"
             else
               echo "Error: openapi.json is empty"
               exit 1

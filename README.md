@@ -30,16 +30,27 @@ Stellar MarketPay is an open-source decentralised freelance marketplace where cl
 
 ```
 stellar-marketpay/
-├── frontend/          # Next.js + React + Tailwind CSS
-├── backend/           # Node.js + Express API
-├── contracts/         # Stellar Soroban smart contracts (Rust)
-├── docs/              # Architecture & API documentation
-├── scripts/           # Deployment & utility scripts
-├── .github/           # CI/CD workflows & issue templates
+├── frontend/              # Next.js + React + Tailwind CSS
+├── backend/               # Node.js + Express API
+├── contracts/             # Stellar Soroban smart contracts (Rust)
+│   ├── marketpay-contract/# Soroban escrow contract (Rust/Cargo)
+│   └── evm-bridge/        # EVM-side escrow bridge (Hardhat)
+├── packages/              # Shared workspace packages
+│   ├── types/             # @marketpay/types
+│   ├── validation/        # @marketpay/validation
+│   ├── utils/             # @marketpay/utils
+│   └── api-client/        # @marketpay/api-client
+├── docs/                  # Architecture & API documentation
+├── scripts/               # Deployment & utility scripts
+├── .github/               # CI/CD workflows & issue templates
+├── pnpm-workspace.yaml    # pnpm workspace definition
+├── turbo.json             # Turborepo pipeline config
 ├── CONTRIBUTING.md
 ├── ROADMAP.md
 └── LICENSE
 ```
+
+> **Note**: The Rust Soroban contract under `contracts/marketpay-contract/` is an independent Rust crate managed separately from the Node.js/pnpm workspace. It uses Cargo for building and testing.
 
 ---
 
@@ -63,17 +74,19 @@ git clone https://github.com/your-org/stellar-marketpay.git
 cd stellar-marketpay
 ```
 
-### 2. One-command setup
+### 2. Install dependencies
 
 ```bash
-chmod +x scripts/setup-dev.sh
-./scripts/setup-dev.sh
+pnpm install
 ```
 
-This installs dependencies, runs migrations, and seeds the database with a realistic
-development dataset (50 users, 20 jobs, applications, escrows, messages, and ratings).
+### 3. Build all packages
 
-### 3. Seed the database manually
+```bash
+pnpm build
+```
+
+### 4. Seed the database manually
 
 ```bash
 # Small dataset (default, ~50 users / 20 jobs)
@@ -89,19 +102,17 @@ scripts/db/seed.sh --scale large --seed 42
 The seed script is deterministic: the same `--seed` always produces the same data.
 All data is synthetic and contains no real personal information.
 
-### 3. Start Frontend
+### 5. Start Frontend
 
 ```bash
-cd frontend
-npm run dev
+pnpm --filter frontend dev
 # → http://localhost:3000
 ```
 
-### 4. Start Backend
+### 6. Start Backend
 
 ```bash
-cd backend
-npm run dev
+pnpm --filter backend dev
 # → http://localhost:4000
 ```
 
@@ -150,10 +161,9 @@ For frontend development without a deployed Soroban contract:
 
 2. **Start the frontend**:
 
-   ```bash
-   cd frontend
-   npm run dev
-   ```
+    ```bash
+    pnpm --filter frontend dev
+    ```
 
 3. **What works offline**:
    - ✅ Job creation with escrow locking
@@ -185,10 +195,10 @@ For frontend development without a deployed Soroban contract:
 
 | Suite                   | Command                                        | Notes                                            |
 | ----------------------- | ---------------------------------------------- | ------------------------------------------------ |
-| Frontend unit snapshots | `cd frontend && npm test`                      | Jest + React Testing Library                     |
-| Update snapshots        | `cd frontend && npm run test:update-snapshots` | Regenerate when UI changes are intentional       |
-| Backend unit + coverage | `cd backend && npm test`                       | HTML report in `backend/coverage/`               |
-| E2E (Playwright)        | `cd frontend && npm run test:e2e`              | Includes full client/freelancer marketplace flow |
+| Frontend unit snapshots | `pnpm --filter frontend test`                      | Jest + React Testing Library                     |
+| Update snapshots        | `pnpm --filter frontend test:update-snapshots`     | Regenerate when UI changes are intentional       |
+| Backend unit + coverage | `pnpm --filter backend test`                       | HTML report in `backend/coverage/`               |
+| E2E (Playwright)        | `pnpm --filter frontend test:e2e`                  | Includes full client/freelancer marketplace flow |
 
 Deploy or upgrade the Soroban escrow contract using [docs/contract-deployment.md](docs/contract-deployment.md).
 

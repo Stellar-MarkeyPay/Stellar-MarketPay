@@ -66,7 +66,7 @@ The previous hooks had four reliability problems:
 - Adds LF rules for hooks and source scripts in `.gitattributes`.
 - Resolves Node 22.12+ through `NODE_BINARY`, `PATH`, Volta, asdf, or installed NVM versions.
 - Resolves JavaScript tools from the owning dependency tree and Cargo from standard rustup paths.
-- Adds `npm run hooks:doctor` to report missing Husky setup, `npm ci --ignore-scripts`, conflicting
+- Adds `pnpm hooks:doctor` to report missing Husky setup, `pnpm install --ignore-scripts`, conflicting
   `core.hooksPath`, CRLF, executable-bit problems, missing dependencies, and optional Rust caches.
 - Adds hook-engine CI coverage on Ubuntu, macOS, and Windows.
 

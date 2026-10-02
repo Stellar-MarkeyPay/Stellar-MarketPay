@@ -127,8 +127,8 @@ jobs:
       # run until a lockfile resolves is a gate that stops running the day a
       # registry has a bad afternoon.
       - name: Rule tests (both outcomes for every rule)
-        run: npm run policy:test
+        run: pnpm run policy:test
       - name: Hook and engine integrity
-        run: npm run policy:integrity
+        run: pnpm run policy:integrity
       - name: Override audit
-        run: npm run policy:overrides
+        run: pnpm run policy:overrides

@@ -14,14 +14,18 @@
     "test:visual": "playwright test tests/visual-regression.spec.ts",
     "test:e2e": "playwright test tests/e2e",
     "storybook": "storybook dev -p 6006",
-    "build-storybook": "storybook build -o storybook-static"
+    "build-storybook": "storybook build -o storybook-static",
+    "clean": "rm -rf .next node_modules"
   },
   "dependencies": {
+    "@marketpay/types": "workspace:*",
+    "@marketpay/validation": "workspace:*",
+    "@marketpay/api-client": "workspace:*",
     "@simplewebauthn/browser": "^9.0.1",
     "@stellar/freighter-api": "^2.0.0",
     "@stellar/stellar-sdk": "^12.0.0",
     "@types/qrcode.react": "^1.0.5",
-    "axios": "^1.6.8",
+    "axios": "^1.7.2",
     "chart.js": "^4.4.0",
     "clsx": "^2.1.1",
     "date-fns": "^3.6.0",
