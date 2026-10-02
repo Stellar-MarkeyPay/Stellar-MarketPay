@@ -1,0 +1,15 @@
+{
+  "name": "evm-bridge",
+  "version": "1.0.0",
+  "description": "EVM-side escrow bridge for Stellar MarketPay",
+  "scripts": {
+    "test": "hardhat test",
+    "compile": "hardhat compile",
+    "node": "hardhat node"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "@openzeppelin/contracts": "^5.0.0",
+    "hardhat": "^2.19.0"
+  }
+}

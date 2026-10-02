@@ -492,6 +492,24 @@ export default function JobDetail({ publicKey, onConnect }: JobDetailProps) {
 
         {actionError && <p className="mt-3 mb-6 text-red-400 text-sm">{actionError}</p>}
 
+        {/* ── Bridge withdrawal (client, in_progress) ── */}
+        {isClient && job.status === "in_progress" && (
+          <div className="card mb-6">
+            <h2 className="font-display text-lg sm:text-xl font-bold text-amber-100 mb-3">
+              Withdraw via Bridge
+            </h2>
+            <p className="text-sm text-amber-700 mb-4">
+              Transfer escrow funds to an EVM chain of your choice.
+            </p>
+            <button
+              onClick={() => router.push(`/bridge/withdraw?jobId=${job.id}`)}
+              className="btn-secondary w-full sm:w-auto"
+            >
+              Withdraw to EVM
+            </button>
+          </div>
+        )}
+
         {/* ── Rating form (after completion) ── */}
         {job.status === "completed" && publicKey && !ratingSubmitted && (
           <div className="mt-6">

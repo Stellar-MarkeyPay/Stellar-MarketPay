@@ -56,6 +56,7 @@ const retainerRoutes = require("./routes/retainers");
 const fraudRoutes = require("./routes/fraud");
 const complianceRoutes = require("./routes/compliance");
 const sep12Routes = require("./routes/sep12");
+const bridgeRoutes = require("./routes/bridge");
 
 const pool = require("./db/pool");
 const { migrate } = require("./db/migrate");
@@ -69,6 +70,7 @@ const { defaultReplicationMonitor } = require("./services/replicationMonitor");
 
 const serviceLogger = createServiceLogger("server");
 const { runReconciliation } = require("./jobs/escrowReconciliationJob");
+const { runBridgeRelay } = require("./jobs/bridgeRelayJob");
 const app = express();
 app.set("trust proxy", 1);
 const PORT = process.env.PORT || 4000;
@@ -86,6 +88,20 @@ promClient.collectDefaultMetrics({
 // Register escrow reconciliation metric
 const { escrowReconciliationMismatchCounter } = require("./metrics/escrowReconciliationMetrics");
 metricsRegistry.registerMetric(escrowReconciliationMismatchCounter);
+
+// Register bridge metrics
+const {
+  bridgeCircuitBreaker,
+  bridgeTransfersPending,
+  bridgeVerificationsTotal,
+  bridgeVerificationFailuresTotal,
+  bridgeVolume,
+} = require("./metrics/bridgeMetrics");
+metricsRegistry.registerMetric(bridgeCircuitBreaker);
+metricsRegistry.registerMetric(bridgeTransfersPending);
+metricsRegistry.registerMetric(bridgeVerificationsTotal);
+metricsRegistry.registerMetric(bridgeVerificationFailuresTotal);
+metricsRegistry.registerMetric(bridgeVolume);
 
 const httpRequestsTotal = new promClient.Counter({
   name: "marketpay_http_requests_total",
@@ -173,6 +189,9 @@ setInterval(
   () => {
     cleanupExpiredScopeSessions().catch((err) => {
       logError(serviceLogger, err, { operation: "scope_cleanup_interval" });
+    });
+    runBridgeRelay().catch((err) => {
+      logError(serviceLogger, err, { operation: "bridge_relay_interval" });
     });
   },
   60 * 60 * 1000
@@ -369,6 +388,7 @@ app.use("/api/retainers", retainerRoutes);
 app.use("/api/fraud", fraudRoutes);
 app.use("/api/compliance", complianceRoutes);
 app.use("/api/sep12", sep12Routes);
+app.use("/api/bridge", bridgeRoutes);
 
 app.use((err, req, res, next) => {
   void next;
