@@ -3,9 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
+    "dev": "node init && next dev",
+    "build": "node init && next build",
+    "start": "node init && next start",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
     "test": "jest --ci",
@@ -14,7 +14,7 @@
     "test:visual": "playwright test tests/visual-regression.spec.ts",
     "test:e2e": "playwright test tests/e2e",
     "storybook": "storybook dev -p 6006",
-    "build-storybook": "storybook build -o storybook-static"
+    "build-storybook": "node init && storybook build -o storybook-static"
   },
   "dependencies": {
     "@simplewebauthn/browser": "^9.0.1",
