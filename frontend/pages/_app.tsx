@@ -22,6 +22,7 @@ import ShortcutsModal from "@/components/ShortcutsModal";
 import OfflineBanner from "@/components/OfflineBanner";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useBackgroundSync } from "@/hooks/useBackgroundSync";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import "../lib/i18n";
 
 const WALLET_PUBLIC_KEY_STORAGE_KEY = "smp_wallet_public_key";
@@ -236,7 +237,8 @@ function App({ Component, pageProps }: AppProps) {
 
   return (
     <>
-      <ThemeProvider>
+      <ErrorBoundary isAppLevel>
+        <ThemeProvider>
         <ToastProvider>
           <PriceProvider>
             <Head>
@@ -269,7 +271,9 @@ function App({ Component, pageProps }: AppProps) {
                 onDisconnect={() => setPublicKey(null)}
               />
               <main>
-                <Component {...pageProps} publicKey={publicKey} onConnect={handleConnect} />
+                <ErrorBoundary>
+                  <Component {...pageProps} publicKey={publicKey} onConnect={handleConnect} />
+                </ErrorBoundary>
               </main>
               {publicKey && <FaucetButton publicKey={publicKey} />}
               <ThemeToggle />
@@ -282,6 +286,7 @@ function App({ Component, pageProps }: AppProps) {
           </PriceProvider>
         </ToastProvider>
       </ThemeProvider>
+      </ErrorBoundary>
     </>
   );
 }
