@@ -115,6 +115,7 @@ export interface Application {
   revealedBidAmount?: string | null;
   revealedAt?: string | null;
   createdAt: string;
+  updatedAt?: string | Date;
   acceptedAt?: string;
 }
 

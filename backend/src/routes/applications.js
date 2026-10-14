@@ -711,6 +711,11 @@ router.post("/:id/accept", applicationRateLimiter, async (req, res, next) => {
       },
     });
 
+    const broadcastRealtime = req.app.locals.broadcastRealtime;
+    if (broadcastRealtime) {
+      broadcastRealtime(`job:${app.jobId}:updated`, { type: "application_accepted" });
+    }
+
     res.json({ success: true, data: app });
   } catch (e) {
     next(e);

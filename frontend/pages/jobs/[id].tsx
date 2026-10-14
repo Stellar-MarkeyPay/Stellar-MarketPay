@@ -9,6 +9,7 @@ import JobCompletionPredictionPanel from "@/components/JobCompletionPrediction";
 import WalletConnect from "@/components/WalletConnect";
 import RatingForm from "@/components/RatingForm";
 import ShareJobModal from "@/components/ShareJobModal";
+import { useJobRealtime } from "@/hooks/useJobRealtime";
 import {
   fetchJob,
   fetchApplications,
@@ -97,9 +98,17 @@ export default function JobDetail({ publicKey, onConnect }: JobDetailProps) {
     fnName: string;
   } | null>(null);
 
+  const { stagedJob, stagedApplications, hasUpdates, applyUpdates } = useJobRealtime(jobId, job, applications);
+
   const isClient = Boolean(publicKey && job?.clientAddress === publicKey);
   const isFreelancer = Boolean(publicKey && job?.freelancerAddress === publicKey);
   const hasApplied = applications.some((a) => a.freelancerAddress === publicKey);
+
+  const handleApplyUpdates = () => {
+    if (stagedJob) setJob(stagedJob);
+    if (stagedApplications) setApplications(stagedApplications);
+    applyUpdates();
+  };
 
   useEffect(() => {
     if (!jobId || !router.isReady) return;
@@ -247,6 +256,18 @@ export default function JobDetail({ publicKey, onConnect }: JobDetailProps) {
         >
           ← Back to Jobs
         </Link>
+
+        {hasUpdates && (
+          <div className="mb-6 flex items-center justify-between p-3 bg-market-500/10 border border-market-500/20 rounded-md text-amber-400 text-sm animate-pulse-light">
+            <span>This job has been updated since you opened it.</span>
+            <button
+              onClick={handleApplyUpdates}
+              className="ml-4 px-3 py-1.5 bg-market-500 text-ink-900 rounded-md hover:bg-market-400 transition-colors"
+            >
+              Refresh Data
+            </button>
+          </div>
+        )}
 
         {/* ── Job detail card ── */}
         <div className="card mb-6">
