@@ -1,5 +1,5 @@
 import type { AppProps } from "next/app";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Head from "next/head";
 import { useRouter } from "next/router";
 import Navbar from "@/components/Navbar";
@@ -158,7 +158,7 @@ function App({ Component, pageProps }: AppProps) {
     }
   }, []);
 
-  const handleAuthAndConnect = async (pk: string) => {
+  const handleAuthAndConnect = useCallback(async (pk: string) => {
     try {
       const challengeTx = await fetchAuthChallenge(pk);
       const { signedXDR, error } = await signTransactionWithWallet(challengeTx);
@@ -173,11 +173,18 @@ function App({ Component, pageProps }: AppProps) {
       console.error("Auth error:", e);
       return false;
     }
-  };
+  }, []);
+
+  const publicKeyRef = useRef(publicKey);
+  useEffect(() => {
+    publicKeyRef.current = publicKey;
+  }, [publicKey]);
 
   useEffect(() => {
+    // Initial fetch
     getConnectedPublicKey().then(async (pk) => {
       if (pk) {
+        if (pk === publicKeyRef.current) return;
         const authenticated = await handleAuthAndConnect(pk);
         if (authenticated) {
           persistPublicKey(pk);
@@ -187,7 +194,33 @@ function App({ Component, pageProps }: AppProps) {
         }
       }
     });
-  }, [maybeRegisterReferral, persistPublicKey]);
+
+    const onAccountChange = () => {
+      getConnectedPublicKey().then(async (pk) => {
+        if (pk) {
+          if (pk === publicKeyRef.current) return; // Same key
+          const authenticated = await handleAuthAndConnect(pk);
+          if (authenticated) {
+            persistPublicKey(pk);
+            await maybeRegisterReferral(pk);
+          } else {
+            persistPublicKey(null);
+          }
+        } else {
+          persistPublicKey(null);
+        }
+      });
+    };
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("accountChanged", onAccountChange);
+      window.addEventListener("networkChanged", onAccountChange);
+      return () => {
+        window.removeEventListener("accountChanged", onAccountChange);
+        window.removeEventListener("networkChanged", onAccountChange);
+      };
+    }
+  }, [maybeRegisterReferral, persistPublicKey, handleAuthAndConnect]);
 
   useEffect(() => {
     if (typeof window !== "undefined" && "serviceWorker" in navigator) {
