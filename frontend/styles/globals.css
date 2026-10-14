@@ -282,6 +282,22 @@ html:not(.dark) .label {
   color: #7c2d12 !important;
 }
 
+/* ─── RTL overrides ──────────────────────────────────────────────────────── */
+html[dir="rtl"] .animate-slide-in {
+  animation-name: slideInRtl;
+}
+
+html[dir="rtl"] .font-mono {
+  direction: ltr;
+  text-align: left;
+}
+
+@layer utilities {
+  .bidi-isolate {
+    unicode-bidi: isolate;
+  }
+}
+
 /* ─── Component layer ────────────────────────────────────────────────────── */
 @layer components {
   .card {
