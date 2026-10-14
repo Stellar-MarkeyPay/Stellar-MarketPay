@@ -94,7 +94,13 @@ export default function ApplicationForm({
   const isFormValid = isValid && allScreeningQuestionsAnswered;
 
   const handleSubmit = () => {
-    if (!isFormValid) return;
+    if (!isFormValid) {
+      setTimeout(() => {
+        const firstInvalid = document.querySelector('[aria-invalid="true"]') as HTMLElement;
+        if (firstInvalid) firstInvalid.focus();
+      }, 0);
+      return;
+    }
     setShowConfirm(true);
   };
 
@@ -149,6 +155,17 @@ export default function ApplicationForm({
             ? "Sealed-bid commitment phase: your amount stays hidden until reveal."
             : "Reveal phase: client has closed bidding and is waiting for reveals."}
         </div>
+
+        {!isFormValid && (
+          <div className="mb-5 rounded-xl bg-red-50 border border-red-200 p-4" role="alert">
+            <p className="text-sm font-semibold text-red-700 mb-2">Please fix the following errors:</p>
+            <ul className="list-disc pl-5 text-sm text-red-600">
+              {(!meetsWordMinimum && proposal.length > 0) && <li><a href="#cover-letter">Proposal must be at least {MIN_WORDS} words</a></li>}
+              {(parseFloat(bidAmount) <= 0) && <li><a href="#bid-amount">Bid amount must be greater than 0</a></li>}
+              {!allScreeningQuestionsAnswered && <li><a href="#screening-questions-fieldset">All screening questions must be answered</a></li>}
+            </ul>
+          </div>
+        )}
 
         <div className="space-y-5" aria-describedby="application-budget-summary bidding-phase-help">
           <div>
@@ -205,6 +222,7 @@ export default function ApplicationForm({
               )}
               aria-live="polite"
             >
+              {!meetsWordMinimum && proposal.length > 0 && <span className="sr-only">Error: </span>}
               {wordCount} {wordCount === 1 ? "word" : "words"} (minimum {MIN_WORDS})
               {!meetsWordMinimum && (
                 <span className="ml-1 text-amber-800/80 font-normal">
@@ -228,12 +246,15 @@ export default function ApplicationForm({
               step="1"
               className="input-field"
               placeholder="Enter your bid amount"
-              aria-describedby="bid-amount-help"
+              aria-describedby={parseFloat(bidAmount) <= 0 ? "bid-amount-help bid-amount-error" : "bid-amount-help"}
               aria-invalid={parseFloat(bidAmount) <= 0}
             />
             <p id="bid-amount-help" className="mt-1 text-xs text-amber-800/50">
               This value is committed as a hash and hidden until reveal phase.
             </p>
+            {parseFloat(bidAmount) <= 0 && (
+              <p id="bid-amount-error" className="text-red-400 text-xs mt-1"><span className="sr-only">Error: </span>Bid amount must be greater than 0</p>
+            )}
           </div>
 
           <div>
@@ -256,7 +277,7 @@ export default function ApplicationForm({
 
           {/* Screening Questions */}
           {job.screeningQuestions && job.screeningQuestions.length > 0 && (
-            <fieldset>
+            <fieldset id="screening-questions-fieldset" tabIndex={-1}>
               <legend className="label">
                 Screening Questions <span className="text-red-400">*</span>
               </legend>
@@ -281,9 +302,12 @@ export default function ApplicationForm({
                       rows={3}
                       placeholder="Your answer..."
                       className="textarea-field"
-                      aria-describedby="screening-questions-help"
+                      aria-describedby={!screeningAnswers[question]?.trim() ? "screening-questions-help screening-question-error-" + index : "screening-questions-help"}
                       aria-invalid={!screeningAnswers[question]?.trim()}
                     />
+                    {!screeningAnswers[question]?.trim() && (
+                      <p id={`screening-question-error-${index}`} className="text-red-400 text-xs mt-1"><span className="sr-only">Error: </span>This question is required</p>
+                    )}
                   </div>
                 ))}
               </div>

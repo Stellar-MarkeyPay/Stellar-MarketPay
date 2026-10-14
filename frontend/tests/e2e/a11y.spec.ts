@@ -108,3 +108,36 @@ test.describe("accessibility", () => {
     await expectNoA11yViolations(page);
   });
 });
+
+  test("form validation correctly associates errors and focuses first invalid field", async ({ page }) => {
+    // Navigate to post job page and attempt to submit empty form
+    await page.goto("/jobs/post");
+    
+    // Ensure we are in a state to interact
+    await page.waitForSelector("form");
+    
+    // Attempt to submit empty form
+    await page.click('button[type="submit"]:has-text("Post Job")');
+    
+    // Wait for validation to kick in
+    await page.waitForSelector('div[role="alert"]');
+    
+    // Check error summary
+    const errorSummary = page.locator('div[role="alert"]');
+    await expect(errorSummary).toContainText("Please fix the following errors");
+    
+    // Check aria-invalid
+    const titleInput = page.locator('input[name="title"]');
+    await expect(titleInput).toHaveAttribute("aria-invalid", "true");
+    
+    // Check aria-describedby
+    const describedBy = await titleInput.getAttribute("aria-describedby");
+    expect(describedBy).toContain("title-error");
+    
+    // Check focus moved to first invalid field (title)
+    await expect(titleInput).toBeFocused();
+    
+    // Ensure the error message itself has the "Error:" visually hidden text
+    const errorMsg = page.locator('#title-error');
+    await expect(errorMsg).toContainText("Error:");
+  });
