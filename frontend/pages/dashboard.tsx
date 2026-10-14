@@ -480,7 +480,7 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
                 </Link>
                 <button
                   onClick={() => setAlertMatchesDismissed(true)}
-                  className="text-amber-800 hover:text-amber-500 transition-colors text-lg leading-none"
+                  className="text-amber-800 hover:text-amber-500 transition-colors text-lg leading-none min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md"
                   title="Dismiss"
                 >
                   ✕
@@ -516,7 +516,7 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
         )}
 
         {/* Tabs */}
-        <div className="flex border-b border-market-500/10 mb-6 overflow-x-auto">
+        <div className="flex border-b border-market-500/10 mb-6 overflow-x-auto scrollbar-hide pb-1 sm:pb-0">
           {(
             [
               "posted",
@@ -536,7 +536,7 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
               key={t}
               onClick={() => setTab(t)}
               className={clsx(
-                "px-6 py-3 text-sm font-medium transition-all border-b-2 -mb-px whitespace-nowrap",
+                "px-6 py-3 min-h-[44px] text-sm font-medium transition-all border-b-2 -mb-px whitespace-nowrap",
                 tab === t
                   ? "border-market-400 text-market-300"
                   : "border-transparent text-amber-700 hover:text-amber-400"
