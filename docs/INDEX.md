@@ -10,6 +10,7 @@ Welcome to Stellar MarketPay documentation. This index helps you find what you n
 
 - **[Quick Start Guide](../QUICK_START_NEW_FEATURES.md)** - Get up and running with new features
 - **[Getting Started](./getting-started.md)** - Initial setup and installation
+- **[Local Development Environment](./local-development.md)** - Docker Compose services, ports, migrations, and mixed local/Compose workflows
 - **[README](../README.md)** - Project overview and features
 
 ---
