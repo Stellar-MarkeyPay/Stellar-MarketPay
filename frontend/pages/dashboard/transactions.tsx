@@ -14,6 +14,7 @@ import {
   type MarketPayTransaction,
 } from "@/lib/stellar";
 import { formatXLM, shortenAddress, timeAgo } from "@/utils/format";
+import { usePriceContext } from "@/contexts/PriceContext";
 import clsx from "clsx";
 
 // Using MarketPayTransaction from stellar.ts
@@ -33,6 +34,29 @@ export default function TransactionHistory({ publicKey, onConnect }: DashboardPr
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [startDate, setStartDate] = useState<string>("");
+  const [endDate, setEndDate] = useState<string>("");
+  const { xlmPriceUsd, priceLoading, currencyMode } = usePriceContext();
+
+  const exportToCSV = async () => {
+    try {
+      // Fetch up to 1000 transactions for the CSV export
+      const response = await fetchMarketPayTransactions(publicKey!, 1000, undefined, filter, startDate, endDate);
+      const csvRows = ["ID,Hash,Type,From,To,Amount,Asset,Memo,Date"];
+      for (const tx of response.transactions) {
+        csvRows.push(`"${tx.id}","${tx.hash}","${getTransactionType(tx)}","${tx.from}","${tx.to}","${tx.amount}","${tx.asset}","${tx.memo || ""}","${tx.created_at}"`);
+      }
+      const blob = new Blob([csvRows.join("\n")], { type: "text/csv" });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.setAttribute("href", url);
+      a.setAttribute("download", `transactions-${shortenAddress(publicKey!)}.csv`);
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Failed to export CSV", err);
+    }
+  };
 
   const ITEMS_PER_PAGE = 20;
 
@@ -50,7 +74,10 @@ export default function TransactionHistory({ publicKey, onConnect }: DashboardPr
       const response = await fetchMarketPayTransactions(
         publicKey,
         limit,
-        reset ? undefined : transactions[transactions.length - 1]?.id
+        reset ? undefined : String((page - 1) * limit),
+        filter,
+        startDate,
+        endDate
       );
 
       if (reset) {
@@ -73,7 +100,7 @@ export default function TransactionHistory({ publicKey, onConnect }: DashboardPr
     if (publicKey) {
       fetchTransactions(true);
     }
-  }, [publicKey, filter]);
+  }, [publicKey, filter, startDate, endDate]);
 
   const loadMore = () => {
     setPage((prev) => prev + 1);
@@ -209,8 +236,8 @@ export default function TransactionHistory({ publicKey, onConnect }: DashboardPr
         </Link>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-4 mb-6">
-        <div className="flex border-b border-market-500/10 mb-6 overflow-x-auto">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+        <div className="flex border-b border-market-500/10 overflow-x-auto">
           {(["all", "sent", "received", "escrow"] as TransactionFilter[]).map((f) => (
             <button
               key={f}
@@ -225,6 +252,25 @@ export default function TransactionHistory({ publicKey, onConnect }: DashboardPr
               {f === "all" ? "All Transactions" : f}
             </button>
           ))}
+        </div>
+        
+        <div className="flex items-center gap-3">
+          <input
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            className="input-field text-sm py-2"
+          />
+          <span className="text-amber-800">to</span>
+          <input
+            type="date"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+            className="input-field text-sm py-2"
+          />
+          <button onClick={exportToCSV} className="btn-secondary text-sm py-2 px-4 whitespace-nowrap">
+            Export CSV
+          </button>
         </div>
       </div>
 
@@ -296,8 +342,13 @@ export default function TransactionHistory({ publicKey, onConnect }: DashboardPr
                   </div>
                   <div className="flex items-center gap-2">
                     {tx.amount && (
-                      <p className="font-mono font-semibold text-market-400">
+                      <p className="font-mono font-semibold text-market-400 flex items-baseline gap-2">
                         {tx.asset === "XLM" ? formatXLM(tx.amount) : tx.amount}
+                        {tx.asset === "XLM" && !priceLoading && xlmPriceUsd && (
+                          <span className="text-xs text-amber-700 font-normal">
+                            (~{currencyMode === "USD" ? "$" : "€"}{(Number(tx.amount) * xlmPriceUsd).toFixed(2)})
+                          </span>
+                        )}
                       </p>
                     )}
                     {tx.from !== publicKey && tx.from && (

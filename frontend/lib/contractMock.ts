@@ -7,6 +7,14 @@
  *
  * Mock-only persistence: escrow state is stored in browser localStorage
  * under per-job keys so local development flows survive page reloads.
+ *
+ * DELIBERATE SIMPLIFICATIONS:
+ * 1. Signatures are not actually validated (anyone can mock-sign).
+ * 2. Token balances are not strictly enforced; we assume sufficient balance.
+ * 3. Multisig thresholds (2-of-3) are tracked in memory without cryptographic verification.
+ * 4. Sealed-bid hashing is not cryptographically checked; we simply record the submitted hash.
+ * 5. Timeouts use simple fixed delays rather than actual ledger sequences.
+ * 6. Typed errors are simplified to standard JS Errors with descriptive messages.
  */
 
 export type EscrowStatus = "Locked" | "InProgress" | "Released" | "Refunded" | "Disputed";
@@ -19,6 +27,9 @@ export interface MockEscrow {
   amount: string; // in stroops
   status: EscrowStatus;
   createdAt: number;
+  arbitrator?: string;
+  releaseApprovals?: number;
+  refundApprovals?: number;
 }
 
 // Mock-only browser persistence. These keys are intentionally scoped to
@@ -354,4 +365,124 @@ export function clearMockData(): void {
 export function getAllMockEscrows(): MockEscrow[] {
   hydrateEscrowsFromStorage();
   return Array.from(escrows.values());
+}
+
+// --- Missing Entrypoints (Multisig, Arbitration, Sealed-bid, etc.) ---
+
+export async function mockApproveRelease(params: { jobId: string; signer: string }): Promise<string> {
+  console.log("[CONTRACT MOCK] approve_release called:", params);
+  await delay(500);
+  hydrateEscrowsFromStorage();
+  const escrow = escrows.get(params.jobId);
+  if (!escrow) throw new Error("Contract Error: Escrow not found");
+  if (!escrow.arbitrator) throw new Error("Contract Error: Escrow does not use multisig approval");
+  if (![escrow.client, escrow.freelancer, escrow.arbitrator].includes(params.signer)) {
+    throw new Error("Contract Error: Signer must be the client, freelancer, or arbitrator");
+  }
+  if (escrow.status !== "InProgress" && escrow.status !== "Locked") {
+    throw new Error("Contract Error: Cannot release escrow in current status");
+  }
+  escrow.releaseApprovals = (escrow.releaseApprovals || 0) + 1;
+  if (escrow.releaseApprovals >= 2) escrow.status = "Released";
+  escrows.set(params.jobId, escrow);
+  persistEscrow(escrow);
+  return generateMockTxHash();
+}
+
+export async function mockApproveRefund(params: { jobId: string; signer: string }): Promise<string> {
+  console.log("[CONTRACT MOCK] approve_refund called:", params);
+  await delay(500);
+  hydrateEscrowsFromStorage();
+  const escrow = escrows.get(params.jobId);
+  if (!escrow) throw new Error("Contract Error: Escrow not found");
+  if (!escrow.arbitrator) throw new Error("Contract Error: Escrow does not use multisig approval");
+  if (![escrow.client, escrow.freelancer, escrow.arbitrator].includes(params.signer)) {
+    throw new Error("Contract Error: Signer must be the client, freelancer, or arbitrator");
+  }
+  if (escrow.status !== "Locked") {
+    throw new Error("Contract Error: Can only refund before work has started");
+  }
+  escrow.refundApprovals = (escrow.refundApprovals || 0) + 1;
+  if (escrow.refundApprovals >= 2) escrow.status = "Refunded";
+  escrows.set(params.jobId, escrow);
+  persistEscrow(escrow);
+  return generateMockTxHash();
+}
+
+export async function mockRaiseDispute(params: { jobId: string; caller: string }): Promise<string> {
+  console.log("[CONTRACT MOCK] raise_dispute called:", params);
+  await delay(500);
+  hydrateEscrowsFromStorage();
+  const escrow = escrows.get(params.jobId);
+  if (!escrow) throw new Error("Contract Error: Escrow not found");
+  if (params.caller !== escrow.client && params.caller !== escrow.freelancer) {
+    throw new Error("Contract Error: Only participants can raise a dispute");
+  }
+  if (escrow.status === "Released" || escrow.status === "Refunded") {
+    throw new Error("Contract Error: Cannot dispute a resolved escrow");
+  }
+  escrow.status = "Disputed";
+  escrows.set(params.jobId, escrow);
+  persistEscrow(escrow);
+  return generateMockTxHash();
+}
+
+export async function mockCommitBudget(params: { jobId: string; budgetAmount: string; client: string }): Promise<string> {
+  console.log("[CONTRACT MOCK] commit_budget called:", params);
+  await delay(500);
+  return generateMockTxHash();
+}
+
+export async function mockRevealBudget(params: { jobId: string; client: string }): Promise<string> {
+  console.log("[CONTRACT MOCK] reveal_budget called:", params);
+  await delay(500);
+  return generateMockTxHash();
+}
+
+export async function mockSubmitBidCommitment(params: { jobId: string; freelancer: string; commitment: string }): Promise<string> {
+  console.log("[CONTRACT MOCK] submit_bid_commitment called:", params);
+  await delay(500);
+  return generateMockTxHash();
+}
+
+export async function mockCloseBidding(params: { jobId: string; client: string }): Promise<string> {
+  console.log("[CONTRACT MOCK] close_bidding called:", params);
+  await delay(500);
+  return generateMockTxHash();
+}
+
+export async function mockRevealBid(params: { jobId: string; freelancer: string; amount: string; nonce: string }): Promise<string> {
+  console.log("[CONTRACT MOCK] reveal_bid called:", params);
+  await delay(500);
+  return generateMockTxHash();
+}
+
+export async function mockPartialRelease(params: { jobId: string; milestoneIndex: number; client: string }): Promise<string> {
+  console.log("[CONTRACT MOCK] partial_release called:", params);
+  await delay(500);
+  return generateMockTxHash();
+}
+
+export async function mockRegisterArbitrator(params: { admin: string; arbitrator: string }): Promise<string> {
+  console.log("[CONTRACT MOCK] register_arbitrator called:", params);
+  await delay(500);
+  return generateMockTxHash();
+}
+
+export async function mockOpenArbitration(params: { jobId: string; admin: string }): Promise<number> {
+  console.log("[CONTRACT MOCK] open_arbitration called:", params);
+  await delay(500);
+  return 1;
+}
+
+export async function mockCastArbitrationVote(params: { caseId: number; arbitrator: string; clientPercent: number }): Promise<string> {
+  console.log("[CONTRACT MOCK] cast_arbitration_vote called:", params);
+  await delay(500);
+  return generateMockTxHash();
+}
+
+export async function mockResolveArbitration(params: { caseId: number }): Promise<string> {
+  console.log("[CONTRACT MOCK] resolve_arbitration called:", params);
+  await delay(500);
+  return generateMockTxHash();
 }

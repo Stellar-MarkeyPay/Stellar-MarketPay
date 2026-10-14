@@ -2100,3 +2100,132 @@ router.delete("/:publicKey/portfolio/:itemId", verifyJWT, async (req, res, next)
   }
 });
 module.exports = router;
+
+// GET /api/profiles/:publicKey/transactions - Aggregated on-chain activity
+router.get("/:publicKey/transactions", generalProfileRateLimiter, async (req, res, next) => {
+  try {
+    const { publicKey } = req.params;
+    const { limit = 20, cursor = 0, type, startDate, endDate } = req.query;
+    const limitNum = parseInt(limit, 10) || 20;
+    const offsetNum = parseInt(cursor, 10) || 0;
+
+    // Build the WHERE clause dynamically based on type
+    let extraWhere = "";
+    if (type && type !== "all") {
+      if (type === "sent") {
+        extraWhere = "WHERE from_address = $1 AND to_address != $1";
+      } else if (type === "received") {
+        extraWhere = "WHERE to_address = $1 AND from_address != $1";
+      } else {
+        extraWhere = "WHERE market_pay_type = $4";
+      }
+    } else {
+      extraWhere = "WHERE 1=1";
+    }
+
+    const queryParams = [publicKey, limitNum + 1, offsetNum];
+    let paramIndex = 4;
+    
+    if (type && type !== "all" && type !== "sent" && type !== "received") {
+      queryParams.push(type);
+      paramIndex++;
+    }
+    
+    if (startDate) {
+      extraWhere += ` AND created_at >= $${paramIndex}`;
+      queryParams.push(startDate);
+      paramIndex++;
+    }
+    
+    if (endDate) {
+      extraWhere += ` AND created_at <= $${paramIndex}`;
+      queryParams.push(endDate);
+      paramIndex++;
+    }
+
+    const query = `
+      SELECT * FROM (
+        -- Escrow events
+        SELECT
+          ce.id::text as id,
+          ce.tx_hash as hash,
+          ce.ledger,
+          ce.created_at,
+          j.client_address as from_address,
+          j.freelancer_address as to_address,
+          COALESCE((ce.data->>'amount')::numeric, e.amount_xlm) as amount,
+          j.currency as asset,
+          ce.event_type as memo,
+          'escrow' as market_pay_type
+        FROM contract_events ce
+        JOIN jobs j ON ce.job_id = j.id::text
+        LEFT JOIN escrows e ON e.job_id = j.id
+        WHERE j.client_address = $1 OR j.freelancer_address = $1
+        
+        UNION ALL
+        
+        -- Referral payouts
+        SELECT
+          rp.id::text as id,
+          rp.contract_tx_hash as hash,
+          0 as ledger,
+          rp.created_at,
+          'PLATFORM' as from_address,
+          rp.referrer_address as to_address,
+          rp.amount_xlm as amount,
+          'XLM' as asset,
+          'referral_payout' as memo,
+          'payment' as market_pay_type
+        FROM referral_payouts rp
+        WHERE rp.referrer_address = $1
+        
+        UNION ALL
+        
+        -- Platform fee payouts
+        SELECT
+          pfp.id::text as id,
+          pfp.contract_tx_hash as hash,
+          0 as ledger,
+          pfp.created_at,
+          'PLATFORM' as from_address,
+          pfp.recipient_address as to_address,
+          pfp.amount_xlm as amount,
+          'XLM' as asset,
+          'fee_payout' as memo,
+          'payment' as market_pay_type
+        FROM platform_fee_payouts pfp
+        WHERE pfp.recipient_address = $1
+      ) t
+      ${extraWhere}
+      ORDER BY created_at DESC
+      LIMIT $2 OFFSET $3
+    `;
+
+    const { rows } = await pool.query(query, queryParams);
+    
+    const hasMore = rows.length > limitNum;
+    if (hasMore) {
+      rows.pop();
+    }
+
+    const transactions = rows.map(r => ({
+      id: r.id,
+      hash: r.hash || '',
+      ledger: r.ledger || 0,
+      created_at: r.created_at,
+      from: r.from_address || '',
+      to: r.to_address || '',
+      amount: r.amount ? String(r.amount) : "0",
+      asset: r.asset || 'XLM',
+      memo: r.memo || '',
+      memo_type: 'text',
+      successful: true,
+      marketPayType: r.market_pay_type
+    }));
+
+    res.json({ success: true, data: { transactions, hasMore, nextCursor: hasMore ? offsetNum + limitNum : null } });
+  } catch (e) {
+    next(e);
+  }
+});
+

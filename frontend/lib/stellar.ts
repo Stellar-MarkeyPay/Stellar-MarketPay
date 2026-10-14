@@ -630,24 +630,30 @@ export async function submitTransaction(signedXDR: string) {
 export async function fetchMarketPayTransactions(
   publicKey: string,
   limit?: number,
-  cursor?: string
+  cursor?: string,
+  type?: string,
+  startDate?: string,
+  endDate?: string
 ): Promise<FetchTransactionsResponse> {
-  const url = `${HORIZON_URL}/accounts/${publicKey}/transactions${cursor ? `?cursor=${cursor}` : ""}${limit ? `${cursor ? "&" : "?"}limit=${limit}` : ""}`;
-  const res = await fetch(url);
-  if (!res.ok) return { transactions: [], hasMore: false };
-  const data = await res.json();
-  return {
-    transactions: (data._embedded?.records || []).map((r: any) => ({
-      id: r.id,
-      hash: r.transaction_hash,
-      ledger: r.ledger,
-      created_at: r.created_at,
-      from: "",
-      to: "",
-      amount: "",
-      asset: "XLM",
-      successful: r.successful,
-    })),
-    hasMore: !!data._links?.next,
-  };
+  try {
+    const apiUrl = optionalClientEnv("NEXT_PUBLIC_API_URL", "http://localhost:4000");
+    const url = new URL(`${apiUrl}/api/profiles/${publicKey}/transactions`);
+    if (limit) url.searchParams.append("limit", limit.toString());
+    if (cursor) url.searchParams.append("cursor", cursor);
+    if (type) url.searchParams.append("type", type);
+    if (startDate) url.searchParams.append("startDate", startDate);
+    if (endDate) url.searchParams.append("endDate", endDate);
+    
+    const res = await fetch(url.toString());
+    if (!res.ok) return { transactions: [], hasMore: false };
+    
+    const json = await res.json();
+    return {
+      transactions: json.data?.transactions || [],
+      hasMore: json.data?.hasMore || false,
+    };
+  } catch (error) {
+    console.error("Failed to fetch MarketPay transactions:", error);
+    return { transactions: [], hasMore: false };
+  }
 }
