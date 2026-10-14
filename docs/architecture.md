@@ -72,6 +72,9 @@ to
 freelancer
 ```
 
+For fees, referral arithmetic, indexer/API mapping, and failure paths, see
+**[Escrow and payment model](./escrow-payment-model.md)**.
+
 ## Escrow Flow (Soroban Contract)
 
 ```

@@ -25,6 +25,7 @@ Welcome to Stellar MarketPay documentation. This index helps you find what you n
 - **[Active-Active Game-Day Report](./dr/active-active-game-day-report.md)** - Measured partition recovery evidence, split-brain prevention, and RTO/RPO verification
 - **[Legacy Multi-Cluster DR](./dr/game-day-report.md)** - Legacy active-passive baseline report (ADR-008)
 - **[Soroban Contract Deployment](./contract-deployment.md)** - Build, deploy, and configure the escrow contract
+- **[Escrow and Payment Model](./escrow-payment-model.md)** - End-to-end payment flow, 1% platform fee, referral tree split, worked examples from contract tests, timeout/dispute/arbitration
 - **[Contract Contributor Guide](./contract-contributor-guide.md)** - Local setup, test snapshots, fund-moving review bar, storage compatibility, and a worked entrypoint example
 - **[Environment Variables](./environment-variables.md)** - Single source of truth for runtime config
 - **[CDN Strategy](./CDN_STRATEGY.md)** - Multi-CDN edge caching, event-driven invalidation, cache-key/TTL strategy, stampede protection (decision recorded in [ADR-007](./ADR-007-multi-cdn-edge-strategy.md))
